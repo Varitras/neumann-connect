@@ -131,14 +131,13 @@ speichern" (nicht funktional).
 | Gerät identifizieren (An/Aus) | `switch` | – | `device/identification/visual` |
 | Phasenumkehr (nur Nicht-Subwoofer) | `switch` | – | `audio/out/phaseinversion` |
 | Auto-Standby (nur Nicht-Subwoofer; auf KH 750 stattdessen `binary_sensor`) | `switch` | – | `device/standby/enabled` |
-| Bass (nur Nicht-Subwoofer) | `select` | -6/-4/-2/0 dB | `ui/bass_gain` |
 | Eingangs-Interface (Default: deaktiviert bei Subwoofer, sonst aktiviert, Schreibbarkeit unverifiziert) | `select` | ANALOG ONLY/DIGITAL ONLY/DIGITAL DISCARDS ANALOG | `audio/in/interface` |
 | Steuerungsmodus (Default: **immer** deaktiviert, siehe Warnung unten) | `select` | NETWORK/LOCAL | `ui/control_mode` |
 | Gerätename (Default: deaktiviert) | `text` | max. 52 Zeichen | `device/name` |
 | Eingangspegel live | `sensor` | dB | `m/in/level` |
 | Standby-Countdown (Default: deaktiviert) | `sensor` | min | `device/standby/countdown` |
 | Hardware-Version, aktueller Eingang (Diagnose) | `sensor` | Text | `device/identity/hw_version`, `audio/in/current_input` |
-| Eingangsverstärkung, Eingangsauswahl, Mitten, Höhen, Ausgangspegel SPL (nur Nicht-Subwoofer; per Test nicht schreibbar, Diagnose) | `sensor` | dB bzw. Text | `ui/input_gain`, `ui/input_select`, `ui/mid_gain`, `ui/treble_gain`, `ui/output_level` |
+| Eingangsverstärkung, Eingangsauswahl, Bass, Mitten, Höhen, Ausgangspegel SPL (nur Nicht-Subwoofer; per Test nicht schreibbar, Diagnose) | `sensor` | dB bzw. Text | `ui/input_gain`, `ui/input_select`, `ui/bass_gain`, `ui/mid_gain`, `ui/treble_gain`, `ui/output_level` |
 | Eingang übersteuert (Clip) | `binary_sensor` | – | `m/in/clip` |
 | Warnung (Diagnose) | `binary_sensor` | – | `warnings` |
 | Einstellungen speichern* (Default: deaktiviert, per Test nicht funktional) | `button` | – | `device/save_settings` |
@@ -255,18 +254,23 @@ Details siehe CHANGELOG.md. Kurzüberblick:
 
 ## Namensgedächtnis, Backup & Geräte-Discovery
 
-Ein dauerhafter Speicher (unabhängig von Config Entries, überlebt also auch
-das Löschen und Neueinrichten eines Geräts) merkt sich pro Seriennummer:
+Drei getrennte, dauerhafte Speicher (unabhängig von Config Entries,
+überleben also auch das Löschen und Neueinrichten eines Geräts), je ein
+Eintrag pro Seriennummer:
 
-- **Zuletzt verwendeter Name:** Beim erneuten Einrichten über die
-  automatische Suche wird das Namensfeld damit vorausgefüllt.
-- **Backup** (`Backup erstellen`-Button): alle bekannten Werte außer
-  Live-Messwerten, zusätzlich als JSON-Datei unter `/config/www/` zum
-  Download.
-- **Discovery** (`Geräte-Discovery ausführen`-Button, Diagnose): kombiniert
-  unsere bekannten Pfade mit einem Best-effort-Versuch über `osc/schema`
-  + `osc/limits` (optionale SSC-Methoden, nicht jede Firmware unterstützt
-  sie - schlägt dieser Teil fehl, bleibt er einfach leer).
+- **`.storage/neumann_kh_names`** (`name_storage.py`): zuletzt verwendeter
+  Name. Beim erneuten Einrichten über die automatische Suche wird das
+  Namensfeld damit vorausgefüllt.
+- **`.storage/neumann_kh_backups`** (`backup_storage.py`): Ergebnis des
+  `Backup erstellen`-Buttons - alle bekannten Werte außer Live-Messwerten,
+  zusätzlich als JSON-Datei unter `/config/www/` zum Download.
+- **`.storage/neumann_kh_discovery`** (`discovery_storage.py`): Ergebnis
+  des `Geräte-Discovery ausführen`-Buttons (Diagnose) - kombiniert unsere
+  bekannten Pfade mit einem Best-effort-Versuch über `osc/schema` +
+  `osc/limits` (optionale SSC-Methoden, nicht jede Firmware unterstützt
+  sie - schlägt dieser Teil fehl, bleibt er einfach leer). Die
+  Seriennummer ist in diesem Export zensiert (nur die letzten 3 Zeichen
+  bleiben sichtbar).
 
 Backup und Discovery laufen ausschließlich manuell über die jeweiligen
 Buttons - keine automatische Auslösung im Hintergrund.

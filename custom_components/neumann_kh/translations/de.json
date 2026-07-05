@@ -62,8 +62,7 @@
     },
     "select": {
       "control_mode": { "name": "Steuerungsmodus" },
-      "input_interface": { "name": "Eingangs-Interface" },
-      "bass_gain": { "name": "Bass" }
+      "input_interface": { "name": "Eingangs-Interface" }
     },
     "switch": {
       "mute": { "name": "Stummschaltung" },
@@ -88,6 +87,7 @@
       "output_label": { "name": "Ausgangsbezeichnung" },
       "input_gain": { "name": "Eingangsverstärkung" },
       "input_select": { "name": "Eingangsauswahl" },
+      "bass_gain": { "name": "Bass" },
       "mid_gain": { "name": "Mitten" },
       "treble_gain": { "name": "Höhen" },
       "output_level_select": { "name": "Ausgangspegel (SPL)" },

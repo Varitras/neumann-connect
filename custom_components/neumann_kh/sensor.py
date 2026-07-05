@@ -40,6 +40,7 @@ from .const import (
     PATH_STANDBY_COUNTDOWN,
     PATH_UI_BASS_MANAGEMENT,
     PATH_UI_CHANNEL_B_INPUT_MODE,
+    PATH_UI_BASS_GAIN,
     PATH_UI_MID_GAIN,
     PATH_UI_OUTPUT_LEVEL,
     PATH_UI_SUB_INPUT_GAIN,
@@ -122,6 +123,14 @@ NON_SUBWOOFER_SENSOR_DESCRIPTIONS: tuple[NeumannKHSensorDescription, ...] = (
         icon="mdi:audio-input-rca",
         entity_category=EntityCategory.DIAGNOSTIC,
         ssc_path=PATH_INPUT_SELECT,
+        numeric=False,
+    ),
+    NeumannKHSensorDescription(
+        key="bass_gain",
+        translation_key="bass_gain",
+        icon="mdi:sine-wave",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        ssc_path=PATH_UI_BASS_GAIN,
         numeric=False,
     ),
     NeumannKHSensorDescription(

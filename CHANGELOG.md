@@ -3,6 +3,23 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
+## [1.12.0] – Bass Gain zu Diagnose, Speicher aufgeteilt
+
+### Geändert
+- `ui/bass_gain` (KH 120 II) von `select` (schreibbar) zu `sensor`
+  (Diagnose, nur lesend) verschoben - per Test bestätigt nicht schreibbar,
+  analog zu Mid Gain/Treble Gain
+- `storage.py` in drei separate Module aufgeteilt: `name_storage.py`,
+  `backup_storage.py`, `discovery_storage.py` - landen dadurch auch als
+  drei separate, klar benannte Dateien unter `.storage/`
+  (`neumann_kh_names`, `neumann_kh_backups`, `neumann_kh_discovery`)
+  statt einer gemeinsamen `neumann_kh_devices`
+
+### Behoben
+- `translations/en.json` war nach der Bass-Gain-Umstellung kurzzeitig
+  nicht mit `strings.json` synchron (Bass Gain stand noch unter `select`
+  statt `sensor`) - beim Gesamt-Check gefunden und korrigiert
+
 ## [1.11.1] – EQ-Schalter auf Container-Ebene statt pro Band
 
 ### Geändert

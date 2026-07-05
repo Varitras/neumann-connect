@@ -15,14 +15,12 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
-    BASS_GAIN_OPTIONS,
     CONF_MODEL,
     CONTROL_MODE_OPTIONS,
     DOMAIN,
     INPUT_INTERFACE_OPTIONS,
     MODELS_WITH_SUBWOOFER_FEATURES,
     PATH_INPUT_INTERFACE_TYPE,
-    PATH_UI_BASS_GAIN,
     PATH_UI_CONTROL_MODE,
 )
 from .coordinator import NeumannKHCoordinator
@@ -60,18 +58,6 @@ def _build_input_interface_description(is_subwoofer: bool) -> NeumannKHSelectDes
     )
 
 
-# Nur bei Nicht-Subwoofer-Modellen. Bass Gain per Test bestätigt schreibbar.
-NON_SUBWOOFER_SELECT_DESCRIPTIONS: tuple[NeumannKHSelectDescription, ...] = (
-    NeumannKHSelectDescription(
-        key="bass_gain",
-        translation_key="bass_gain",
-        icon="mdi:sine-wave",
-        options=list(BASS_GAIN_OPTIONS),
-        ssc_path=PATH_UI_BASS_GAIN,
-    ),
-)
-
-
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
@@ -83,8 +69,6 @@ async def async_setup_entry(
         CONTROL_MODE_DESCRIPTION,
         _build_input_interface_description(is_subwoofer),
     ]
-    if not is_subwoofer:
-        descriptions.extend(NON_SUBWOOFER_SELECT_DESCRIPTIONS)
 
     async_add_entities(
         NeumannKHSelect(coordinator, entry, description) for description in descriptions

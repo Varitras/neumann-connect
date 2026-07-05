@@ -69,8 +69,7 @@ PATH_IDENTIFY = ("device", "identification", "visual")
 
 # Klangregler (nur Nicht-Subwoofer-Modelle). String-Enums mit festen Stufen
 # -> `select`, nicht `number`. Nur Bass Gain ist schreibbar.
-PATH_UI_BASS_GAIN = ("ui", "bass_gain")
-BASS_GAIN_OPTIONS = ("-6", "-4", "-2", "0")
+PATH_UI_BASS_GAIN = ("ui", "bass_gain")  # nur lesbar (KH 120 II)
 PATH_UI_MID_GAIN = ("ui", "mid_gain")  # nur lesbar
 PATH_UI_TREBLE_GAIN = ("ui", "treble_gain")  # nur lesbar
 

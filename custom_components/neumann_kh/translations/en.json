@@ -62,8 +62,7 @@
     },
     "select": {
       "control_mode": { "name": "Control mode" },
-      "input_interface": { "name": "Input interface" },
-      "bass_gain": { "name": "Bass gain" }
+      "input_interface": { "name": "Input interface" }
     },
     "switch": {
       "mute": { "name": "Mute" },
@@ -88,6 +87,7 @@
       "output_label": { "name": "Output label" },
       "input_gain": { "name": "Input gain" },
       "input_select": { "name": "Input select" },
+      "bass_gain": { "name": "Bass gain" },
       "mid_gain": { "name": "Mid gain" },
       "treble_gain": { "name": "Treble gain" },
       "output_level_select": { "name": "Output level (SPL)" },
