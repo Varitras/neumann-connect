@@ -3,6 +3,28 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
+## [1.11.0] – EQ-Unterstützung, Discovery-Anonymisierung, kein Auto-Trigger mehr
+
+### Hinzugefügt
+- **EQ-Unterstützung** (neue Module `eq.py`, `eq_containers.py`): pro Band
+  ein Ein/Aus-Schalter (SSC-Array-Teilschreiben, andere Bänder bleiben
+  unangetastet), pro EQ-Container ein "Auf neutral zurücksetzen"-Button
+  (setzt Gain und Boost aller Bänder auf 0 dB). Abgedeckt: `eq2`/`eq3` am
+  Hauptausgang, plus `eq1`/`eq2`/`eq3` an `out1`/`out2` bei der KH 750.
+  32 Entities (KH 120 II) bzw. 61 Entities (KH 750), alle standardmäßig
+  deaktiviert. Bewusst reduziert statt vollständiger 1:1-Abbildung
+  (die wären ca. 180/800 Entities gewesen)
+- README: neue Übersichtstabelle, welche Entity-Typen schreibbar sind
+
+### Geändert
+- Seriennummer im Discovery-Export (Button "Geräte-Discovery ausführen")
+  wird jetzt zensiert (nur die letzten 3 Zeichen bleiben sichtbar) - gilt
+  für Datei-Export und gespeicherten Datensatz, nicht für die interne
+  Speicher-Zuordnung
+- Automatische Erst-Discovery/-Backup nach dem Einrichten eines neuen
+  Geräts entfernt - Backup und Discovery laufen jetzt ausschließlich
+  manuell über die jeweiligen Buttons
+
 ## [1.10.0] – Namensgedächtnis, Backup & Geräte-Discovery
 
 ### Hinzugefügt

@@ -31,6 +31,7 @@ from .const import (
     SUBWOOFER_POLL_PATHS,
     UPDATE_INTERVAL_SECONDS,
 )
+from .eq_containers import eq_containers_for_model
 from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeoutError
 
 _LOGGER = logging.getLogger(__name__)
@@ -57,6 +58,9 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Subwoofer-spezifische Pfade nur bei erkanntem Subwoofer.
         if model in MODELS_WITH_SUBWOOFER_FEATURES:
             self._poll_paths.extend(SUBWOOFER_POLL_PATHS)
+        # EQ-"enabled"-Arrays für die Band-Ein/Aus-Schalter (siehe eq.py).
+        for container in eq_containers_for_model(model):
+            self._poll_paths.append(container.path + ("enabled",))
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fragt jeden Pfad einzeln ab; ein abgelehnter/fehlerhafter Einzelpfad wird übersprungen."""

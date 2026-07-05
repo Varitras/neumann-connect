@@ -44,6 +44,7 @@ from .const import (
 from .coordinator import NeumannKHCoordinator
 from .discovery_export import async_discover_all_values
 from .entity import NeumannKHEntity
+from .eq import build_eq_reset_buttons
 from .ssc_client import SSCDeviceError
 
 # Zeitfenster, innerhalb dessen ein zweiter Druck auf "Werksreset" den
@@ -89,10 +90,18 @@ async def async_setup_entry(
         NeumannKHBackupButton(coordinator, entry),
         NeumannKHDiscoveryButton(coordinator, entry),
     ]
+    entities += build_eq_reset_buttons(coordinator, entry, entry.data.get(CONF_MODEL))
     if entry.data.get(CONF_MODEL) in MODELS_WITH_LOGO_AND_SAVE:
         entities.append(NeumannKHSaveSettingsButton(coordinator, entry))
 
     async_add_entities(entities)
+
+
+def _mask_serial(serial: str) -> str:
+    """Zensiert eine Seriennummer, nur die letzten 3 Zeichen bleiben sichtbar."""
+    if len(serial) <= 3:
+        return serial
+    return "x" * (len(serial) - 3) + serial[-3:]
 
 
 def _write_export_file(hass: HomeAssistant, filename: str, data: dict) -> str:
@@ -216,16 +225,19 @@ class NeumannKHDiscoveryButton(NeumannKHEntity, ButtonEntity):
         except Exception as err:  # noqa: BLE001 - Backup/Discovery sind best-effort
             raise HomeAssistantError(f"Discovery fehlgeschlagen: {err}") from err
 
+        masked_serial = _mask_serial(serial)
         timestamp = datetime.now(timezone.utc).isoformat()
         record = {
             "timestamp": timestamp,
             "model": self._entry.data.get(CONF_MODEL),
-            "serial": serial,
+            "serial": masked_serial,
             **discovery,
         }
 
+        # Speicherung intern über die echte Seriennummer (Zuordnung/Abruf),
+        # der Inhalt (und die Datei) enthält aber nur die zensierte Variante.
         await storage.async_save_discovery(self.hass, serial, record)
-        filename = f"neumann_kh_discovery_{serial}.json"
+        filename = f"neumann_kh_discovery_{masked_serial}.json"
         url = await self.hass.async_add_executor_job(
             _write_export_file, self.hass, filename, record
         )

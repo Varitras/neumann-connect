@@ -71,7 +71,8 @@
       "phase_invert": { "name": "Phasenumkehr" },
       "auto_standby": { "name": "Auto-Standby" },
       "out1_mute": { "name": "Ausgang 1 Stumm" },
-      "out2_mute": { "name": "Ausgang 2 Stumm" }
+      "out2_mute": { "name": "Ausgang 2 Stumm" },
+      "eq_band_enabled": { "name": "{container} Band {band} aktiv" }
     },
     "sensor": {
       "input_level_meter": { "name": "Eingangspegel (live)" },
@@ -109,7 +110,8 @@
       "save_settings": { "name": "Einstellungen speichern" },
       "restore_factory_defaults": { "name": "Werkseinstellungen wiederherstellen" },
       "create_backup": { "name": "Backup erstellen" },
-      "run_discovery": { "name": "Geräte-Discovery ausführen" }
+      "run_discovery": { "name": "Geräte-Discovery ausführen" },
+      "eq_reset": { "name": "{container}: auf neutral zurücksetzen" }
     },
     "text": {
       "device_name": { "name": "Gerätename" }

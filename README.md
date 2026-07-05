@@ -96,6 +96,24 @@ Neumann Control App vergeben hast, lässt du das Interface-Feld einfach leer.
 
 ## Angelegte Entities pro Lautsprecher
 
+**Schreibbar vs. nur lesbar (nach Entity-Typ):**
+
+| Typ | Schreibbar? |
+|---|---|
+| `number` | Ja – Zahlenwert per Schieberegler/Eingabefeld |
+| `select` | Ja – feste Auswahl |
+| `switch` | Ja – An/Aus |
+| `text` | Ja – Freitext |
+| `button` | Löst eine einmalige Aktion aus (kein Wert, kein Lesen/Schreiben) |
+| `sensor` | **Nein**, nur lesbar |
+| `binary_sensor` | **Nein**, nur lesbar |
+
+Werte, die laut khtool-Metadaten eigentlich schreibbar sein sollten, aber
+**per echtem Test bestätigt nicht schreibbar sind** (siehe "Bekannte
+Grenzen"), sind deshalb bewusst als `sensor`/`binary_sensor` statt als
+`number`/`select`/`switch` umgesetzt - nicht weil HA das technisch
+verlangt, sondern weil ein Schreibversuch dort ohnehin fehlschlägt.
+
 **Standard-Aktivierung (Nicht-Subwoofer-Modelle wie KH 120 II):** Alle
 Entities sind standardmäßig aktiviert, **außer** "Dimm" (existiert dort
 nicht), "Steuerungsmodus" (Sicherheits-Ausnahme) und "Einstellungen
@@ -250,10 +268,39 @@ das Löschen und Neueinrichten eines Geräts) merkt sich pro Seriennummer:
   + `osc/limits` (optionale SSC-Methoden, nicht jede Firmware unterstützt
   sie - schlägt dieser Teil fehl, bleibt er einfach leer).
 
-Backup und Discovery laufen zusätzlich automatisch einmalig im Hintergrund,
-sobald ein noch unbekanntes Gerät (neue Seriennummer) erfolgreich
-eingerichtet wurde.
+Backup und Discovery laufen ausschließlich manuell über die jeweiligen
+Buttons - keine automatische Auslösung im Hintergrund.
 
 Die Auswahlliste beim automatischen Scan enthält außerdem einen Eintrag
 "🔄 Erneut suchen", um die Netzwerksuche direkt aus der Liste neu zu starten.
+
+## EQ (parametrischer Equalizer)
+
+Eine vollständige 1:1-Abbildung aller EQ-Parameter (Typ/Frequenz/Gain/Boost/
+Q/Enabled je Band) wäre bei der KH 750 ca. 800 Entities - nicht mehr
+überschaubar. Stattdessen bewusst reduziert auf zwei Entity-Typen:
+
+- **Ein Ein/Aus-Schalter pro Band** (`switch`, Default: deaktiviert,
+  Diagnose-Kategorie "Konfiguration"): schaltet genau ein Band eines
+  EQ-Containers - die übrigen Bänder bleiben unverändert (SSC-Arrays lassen
+  sich teilweise schreiben, nicht angegebene Indizes bleiben unangetastet).
+- **Ein "Auf neutral zurücksetzen"-Button pro EQ-Container** (`button`,
+  Default: deaktiviert): setzt Gain **und** Boost aller Bänder dieses
+  Containers auf 0 dB. Frequenz/Q/Typ/Enabled bleiben unverändert - eine
+  echte Werks-Rücksetzung ist nicht möglich, da keine dokumentierten
+  Standardfrequenzen pro Band vorliegen.
+
+**Abgedeckte Container:**
+
+| Modell | Container | Bänder |
+|---|---|---|
+| KH 120 II (Nicht-Subwoofer) | `audio/out/eq2` | 10 |
+| KH 120 II (Nicht-Subwoofer) | `audio/out/eq3` | 20 |
+| KH 750 (Hauptausgang) | `audio/out/eq2` | 10 |
+| KH 750 (out1/out2 je) | `eq1` (Crossover) | 2 |
+| KH 750 (out1/out2 je) | `eq2` | 10 |
+| KH 750 (out1/out2 je) | `eq3` | 10 |
+
+Macht in Summe **32 Entities** (KH 120 II) bzw. **61 Entities** (KH 750) -
+alle standardmäßig deaktiviert, da sie den Klang direkt beeinflussen.
 

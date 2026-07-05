@@ -71,7 +71,8 @@
       "phase_invert": { "name": "Phase invert" },
       "auto_standby": { "name": "Auto standby" },
       "out1_mute": { "name": "Output 1 mute" },
-      "out2_mute": { "name": "Output 2 mute" }
+      "out2_mute": { "name": "Output 2 mute" },
+      "eq_band_enabled": { "name": "{container} band {band} enabled" }
     },
     "sensor": {
       "input_level_meter": { "name": "Input level (live)" },
@@ -109,7 +110,8 @@
       "save_settings": { "name": "Save settings" },
       "restore_factory_defaults": { "name": "Restore factory defaults" },
       "create_backup": { "name": "Create backup" },
-      "run_discovery": { "name": "Run device discovery" }
+      "run_discovery": { "name": "Run device discovery" },
+      "eq_reset": { "name": "{container}: reset to flat" }
     },
     "text": {
       "device_name": { "name": "Device name" }
