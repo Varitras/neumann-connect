@@ -45,18 +45,35 @@
       "output_level": { "name": "Output level" },
       "output_dimm": { "name": "Dimm" },
       "output_delay": { "name": "Delay" },
-      "logo_brightness": { "name": "Logo brightness" }
+      "logo_brightness": { "name": "Logo brightness" },
+      "standby_auto_time": { "name": "Auto standby time" },
+      "standby_level": { "name": "Standby threshold level" },
+      "bass_gain": { "name": "Bass gain" },
+      "mid_gain": { "name": "Mid gain" },
+      "treble_gain": { "name": "Treble gain" }
     },
     "switch": {
       "mute": { "name": "Mute" },
-      "phase_invert": { "name": "Phase invert" }
+      "phase_invert": { "name": "Phase invert" },
+      "auto_standby": { "name": "Auto standby" }
     },
     "sensor": {
       "input_gain": { "name": "Input gain" },
-      "input_level_meter": { "name": "Input level (live)" }
+      "input_level_meter": { "name": "Input level (live)" },
+      "standby_countdown": { "name": "Standby countdown" },
+      "device_name": { "name": "Device name" },
+      "hw_version": { "name": "Hardware version" },
+      "input_current": { "name": "Current input" },
+      "input_interface_type": { "name": "Input interface type" },
+      "control_mode": { "name": "Control mode" }
+    },
+    "binary_sensor": {
+      "input_clip": { "name": "Input clipping" },
+      "warning": { "name": "Warning" }
     },
     "button": {
-      "save_settings": { "name": "Save settings" }
+      "save_settings": { "name": "Save settings" },
+      "identify": { "name": "Identify" }
     }
   }
 }

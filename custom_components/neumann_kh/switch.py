@@ -19,7 +19,12 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN, PATH_OUTPUT_MUTE, PATH_OUTPUT_PHASE_INVERSION
+from .const import (
+    DOMAIN,
+    PATH_OUTPUT_MUTE,
+    PATH_OUTPUT_PHASE_INVERSION,
+    PATH_STANDBY_ENABLED,
+)
 from .coordinator import NeumannKHCoordinator
 from .entity import NeumannKHEntity
 from .ssc_client import SSCDeviceError
@@ -45,6 +50,13 @@ SWITCH_DESCRIPTIONS: tuple[NeumannKHSwitchDescription, ...] = (
         icon="mdi:sine-wave",
         ssc_path=PATH_OUTPUT_PHASE_INVERSION,
         entity_registry_enabled_default=False,
+    ),
+    NeumannKHSwitchDescription(
+        key="auto_standby",
+        translation_key="auto_standby",
+        icon="mdi:power-sleep",
+        ssc_path=PATH_STANDBY_ENABLED,
+        entity_registry_enabled_default=False,  # unverifiziertes Feature, siehe README
     ),
 )
 

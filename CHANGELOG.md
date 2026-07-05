@@ -3,6 +3,38 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
+## [1.4.0] – Neue Funktionen: Clip-Anzeige, Auto-Standby, Identify, Klangregler, Info-Sensoren
+
+### Hinzugefügt
+- **Clip-Anzeige** (`binary_sensor.input_clip`, `m/in/clip`) - zeigt an,
+  wenn mindestens ein Eingangskanal übersteuert
+- **Auto-Standby** - Ein/Aus-Switch (`device/standby/enabled`), Zeit- und
+  Schwellwert-Number-Entities (`auto_standby_time`, `level`) sowie ein
+  Countdown-Sensor (`countdown`); alle standardmäßig deaktiviert, da
+  Wertebereiche nicht offiziell dokumentiert und nicht gegen echte Hardware
+  verifiziert sind
+- **"Gerät identifizieren"-Button** (`device/identification/visual`) -
+  lässt das Logo/die LEDs kurz blinken, um den physischen Lautsprecher zu
+  finden
+- **Klangregler** Bass/Mitten/Höhen (`ui/bass_gain`, `mid_gain`,
+  `treble_gain`) als Number-Entities, standardmäßig deaktiviert
+  (Wertebereich unverifiziert). Werden vom Gerät als JSON-STRING geliefert
+  (nicht als Zahl) - beim Schreiben entsprechend berücksichtigt
+  (`value_is_string` in der Entity-Beschreibung)
+- **Info-/Diagnose-Sensoren** (entity_category: diagnostic): Gerätename,
+  Hardware-Version, aktueller Eingang, Eingangs-Interface-Typ,
+  Steuerungsmodus
+- **Warnungs-Sensor** (`binary_sensor.warning`, `warnings`) - "Problem",
+  sobald das Gerät etwas anderes als `NO_WARNING` meldet
+
+### Bewusst NICHT implementiert
+- **Werksreset** (`device/restore`): Keine verifizierte Quelle für den
+  korrekten Wert bei KH-Monitoren gefunden - der bekannte Wert
+  (`FACTORY_DEFAULTS`/`AUDIO_DEFAULTS`) stammt aus der Doku eines anderen
+  Sennheiser-Produkts (TeamConnect Ceiling 2). Neumanns offizieller Weg für
+  einen Werksreset läuft ohnehin über eine physische Schalterfolge am Gerät,
+  nicht über das Netzwerk - siehe README, Abschnitt "Bekannte Grenzen".
+
 ## [1.3.2] – Entity-Standardwerte angepasst
 
 ### Geändert

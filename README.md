@@ -102,11 +102,20 @@ beeinträchtigen (siehe "Polling" unten).
 | Dimm (Default: deaktiviert, nicht bei KH 120 II vorhanden, siehe unten) | `number` | −120–0 dB | `audio/out/dimm` |
 | Verzögerung | `number` | 0–3360 Samples @48kHz | `audio/out/delay` |
 | Logo-Helligkeit* | `number` | 0–100 % | `ui/logo/brightness` |
+| Auto-Standby-Zeit (Default: deaktiviert, Bereich unverifiziert) | `number` | 1–90 min | `device/standby/auto_standby_time` |
+| Standby-Schwellwert (Default: deaktiviert, Bereich unverifiziert) | `number` | −90–0 dB | `device/standby/level` |
+| Bass/Mitten/Höhen (Default: deaktiviert, Bereich unverifiziert) | `number` | −12–12 dB | `ui/bass_gain`, `ui/mid_gain`, `ui/treble_gain` |
 | Stummschaltung | `switch` | – | `audio/out/mute` |
 | Phasenumkehr (Default: deaktiviert) | `switch` | – | `audio/out/phaseinversion` |
+| Auto-Standby ein/aus (Default: deaktiviert, unverifiziert) | `switch` | – | `device/standby/enabled` |
 | Eingangsverstärkung | `sensor` | dB | `ui/input_gain` |
 | Eingangspegel live | `sensor` | dB, pro Kanal, angezeigt wird der lautere Kanal | `m/in/level` |
+| Standby-Countdown (Default: deaktiviert) | `sensor` | min | `device/standby/countdown` |
+| Gerätename, Hardware-Version, aktueller Eingang, Eingangs-Interface-Typ, Steuerungsmodus (Diagnose) | `sensor` | Text | `device/name`, `device/identity/hw_version`, `audio/in/current_input`, `audio/in/interface`, `ui/control_mode` |
+| Eingang übersteuert (Clip) | `binary_sensor` | – | `m/in/clip` (pro Kanal, "Problem" wenn irgendein Kanal clippt) |
+| Warnung (Diagnose) | `binary_sensor` | – | `warnings` ("Problem" wenn ≠ `NO_WARNING`) |
 | Einstellungen speichern* | `button` | – | `device/save_settings` |
+| Gerät identifizieren (Logo blinkt) | `button` | – | `device/identification/visual` |
 
 \* **Nur** bei KH 80 / KH 150 / KH 120 II – laut khtool-Dokumentation nicht bei
 KH 750 DSP verfügbar. Die Integration erkennt das Modell automatisch beim
@@ -133,6 +142,28 @@ trotzdem aktualisiert.
 
 - Der 7-Band-Equalizer wird bewusst nicht abgebildet (komplexe Array-Struktur,
   hohes Risiko für Fehlbedienung) – bei Bedarf gerne als Erweiterung.
+- **Werksreset absichtlich NICHT implementiert:** `device/restore` wäre ein
+  möglicher SSC-Pfad dafür, aber es gibt keine verifizierte Quelle für den
+  korrekten Wert bei KH-Monitoren (der bekannte Wert `FACTORY_DEFAULTS`/
+  `AUDIO_DEFAULTS` stammt aus der Doku eines anderen Sennheiser-Produkts,
+  TeamConnect Ceiling 2, und muss hier nicht gelten). Neumanns **offizieller**
+  Weg für einen Werksreset läuft über eine physische Schalterfolge am Gerät
+  selbst, nicht über das Netzwerk:
+  - **KH 80 DSP:** Beim Booten (Logo noch rot) den SETTINGS-Schalter
+    mehrfach hoch/runter bewegen, bis das Logo kurz pink flackert.
+  - **KH 750 DSP:** Beim Booten (Power-LED durchgehend rot) den
+    AUTO STANDBY/STANDBY-Schalter mehrfach hoch/runter bewegen.
+  - **KH 120 II / KH 150:** Beim Booten (Logo blinkt) den CONTROL-Schalter
+    mehrfach hoch/runter bewegen, bis das Logo kurz schnell rot/pink blinkt.
+  
+  (Quelle: [Neumann KH Monitor Troubleshooting](https://help.neumann.com/hc/en-us/articles/39978248897049-KH-Monitor-Troubleshooting))
+- **Klangregler (Bass/Mitten/Höhen) und Auto-Standby-Werte sind unverifiziert:**
+  Wertebereiche sind nicht offiziell dokumentiert und nicht gegen echte
+  Hardware getestet - konservativ geschätzt. Lehnt das Gerät einen Wert ab,
+  zeigt HA eine klare Fehlermeldung statt eines stillen Fehlschlags oder
+  eines unerwarteten Verhaltens. Alle diese Entities sind deshalb
+  standardmäßig deaktiviert - erst nach bewusster Aktivierung durch dich
+  sichtbar.
 - `dimm` (`audio/out/dimm`) existiert per Hardware-Test auf einer KH 120 II
   (Firmware 1_7_3) NICHT - die Entity bleibt bestehen (evtl. bei anderen
   Modellen wie der KH 750 DSP vorhanden), zeigt aber "unknown" und wirft beim

@@ -75,6 +75,41 @@ PATH_OUTPUT_PHASE_INVERSION = ("audio", "out", "phaseinversion")
 # Werten (ein Wert pro Kanal, z. B. [-122.8, -122.8]), kein Einzelwert.
 PATH_METER_INPUT_LEVEL = ("m", "in", "level")
 
+# Clip-Indikator: liegt unter "m/in/clip", ebenfalls eine LISTE (ein
+# Bool-Wert pro Kanal), analog zu PATH_METER_INPUT_LEVEL.
+PATH_METER_CLIP = ("m", "in", "clip")
+
+# Auto-Standby (Energiesparfunktion). Wertebereiche für auto_standby_time
+# (Minuten) und level (dB-Schwellwert) sind NICHT offiziell dokumentiert -
+# die Grenzen unten sind konservative Schätzwerte basierend auf dem
+# beobachteten Standardwert (30 Minuten / -60 dB). Das Gerät lehnt zu weit
+# außerhalb liegende Werte im Zweifel einfach ab (siehe SSCDeviceError).
+PATH_STANDBY_ENABLED = ("device", "standby", "enabled")
+PATH_STANDBY_AUTO_TIME = ("device", "standby", "auto_standby_time")
+PATH_STANDBY_LEVEL = ("device", "standby", "level")
+PATH_STANDBY_COUNTDOWN = ("device", "standby", "countdown")  # nur lesbar, Restzeit bis Standby
+
+# Gerät identifizieren: True lässt lt. SSC-Konvention (siehe Sennheiser SSC
+# Developer's Guide, "identification"-Container) das Logo/die LEDs kurz
+# blinken, um das physische Gerät zu finden.
+PATH_IDENTIFY = ("device", "identification", "visual")
+
+# Klangregler. ACHTUNG: Die Firmware liefert diese Werte als JSON-STRINGS
+# (z. B. "0"), nicht als Zahlen - siehe value_is_string in number.py.
+# Wertebereich NICHT offiziell dokumentiert und NICHT gegen echte Hardware
+# verifiziert (bewusst vorsichtig gewählt).
+PATH_UI_BASS_GAIN = ("ui", "bass_gain")
+PATH_UI_MID_GAIN = ("ui", "mid_gain")
+PATH_UI_TREBLE_GAIN = ("ui", "treble_gain")
+
+# Reine Info-/Diagnose-Pfade (nur lesbar)
+PATH_DEVICE_NAME = ("device", "name")
+PATH_IDENTITY_HW_VERSION = ("device", "identity", "hw_version")
+PATH_INPUT_CURRENT = ("audio", "in", "current_input")
+PATH_INPUT_INTERFACE_TYPE = ("audio", "in", "interface")
+PATH_UI_CONTROL_MODE = ("ui", "control_mode")
+PATH_WARNINGS = ("warnings",)  # Top-Level-Schlüssel, keine Verschachtelung
+
 # Blattpfade, die der Coordinator bei jedem Poll-Zyklus EINZELN abfragt
 # (jeweils eine eigene, spezifische SSC-Nachricht - siehe coordinator.py für
 # die Begründung: weder Sammelnachrichten noch Container-Abfragen wie
@@ -91,6 +126,20 @@ POLL_PATHS = (
     PATH_OUTPUT_MUTE,
     PATH_OUTPUT_PHASE_INVERSION,
     PATH_METER_INPUT_LEVEL,
+    PATH_METER_CLIP,
+    PATH_STANDBY_ENABLED,
+    PATH_STANDBY_AUTO_TIME,
+    PATH_STANDBY_LEVEL,
+    PATH_STANDBY_COUNTDOWN,
+    PATH_UI_BASS_GAIN,
+    PATH_UI_MID_GAIN,
+    PATH_UI_TREBLE_GAIN,
+    PATH_DEVICE_NAME,
+    PATH_IDENTITY_HW_VERSION,
+    PATH_INPUT_CURRENT,
+    PATH_INPUT_INTERFACE_TYPE,
+    PATH_UI_CONTROL_MODE,
+    PATH_WARNINGS,
 )
 
 # Wertebereiche lt. khtool --help
@@ -102,3 +151,14 @@ DELAY_MIN = 0
 DELAY_MAX = 3360
 BRIGHTNESS_MIN = 0
 BRIGHTNESS_MAX = 100
+
+# Unten: NICHT offiziell dokumentiert, NICHT gegen echte Hardware
+# verifiziert - konservativ geschätzt anhand beobachteter Standardwerte.
+# Das Gerät lehnt außerhalb seines tatsächlichen Bereichs liegende Werte
+# einfach ab (SSCDeviceError -> klare HA-Fehlermeldung, kein Risiko).
+STANDBY_AUTO_TIME_MIN = 1
+STANDBY_AUTO_TIME_MAX = 90
+STANDBY_LEVEL_MIN = -90.0
+STANDBY_LEVEL_MAX = 0.0
+TONE_GAIN_MIN = -12.0
+TONE_GAIN_MAX = 12.0

@@ -45,18 +45,35 @@
       "output_level": { "name": "Ausgangspegel" },
       "output_dimm": { "name": "Dimm" },
       "output_delay": { "name": "Verzögerung" },
-      "logo_brightness": { "name": "Logo-Helligkeit" }
+      "logo_brightness": { "name": "Logo-Helligkeit" },
+      "standby_auto_time": { "name": "Auto-Standby-Zeit" },
+      "standby_level": { "name": "Standby-Schwellwert" },
+      "bass_gain": { "name": "Bass" },
+      "mid_gain": { "name": "Mitten" },
+      "treble_gain": { "name": "Höhen" }
     },
     "switch": {
       "mute": { "name": "Stummschaltung" },
-      "phase_invert": { "name": "Phasenumkehr" }
+      "phase_invert": { "name": "Phasenumkehr" },
+      "auto_standby": { "name": "Auto-Standby" }
     },
     "sensor": {
       "input_gain": { "name": "Eingangsverstärkung" },
-      "input_level_meter": { "name": "Eingangspegel (live)" }
+      "input_level_meter": { "name": "Eingangspegel (live)" },
+      "standby_countdown": { "name": "Standby-Countdown" },
+      "device_name": { "name": "Gerätename" },
+      "hw_version": { "name": "Hardware-Version" },
+      "input_current": { "name": "Aktueller Eingang" },
+      "input_interface_type": { "name": "Eingangs-Interface-Typ" },
+      "control_mode": { "name": "Steuerungsmodus" }
+    },
+    "binary_sensor": {
+      "input_clip": { "name": "Eingang übersteuert" },
+      "warning": { "name": "Warnung" }
     },
     "button": {
-      "save_settings": { "name": "Einstellungen speichern" }
+      "save_settings": { "name": "Einstellungen speichern" },
+      "identify": { "name": "Identifizieren" }
     }
   }
 }
