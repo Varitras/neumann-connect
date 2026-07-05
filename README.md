@@ -6,6 +6,12 @@ Fremdpaket nötig – ein schlanker eigener asyncio-Client ist enthalten.
 
 Änderungshistorie: siehe [CHANGELOG.md](./CHANGELOG.md).
 
+Eigenes Icon/Logo unter `custom_components/neumann_kh/brand/` (eigenständiges
+Design, keine Kopie des offiziellen Neumann-Firmenlogos). Benötigt **Home
+Assistant 2026.3 oder neuer** (erst ab dieser Version lesen Custom
+Integrations ihre Marken-Bilder direkt aus einem eigenen `brand/`-Ordner,
+siehe [HA Developer Blog](https://developers.home-assistant.io/blog/2026/02/24/brands-proxy-api/)). Bei älteren Versionen wird stattdessen ein generisches Icon angezeigt.
+
 Basiert auf den SSC-Adresspfaden, die im
 [khtool-Projekt](https://github.com/schwinn/khtool) dokumentiert sind.
 

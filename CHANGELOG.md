@@ -3,6 +3,18 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
+## [1.4.1] – Eigenes Icon/Logo
+
+### Hinzugefügt
+- `brand/icon.png`, `brand/icon@2x.png`, `brand/logo.png`, `brand/logo@2x.png`
+  - eigenständiges, selbst entworfenes Design (keine Kopie des offiziellen
+  Neumann-Firmenlogos): dunkles Anthrazit, stilisiertes
+  Lautsprecher-Chassis-Symbol, Schriftzug "NEUMANN CONNECT". Nutzt das seit
+  Home Assistant 2026.3 verfügbare Feature, bei dem Custom Integrations
+  ihre Marken-Bilder direkt im eigenen `brand/`-Ordner mitliefern können,
+  ohne Eintrag im offiziellen `home-assistant/brands`-Repository.
+  **Voraussetzung: Home Assistant 2026.3 oder neuer.**
+
 ## [1.4.0] – Neue Funktionen: Clip-Anzeige, Auto-Standby, Identify, Klangregler, Info-Sensoren
 
 ### Hinzugefügt
