@@ -3,6 +3,16 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
+## [1.7.0] – Bereits verbundene Lautsprecher in der Suche kennzeichnen
+
+### Hinzugefügt
+- Beim automatischen Netzwerk-Scan (Config Flow) werden bereits
+  eingerichtete Lautsprecher jetzt in der Auswahlliste mit
+  "✓ bereits verbunden" gekennzeichnet (Abgleich über die Seriennummer
+  gegen bestehende Config Entries). Sie bleiben auswählbar, der
+  eigentliche Schutz vor echten Duplikaten läuft weiterhin über die
+  bestehende Prüfung bei der tatsächlichen Auswahl.
+
 ## [1.6.3] – Bugfix: binary_sensor-Setup schlug fehl (entity_category)
 
 **Hintergrund:** Home Assistant meldete beim Laden der Integration

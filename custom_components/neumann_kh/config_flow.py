@@ -96,6 +96,22 @@ def _build_manual_schema(interface_options: list[selector.SelectOptionDict]) -> 
     )
 
 
+def _already_configured_serials(hass: HomeAssistant) -> set[str]:
+    """Sammelt die Seriennummern (unique_id) aller bereits eingerichteten Lautsprecher.
+
+    Wird genutzt, um in der Scan-Auswahlliste bereits verbundene Geräte zu
+    kennzeichnen, statt dass der Nutzer sie versehentlich ein zweites Mal
+    versucht hinzuzufügen (was ohnehin an `_abort_if_unique_id_configured()`
+    scheitern würde, aber ohne vorherige Kennzeichnung erst nach der Auswahl
+    auffällt statt schon in der Liste selbst).
+    """
+    return {
+        entry.unique_id
+        for entry in hass.config_entries.async_entries(DOMAIN)
+        if entry.unique_id
+    }
+
+
 async def _async_test_connection(
     host: str, port: int, interface: str | None
 ) -> tuple[str | None, str | None, str | None, str | None]:
@@ -272,15 +288,24 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(step_id="scan", data_schema=self._build_scan_schema())
 
     def _build_scan_schema(self) -> vol.Schema:
-        """Baut das Auswahl-Formular aus den zuletzt gefundenen Geräten (self._discovered)."""
-        options = [
-            selector.SelectOptionDict(
-                value=key,
-                label=f"{info.get('product') or 'KH DSP'} – {self._discovered[key].host}"
-                + (f" (Serial: {info['serial']})" if info.get("serial") else ""),
-            )
-            for key, info in self._discovery_info.items()
-        ]
+        """Baut das Auswahl-Formular aus den zuletzt gefundenen Geräten (self._discovered).
+
+        Bereits eingerichtete Lautsprecher werden in der Liste mit
+        "✓ Bereits verbunden" gekennzeichnet, bleiben aber auswählbar (falls
+        der Nutzer sie z. B. absichtlich neu einrichten will - der eigentliche
+        Schutz vor echten Duplikaten läuft weiterhin über
+        `_abort_if_unique_id_configured()` bei der tatsächlichen Auswahl).
+        """
+        configured_serials = _already_configured_serials(self.hass)
+        options = []
+        for key, info in self._discovery_info.items():
+            label = f"{info.get('product') or 'KH DSP'} – {self._discovered[key].host}"
+            if info.get("serial"):
+                label += f" (Serial: {info['serial']})"
+            if info.get("serial") in configured_serials:
+                label += " — ✓ bereits verbunden"
+            options.append(selector.SelectOptionDict(value=key, label=label))
+
         return vol.Schema(
             {
                 vol.Required(_SELECTED_DEVICE): selector.SelectSelector(
