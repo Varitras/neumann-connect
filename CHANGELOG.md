@@ -3,6 +3,21 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
+## [1.6.3] – Bugfix: binary_sensor-Setup schlug fehl (entity_category)
+
+**Hintergrund:** Home Assistant meldete beim Laden der Integration
+"Error adding entity ... for domain binary_sensor" mit
+`ValueError: entity_category must be a valid EntityCategory instance, got diagnostic`.
+
+### Behoben
+- `binary_sensor.py`: Zwei Entities ("Warnung" und "Digitaler Bypass")
+  übergaben `entity_category="diagnostic"` als reinen String statt des von
+  Home Assistant erwarteten `EntityCategory.DIAGNOSTIC`-Enums - neuere
+  HA-Versionen validieren das jetzt strikt und lehnen den String ab.
+  `sensor.py` verwendete bereits korrekt das Enum, nur `binary_sensor.py`
+  war betroffen. Codebasisweit geprüft: keine weiteren Stellen mit diesem
+  Muster.
+
 ## [1.6.2] – Schalter/Auswahl springen nicht mehr kurz zurück (Race Condition behoben)
 
 **Hintergrund:** Nach dem Betätigen eines Schalters/einer Auswahl (z. B.

@@ -24,6 +24,7 @@ from homeassistant.components.binary_sensor import (
     BinarySensorEntityDescription,
 )
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -66,7 +67,7 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[NeumannKHBinarySensorDescription, ...] = (
         translation_key="warning",
         icon="mdi:alert-outline",
         device_class=BinarySensorDeviceClass.PROBLEM,
-        entity_category="diagnostic",
+        entity_category=EntityCategory.DIAGNOSTIC,
         ssc_path=PATH_WARNINGS,
         is_warnings=True,
     ),
@@ -87,7 +88,7 @@ SUBWOOFER_BINARY_SENSOR_DESCRIPTIONS: tuple[NeumannKHBinarySensorDescription, ..
         key="digital_bypass",
         translation_key="digital_bypass",
         icon="mdi:transit-connection-variant",
-        entity_category="diagnostic",
+        entity_category=EntityCategory.DIAGNOSTIC,
         ssc_path=PATH_DIGITAL_BYPASS,
     ),
     NeumannKHBinarySensorDescription(
