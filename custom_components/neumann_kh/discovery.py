@@ -56,10 +56,15 @@ async def async_scan_for_speakers(
     aiozc = await ha_zeroconf.async_get_async_instance(hass)
     found_names: set[str] = set()
 
-    def _on_change(_zeroconf, _service_type, name, state_change) -> None:  # noqa: ANN001
-        # Signatur von zeroconf vorgegeben; nur `name` und `state_change`
-        # werden benötigt, die übrigen Parameter sind mit "_" als ungenutzt
-        # markiert.
+    def _on_change(zeroconf, service_type, name, state_change) -> None:  # noqa: ANN001
+        # WICHTIG: python-zeroconf ruft diesen Handler mit BENANNTEN
+        # Argumenten auf (zeroconf=..., service_type=..., name=...,
+        # state_change=...), nicht rein positional. Die Parameternamen
+        # müssen deshalb exakt so heißen - ein Umbenennen (z. B. zu
+        # "_zeroconf") führt zu einem TypeError beim Aufruf und damit dazu,
+        # dass gar keine Geräte mehr gefunden werden (siehe CHANGELOG 1.8.1).
+        # `zeroconf`/`service_type` werden hier nicht verwendet, daher kein
+        # zusätzlicher Code - das ist normal für diesen Callback-Typ.
         if state_change is ServiceStateChange.Added:
             found_names.add(name)
 

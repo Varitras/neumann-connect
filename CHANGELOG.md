@@ -3,6 +3,22 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
+## [1.8.1] – Bugfix: Geräte-Suche fand keine Lautsprecher mehr
+
+**Hintergrund:** In 1.8.0 wurden die Parameter des mDNS-Callbacks
+`_on_change()` in `discovery.py` rein kosmetisch zu `_zeroconf`/
+`_service_type` umbenannt. Das war ein Fehler: python-zeroconf ruft diesen
+Handler mit BENANNTEN Argumenten auf (`zeroconf=...`, `service_type=...`),
+nicht rein positional - die Parameternamen müssen deshalb exakt passen. Nach
+der Umbenennung scheiterte jeder Aufruf mit einem `TypeError`, wodurch die
+Geräteliste beim Scannen leer blieb ("keine Lautsprecher gefunden").
+
+### Behoben
+- `discovery.py`: Parameternamen des `_on_change()`-Handlers zurück auf
+  `zeroconf`, `service_type` (exakt wie von python-zeroconf erwartet).
+  Codebasisweit geprüft: keine weiteren Stellen mit diesem Callback-Muster
+  betroffen.
+
 ## [1.8.0] – Reaktivität & Robustheit
 
 ### Hinzugefügt
