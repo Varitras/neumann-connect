@@ -3,6 +3,47 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
+## [1.5.0] – Subwoofer-Support (KH 750) und Code-Härtung
+
+**Hintergrund:** Ein echter `khtool -q`-Dump einer KH 750 (Firmware 2_1_2)
+hat gezeigt, dass die KH 750 deutlich mehr subwooferspezifische SSC-Werte
+hat als bisher angenommen - insbesondere zwei zusätzliche Bass-Management-
+Ausgänge (`out1`/`out2`) für angeschlossene Zusatzlautsprecher.
+
+### Hinzugefügt (nur bei erkanntem Subwoofer, Modell "KH 750")
+- Zwei zusätzliche Ausgangskanäle `out1`/`out2`: Pegel, Verzögerung, Mute
+  (`number`/`switch`), sowie Bezeichnung und zugewiesener Lautsprechertyp
+  (`sensor`, Diagnose)
+- Subwoofer-Kalibrierung: Eingangsverstärkung, Low-Cut, Phase (`number`,
+  Wertebereiche unverifiziert), Phaseninversion (`switch`)
+- Subwoofer-Ausgangspegel als feste Auswahl 94/100/108/114 dB SPL (`select`,
+  neue Plattform - passender als `number`, da feste Stufen statt
+  kontinuierlichem Bereich, analog zu dokumentierten SPL-Stufen anderer
+  KH-Modelle)
+- Gerätetemperatur (`sensor`, `device_class: temperature`) - Einheit als
+  Kelvin angenommen (unverifiziert)
+- Ausgangspegel-Metering und Ausgang-Clip-Anzeige (`sensor`/`binary_sensor`,
+  Pendant zu den bestehenden Eingangs-Entities)
+- Bass-Management-Modus, Kanal-B-Eingangsmodus (`sensor`, Diagnose)
+
+### Geändert (Code-Härtung, alle Modelle)
+- Gemeinsame Hilfsfunktionen (`_util.py`) statt doppelter Implementierung
+  von `build_nested`/`deep_merge` in `ssc_client.py` und `coordinator.py`
+- `ssc_client.py`: `asyncio.LimitOverrunError` wird jetzt abgefangen
+  (Schutz gegen unerwartet große/nie terminierte Geräteantworten);
+  `assert` durch explizite Prüfung mit klarer Fehlermeldung ersetzt
+- `coordinator.py`: Ein unerwarteter Fehler bei einem einzelnen Poll-Pfad
+  reißt nicht mehr den gesamten Poll-Zyklus mit, sondern wird geloggt und
+  übersprungen; neues Gesamt-Zeitlimit für einen kompletten Poll-Zyklus
+  (`POLL_CYCLE_TIMEOUT_SECONDS`)
+- `config_flow.py`: Leerer Name wird jetzt auch beim manuellen Setup
+  abgelehnt (vorher inkonsistent nur beim Scan-Schritt); ein unerwarteter
+  Fehler beim mDNS-Scan führt zu einer klaren Fehlermeldung statt eines
+  Absturzes
+- `__init__.py`: `DEFAULT_PORT`-Konstante statt hartcodierter Zahl
+- Firmware-Version wird beim Einrichten zusätzlich ausgelesen und als
+  `sw_version` im Geräte-Info-Bereich angezeigt
+
 ## [1.4.1] – Eigenes Icon/Logo
 
 ### Hinzugefügt

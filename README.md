@@ -124,8 +124,32 @@ beeinträchtigen (siehe "Polling" unten).
 | Gerät identifizieren (Logo blinkt) | `button` | – | `device/identification/visual` |
 
 \* **Nur** bei KH 80 / KH 150 / KH 120 II – laut khtool-Dokumentation nicht bei
-KH 750 DSP verfügbar. Die Integration erkennt das Modell automatisch beim
+KH 750 verfügbar. Die Integration erkennt das Modell automatisch beim
 Einrichten und blendet diese Entities für die KH 750 aus.
+
+### Zusätzliche Entities nur bei erkanntem Subwoofer (KH 750)
+
+Per echtem `khtool -q`-Dump einer KH 750 (Firmware 2_1_2) verifiziert. Die
+KH 750 hat zwei zusätzliche Bass-Management-Ausgänge (`out1`/`out2`) für
+angeschlossene Zusatzlautsprecher, sowie mehrere subwooferspezifische
+Kalibrierungswerte. Alle unten gelisteten Entities werden **nur** angelegt,
+wenn beim Einrichten `KH 750` als Modell erkannt wurde.
+
+| Entity | Typ | Bereich | SSC-Pfad |
+|---|---|---|---|
+| Subwoofer-Eingangsverstärkung (Default: deaktiviert, Bereich unverifiziert) | `number` | −12–12 dB | `ui/subwoofer_input_gain` |
+| Subwoofer Low-Cut (Default: deaktiviert, Bereich unverifiziert) | `number` | −12–12 dB | `ui/subwoofer_low_cut` |
+| Subwoofer-Phase (Default: deaktiviert, Bereich unverifiziert) | `number` | 0–180° | `ui/subwoofer_phase` |
+| Ausgang 1/2 Pegel (Default: deaktiviert) | `number` | 0–120 dB | `audio/out1/level`, `audio/out2/level` |
+| Ausgang 1/2 Verzögerung (Default: deaktiviert) | `number` | 0–3360 Samples | `audio/out1/delay`, `audio/out2/delay` |
+| Subwoofer-Ausgangspegel (Default: deaktiviert, Optionen unverifiziert) | `select` | 94 / 100 / 108 / 114 dB SPL | `ui/subwoofer_output_level` |
+| Subwoofer-Phaseninversion (Default: deaktiviert, unverifiziert) | `switch` | – | `ui/subwoofer_phase_inversion` |
+| Ausgang 1/2 Stumm (Default: deaktiviert) | `switch` | – | `audio/out1/mute`, `audio/out2/mute` |
+| Gerätetemperatur (Default: deaktiviert, Einheit unverifiziert) | `sensor` | °C (angenommen aus Kelvin) | `device/temperature` |
+| Ausgangspegel live (Default: deaktiviert) | `sensor` | dB | `m/out/level` |
+| Bass-Management, Kanal-B-Eingangsmodus (Diagnose) | `sensor` | Text | `ui/bass_management`, `ui/channel_b_input_mode` |
+| Ausgang 1/2 Bezeichnung, Ausgang 1/2 Lautsprecher (Default: deaktiviert, Diagnose) | `sensor` | Text | `audio/out1/label`, `audio/out1/loudspeaker`, `audio/out2/label`, `audio/out2/loudspeaker` |
+| Ausgang übersteuert (Clip, Default: deaktiviert) | `binary_sensor` | – | `m/out/clip` |
 
 Standardmäßig deaktivierte Entities kannst du in **Einstellungen → Geräte &
 Dienste → [Gerät] → Entities** manuell aktivieren.
@@ -178,6 +202,32 @@ trotzdem aktualisiert.
 - `solo` (`audio/out/solo`) wurde entfernt - taucht im vollständigen
   Geräte-Dump der KH 120 II nicht auf, ist von diesem Modell/dieser Firmware
   offenbar nicht unterstützt.
+- **Subwoofer-Werte (KH 750) sind größtenteils unverifiziert:** Wertebereiche
+  für `subwoofer_input_gain`, `subwoofer_low_cut`, `subwoofer_phase` sowie die
+  Optionen von `subwoofer_output_level` basieren auf Analogie zu anderen
+  KH-Modellen bzw. konservativen Schätzungen, nicht auf offizieller
+  Dokumentation. Die **Gerätetemperatur** nimmt zusätzlich an, dass der
+  Rohwert in Kelvin geliefert wird (307 → ≈ 34,85 °C) - unverifiziert, daher
+  standardmäßig deaktiviert.
+
+## Code-Härtung
+
+Folgende Robustheits-Verbesserungen wurden ergänzt (Stand siehe
+CHANGELOG.md):
+- Gemeinsame Hilfsfunktionen (`_util.py`) statt doppelter Implementierung in
+  `ssc_client.py` und `coordinator.py`
+- Schutz gegen unerwartet große/nie terminierte Geräteantworten
+  (`asyncio.LimitOverrunError`)
+- Ein unerwarteter Fehler bei einem einzelnen Poll-Pfad reißt nicht mehr den
+  gesamten Poll-Zyklus mit - nur der betroffene Wert wird übersprungen
+- Gesamt-Zeitlimit für einen kompletten Poll-Zyklus (Schutz gegen ein
+  "hängendes" Gerät)
+- Leerer Name wird jetzt auch beim manuellen Setup abgelehnt (vorher nur
+  beim Scan-Schritt)
+- Ein unerwarteter Fehler beim mDNS-Scan führt zu einer klaren
+  Fehlermeldung statt eines Absturzes des Einrichtungs-Dialogs
+- Firmware-Version wird beim Einrichten zusätzlich ausgelesen und als
+  `sw_version` im Geräte-Info-Bereich angezeigt
 - Frühere Versionen dieser Integration gingen (basierend auf der
   KH-80-Beispieldoku von khtool) von getrennten Ein-/Ausgangs-Phasenumkehr-
   Pfaden aus (`audio/in/phase_invert`, `audio/out/phase_correction`). Ein

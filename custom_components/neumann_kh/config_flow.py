@@ -10,7 +10,7 @@ Reines UI-Setup (kein YAML nötig). Startpunkt ist ein Menü mit zwei Wegen:
   findet (z. B. wenn HA mDNS-Multicast nicht empfangen kann).
 
 Für jeden Lautsprecher wird ein eigener Config Entry angelegt (z. B.
-"KH 120 II Links", "KH 120 II Rechts", "KH 750 DSP Sub 1", ...).
+"KH 120 II Links", "KH 120 II Rechts", "KH 750 Sub 1", ...).
 """
 
 from __future__ import annotations
@@ -27,6 +27,7 @@ from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 
 from .const import (
+    CONF_FIRMWARE_VERSION,
     CONF_INTERFACE,
     CONF_MODEL,
     CONF_SERIAL,
@@ -35,6 +36,7 @@ from .const import (
     DOMAIN,
     PATH_IDENTITY_PRODUCT,
     PATH_IDENTITY_SERIAL,
+    PATH_IDENTITY_VERSION,
 )
 from .discovery import DiscoveredSpeaker, async_scan_for_speakers
 from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeoutError
@@ -96,26 +98,28 @@ def _build_manual_schema(interface_options: list[selector.SelectOptionDict]) -> 
 
 async def _async_test_connection(
     host: str, port: int, interface: str | None
-) -> tuple[str | None, str | None, str | None]:
-    """Testet die SSC-Verbindung und liest Modell + Seriennummer aus.
+) -> tuple[str | None, str | None, str | None, str | None]:
+    """Testet die SSC-Verbindung und liest Modell + Seriennummer + Firmware-Version aus.
 
-    Rückgabe: (product, serial, error_key). error_key ist None bei Erfolg.
+    Rückgabe: (product, serial, firmware_version, error_key). error_key ist
+    None bei Erfolg.
     """
     client = SSCClient(host=host, port=port, interface=interface, timeout=DEFAULT_TIMEOUT)
     try:
         product = await client.get(PATH_IDENTITY_PRODUCT)
         serial = await client.get(PATH_IDENTITY_SERIAL)
+        version = await client.get(PATH_IDENTITY_VERSION)
     except SSCConnectionError:
-        return None, None, "cannot_connect"
+        return None, None, None, "cannot_connect"
     except SSCTimeoutError:
-        return None, None, "timeout"
+        return None, None, None, "timeout"
     except SSCDeviceError:
-        return None, None, "cannot_connect"
+        return None, None, None, "cannot_connect"
     except Exception:  # noqa: BLE001 - unerwartete Fehler sauber abfangen
         _LOGGER.exception("Unerwarteter Fehler beim Verbindungstest zu %s", host)
-        return None, None, "unknown"
+        return None, None, None, "unknown"
     else:
-        return product, serial, None
+        return product, serial, version, None
     finally:
         await client.close()
 
@@ -146,10 +150,14 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             port = user_input.get(CONF_PORT, DEFAULT_PORT)
             name = user_input[CONF_NAME].strip()
 
-            if host.lower().startswith("fe80") and not interface:
+            if not name:
+                errors["base"] = "name_required"
+            elif host.lower().startswith("fe80") and not interface:
                 errors["base"] = "interface_required_for_link_local"
             else:
-                product, serial, error_key = await _async_test_connection(host, port, interface)
+                product, serial, version, error_key = await _async_test_connection(
+                    host, port, interface
+                )
                 if error_key:
                     errors["base"] = error_key
                 else:
@@ -166,6 +174,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             CONF_PORT: port,
                             CONF_MODEL: product or "KH DSP",
                             CONF_SERIAL: serial or "",
+                            CONF_FIRMWARE_VERSION: version or "",
                         },
                     )
 
@@ -215,6 +224,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_PORT: candidate.port,
                         CONF_MODEL: info.get("product") or "KH DSP",
                         CONF_SERIAL: info.get("serial") or "",
+                        CONF_FIRMWARE_VERSION: info.get("version") or "",
                     },
                 )
 
@@ -226,12 +236,19 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         # Erster Aufruf ODER Klick auf "Erneut suchen" (leeres user_input):
         # aktiv im Netzwerk nach SSC-Geräten suchen.
-        speakers = await async_scan_for_speakers(self.hass)
+        try:
+            speakers = await async_scan_for_speakers(self.hass)
+        except Exception:  # noqa: BLE001 - Scan soll bei Fehlern klar scheitern, nicht crashen
+            _LOGGER.exception("Unerwarteter Fehler beim mDNS-Scan")
+            return self.async_show_form(
+                step_id="scan", data_schema=vol.Schema({}), errors={"base": "scan_failed"}
+            )
+
         self._discovered = {}
         self._discovery_info = {}
 
         for speaker in speakers:
-            product, serial, error_key = await _async_test_connection(
+            product, serial, version, error_key = await _async_test_connection(
                 speaker.host, speaker.port, interface=None
             )
             if error_key:
@@ -244,7 +261,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 continue
             key = serial or speaker.mdns_name
             self._discovered[key] = speaker
-            self._discovery_info[key] = {"product": product, "serial": serial}
+            self._discovery_info[key] = {"product": product, "serial": serial, "version": version}
 
         if not self._discovered:
             # Leeres Schema = nur ein Absenden-Button, der den Scan erneut auslöst.

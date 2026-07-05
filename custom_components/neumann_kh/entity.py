@@ -11,7 +11,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_MODEL, CONF_SERIAL, DOMAIN
+from .const import CONF_FIRMWARE_VERSION, CONF_MODEL, CONF_SERIAL, DOMAIN
 from .coordinator import NeumannKHCoordinator
 
 
@@ -29,5 +29,6 @@ class NeumannKHEntity(CoordinatorEntity[NeumannKHCoordinator]):
             name=entry.title,
             manufacturer="Georg Neumann GmbH",
             model=entry.data.get(CONF_MODEL, "KH DSP"),
+            sw_version=entry.data.get(CONF_FIRMWARE_VERSION) or None,
         )
         self._unique_id_base = serial

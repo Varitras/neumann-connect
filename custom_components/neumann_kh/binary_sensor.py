@@ -20,7 +20,14 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN, PATH_METER_CLIP, PATH_WARNINGS
+from .const import (
+    CONF_MODEL,
+    DOMAIN,
+    MODELS_WITH_SUBWOOFER_FEATURES,
+    PATH_METER_CLIP,
+    PATH_METER_OUTPUT_CLIP,
+    PATH_WARNINGS,
+)
 from .coordinator import NeumannKHCoordinator
 from .entity import NeumannKHEntity
 
@@ -34,6 +41,7 @@ class NeumannKHBinarySensorDescription(BinarySensorEntityDescription):
     """Beschreibung einer Binary-Sensor-Entity inkl. SSC-Pfad."""
 
     ssc_path: tuple[str, ...] = ()
+    is_warnings: bool = False
 
 
 BINARY_SENSOR_DESCRIPTIONS: tuple[NeumannKHBinarySensorDescription, ...] = (
@@ -51,6 +59,20 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[NeumannKHBinarySensorDescription, ...] = (
         device_class=BinarySensorDeviceClass.PROBLEM,
         entity_category="diagnostic",
         ssc_path=PATH_WARNINGS,
+        is_warnings=True,
+    ),
+)
+
+# Nur bei erkanntem Subwoofer (siehe MODELS_WITH_SUBWOOFER_FEATURES) -
+# Pendant zu input_clip, aber für die Ausgänge (Hauptausgang + out1 + out2).
+SUBWOOFER_BINARY_SENSOR_DESCRIPTIONS: tuple[NeumannKHBinarySensorDescription, ...] = (
+    NeumannKHBinarySensorDescription(
+        key="output_clip",
+        translation_key="output_clip",
+        icon="mdi:alert-decagram-outline",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+        entity_registry_enabled_default=False,
+        ssc_path=PATH_METER_OUTPUT_CLIP,
     ),
 )
 
@@ -60,9 +82,13 @@ async def async_setup_entry(
 ) -> None:
     """Legt die Binary-Sensor-Entities für einen Lautsprecher an."""
     coordinator: NeumannKHCoordinator = hass.data[DOMAIN][entry.entry_id]
+
+    descriptions = list(BINARY_SENSOR_DESCRIPTIONS)
+    if entry.data.get(CONF_MODEL) in MODELS_WITH_SUBWOOFER_FEATURES:
+        descriptions.extend(SUBWOOFER_BINARY_SENSOR_DESCRIPTIONS)
+
     async_add_entities(
-        NeumannKHBinarySensor(coordinator, entry, description)
-        for description in BINARY_SENSOR_DESCRIPTIONS
+        NeumannKHBinarySensor(coordinator, entry, description) for description in descriptions
     )
 
 
@@ -86,12 +112,12 @@ class NeumannKHBinarySensor(NeumannKHEntity, BinarySensorEntity):
         value = self.coordinator.value(self.entity_description.ssc_path)
         if value is None:
             return None
-        if self.entity_description.ssc_path == PATH_WARNINGS:
+        if self.entity_description.is_warnings:
             # "Problem" = irgendeine Warnung außer dem Normalzustand NO_WARNING.
             if isinstance(value, list):
                 return any(item != _NO_WARNING for item in value)
             return value != _NO_WARNING
-        # Clip: "Problem" = mindestens ein Kanal clippt gerade.
+        # Clip (Eingang oder Ausgang): "Problem" = mindestens ein Kanal clippt gerade.
         if isinstance(value, list):
             return any(bool(item) for item in value)
         return bool(value)

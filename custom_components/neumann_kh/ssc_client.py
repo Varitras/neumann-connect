@@ -10,12 +10,6 @@ Eine "get"-Anfrage wird gestellt, indem der gewünschte Pfad mit dem JSON-Wert
 Eine "set"-Anfrage liefert stattdessen den gewünschten Wert, z. B.
 {"audio":{"out":{"mute":true}}}.
 
-Fragt man einen Container (z. B. {"audio":null}) statt eines einzelnen Blattes
-ab, antwortet das Gerät mit MEHREREN einzelnen JSON-Zeilen (einer je Blatt) -
-das ist in freier Wildbahn bei khtool zu beobachten. Dieser Client sammelt
-deshalb bei get-Anfragen so lange Antwortzeilen ein, bis für eine kurze
-"Beruhigungszeit" (settle time) keine neue Zeile mehr eintrifft.
-
 Wichtig für IPv6 Link-Local Adressen (fe80::...): Diese benötigen eine
 Scope-ID (Interface-Name), sonst kann das Betriebssystem die Route nicht
 auflösen. Der Client hängt die Scope-ID automatisch an, falls eine
@@ -29,10 +23,17 @@ import json
 import logging
 from typing import Any
 
+from ._util import build_nested, deep_merge, extract
+
 _LOGGER = logging.getLogger(__name__)
 
 # Trennzeichen lt. SSC-Spezifikation: CR+LF oder LF alleine sind erlaubt.
 _MESSAGE_TERMINATOR = b"\n"
+
+# Schutz gegen übermäßig große/nie terminierte Antworten (siehe
+# SSCConnectionError-Handling in _read_lines_until_settled). Deutlich über
+# jeder realistischen SSC-Antwort (auch der volle -q-Dump ist <<1 MB).
+_MAX_LINE_BYTES = 1_048_576  # 1 MiB
 
 
 class SSCConnectionError(Exception):
@@ -53,40 +54,6 @@ class SSCDeviceError(Exception):
     unbemerkt im Ergebnis-Dict landen, statt dem Aufrufer klar zu signalisieren,
     dass die Anfrage abgelehnt wurde.
     """
-
-
-def _deep_merge(target: dict, source: dict) -> None:
-    """Führt zwei verschachtelte Dicts zusammen (in-place), source gewinnt bei Konflikten."""
-    for key, value in source.items():
-        if isinstance(value, dict) and isinstance(target.get(key), dict):
-            _deep_merge(target[key], value)
-        else:
-            target[key] = value
-
-
-def _build_nested(path: tuple[str, ...], value: Any) -> dict:
-    """Baut aus einem Pfad-Tupel und einem Wert ein verschachteltes SSC-JSON-Objekt.
-
-    Beispiel: _build_nested(("audio", "out", "mute"), True)
-              -> {"audio": {"out": {"mute": True}}}
-    """
-    node: dict[str, Any] = {}
-    root = node
-    for part in path[:-1]:
-        node[part] = {}
-        node = node[part]
-    node[path[-1]] = value
-    return root
-
-
-def _extract(data: dict, path: tuple[str, ...]) -> Any:
-    """Liest einen Wert aus einem verschachtelten Dict anhand eines Pfad-Tupels."""
-    node: Any = data
-    for part in path:
-        if not isinstance(node, dict) or part not in node:
-            return None
-        node = node[part]
-    return node
 
 
 class SSCClient:
@@ -143,14 +110,19 @@ class SSCClient:
                 self._reader = None
 
     async def _send_raw(self, payload: dict) -> None:
-        assert self._writer is not None
+        if self._writer is None:
+            # Sollte durch _ensure_connected() vor jedem Aufruf ausgeschlossen
+            # sein - explizite Prüfung statt `assert`, da assert-Anweisungen
+            # je nach Python-Startoptionen (-O) wegoptimiert werden können.
+            raise SSCConnectionError(f"Keine aktive Verbindung zu {self._host}")
         message = json.dumps(payload).encode("utf-8") + b"\r\n"
         self._writer.write(message)
         await self._writer.drain()
 
     async def _read_lines_until_settled(self) -> list[dict]:
         """Liest Zeilen, bis für `settle_time` Sekunden nichts Neues mehr ankommt."""
-        assert self._reader is not None
+        if self._reader is None:
+            raise SSCConnectionError(f"Keine aktive Verbindung zu {self._host}")
         results: list[dict] = []
         while True:
             try:
@@ -169,6 +141,17 @@ class SSCClient:
                     raw_line = err.partial
                 else:
                     raise SSCConnectionError(f"Verbindung zu {self._host} unterbrochen") from err
+            except asyncio.LimitOverrunError as err:
+                # Antwort ohne Zeilenumbruch wurde unerwartet groß (deutlich
+                # über jeder realistischen SSC-Nachricht) - Verbindung als
+                # gestört behandeln, statt eine riesige/nie endende Zeile
+                # weiter zu puffern.
+                raise SSCConnectionError(
+                    f"Antwort von {self._host} überschreitet Zeilenlimit"
+                ) from err
+
+            if len(raw_line) > _MAX_LINE_BYTES:
+                raise SSCConnectionError(f"Antwort von {self._host} unplausibel groß")
 
             line = raw_line.strip()
             if not line:
@@ -196,9 +179,9 @@ class SSCClient:
 
             merged: dict[str, Any] = {}
             for line in lines:
-                _deep_merge(merged, line)
+                deep_merge(merged, line)
 
-            osc_error = _extract(merged, ("osc", "error"))
+            osc_error = extract(merged, ("osc", "error"))
             if osc_error:
                 # Format lt. Testergebnis: [400, {"desc": "message not understood"}]
                 description = ""
@@ -215,15 +198,15 @@ class SSCClient:
 
     async def get(self, path: tuple[str, ...]) -> Any:
         """Fragt einen einzelnen Wert ab (get = Anfrage mit JSON null)."""
-        response = await self.request(_build_nested(path, None))
-        return _extract(response, path)
+        response = await self.request(build_nested(path, None))
+        return extract(response, path)
 
     async def set(self, path: tuple[str, ...], value: Any) -> Any:
         """Setzt einen Wert und gibt den vom Gerät bestätigten Wert zurück."""
-        response = await self.request(_build_nested(path, value))
-        return _extract(response, path)
+        response = await self.request(build_nested(path, value))
+        return extract(response, path)
 
     @staticmethod
     def extract(data: dict, path: tuple[str, ...]) -> Any:
-        """Öffentlicher Zugriff auf _extract, für die Auswertung von request()-Ergebnissen."""
-        return _extract(data, path)
+        """Öffentlicher Zugriff auf extract(), für die Auswertung von request()-Ergebnissen."""
+        return extract(data, path)

@@ -34,6 +34,7 @@
       "no_devices_found": "Keine SSC-Lautsprecher im Netzwerk gefunden. Erneut absenden für einen neuen Versuch, oder zurückgehen und 'Manuell eingeben' wählen.",
       "discovery_expired": "Die Geräteliste ist abgelaufen, bitte Suche erneut starten.",
       "name_required": "Bitte einen Namen für das Gerät eingeben.",
+      "scan_failed": "Die Netzwerksuche ist unerwartet fehlgeschlagen. Erneut versuchen oder manuell einrichten.",
       "unknown": "Unerwarteter Fehler."
     },
     "abort": {
@@ -50,12 +51,25 @@
       "standby_level": { "name": "Standby-Schwellwert" },
       "bass_gain": { "name": "Bass" },
       "mid_gain": { "name": "Mitten" },
-      "treble_gain": { "name": "Höhen" }
+      "treble_gain": { "name": "Höhen" },
+      "subwoofer_input_gain": { "name": "Subwoofer-Eingangsverstärkung" },
+      "subwoofer_low_cut": { "name": "Subwoofer Low-Cut" },
+      "subwoofer_phase": { "name": "Subwoofer-Phase" },
+      "out1_level": { "name": "Ausgang 1 Pegel" },
+      "out1_delay": { "name": "Ausgang 1 Verzögerung" },
+      "out2_level": { "name": "Ausgang 2 Pegel" },
+      "out2_delay": { "name": "Ausgang 2 Verzögerung" }
+    },
+    "select": {
+      "subwoofer_output_level": { "name": "Subwoofer-Ausgangspegel" }
     },
     "switch": {
       "mute": { "name": "Stummschaltung" },
       "phase_invert": { "name": "Phasenumkehr" },
-      "auto_standby": { "name": "Auto-Standby" }
+      "auto_standby": { "name": "Auto-Standby" },
+      "subwoofer_phase_inversion": { "name": "Subwoofer-Phaseninversion" },
+      "out1_mute": { "name": "Ausgang 1 Stumm" },
+      "out2_mute": { "name": "Ausgang 2 Stumm" }
     },
     "sensor": {
       "input_gain": { "name": "Eingangsverstärkung" },
@@ -65,11 +79,20 @@
       "hw_version": { "name": "Hardware-Version" },
       "input_current": { "name": "Aktueller Eingang" },
       "input_interface_type": { "name": "Eingangs-Interface-Typ" },
-      "control_mode": { "name": "Steuerungsmodus" }
+      "control_mode": { "name": "Steuerungsmodus" },
+      "device_temperature": { "name": "Gerätetemperatur" },
+      "output_level_meter": { "name": "Ausgangspegel (live)" },
+      "bass_management": { "name": "Bass-Management" },
+      "channel_b_input_mode": { "name": "Kanal-B-Eingangsmodus" },
+      "out1_label": { "name": "Ausgang 1 Bezeichnung" },
+      "out1_loudspeaker": { "name": "Ausgang 1 Lautsprecher" },
+      "out2_label": { "name": "Ausgang 2 Bezeichnung" },
+      "out2_loudspeaker": { "name": "Ausgang 2 Lautsprecher" }
     },
     "binary_sensor": {
       "input_clip": { "name": "Eingang übersteuert" },
-      "warning": { "name": "Warnung" }
+      "warning": { "name": "Warnung" },
+      "output_clip": { "name": "Ausgang übersteuert" }
     },
     "button": {
       "save_settings": { "name": "Einstellungen speichern" },

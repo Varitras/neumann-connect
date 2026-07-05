@@ -2,7 +2,8 @@
 
 Pro Config Entry (= ein physischer Lautsprecher) wird ein SSCClient und ein
 DataUpdateCoordinator angelegt und in hass.data abgelegt, damit die
-Plattformen (number, switch, sensor, button) darauf zugreifen können.
+Plattformen (number, select, switch, sensor, binary_sensor, button) darauf
+zugreifen können.
 """
 
 from __future__ import annotations
@@ -11,12 +12,13 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PORT, Platform
 from homeassistant.core import HomeAssistant
 
-from .const import CONF_INTERFACE, CONF_MODEL, DEFAULT_TIMEOUT, DOMAIN
+from .const import CONF_INTERFACE, CONF_MODEL, DEFAULT_PORT, DEFAULT_TIMEOUT, DOMAIN
 from .coordinator import NeumannKHCoordinator
 from .ssc_client import SSCClient
 
 PLATFORMS: list[Platform] = [
     Platform.NUMBER,
+    Platform.SELECT,
     Platform.SWITCH,
     Platform.SENSOR,
     Platform.BINARY_SENSOR,
@@ -25,10 +27,17 @@ PLATFORMS: list[Platform] = [
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Richtet einen Config Entry (einen Lautsprecher) ein."""
+    """Richtet einen Config Entry (einen Lautsprecher) ein.
+
+    `async_config_entry_first_refresh()` wandelt einen fehlschlagenden ersten
+    Poll-Versuch automatisch in `ConfigEntryNotReady` um - HA versucht das
+    Setup dann später von selbst erneut, statt die Integration dauerhaft
+    fehlschlagen zu lassen (das ist die Meldung "Failed setup, will retry",
+    die z. B. bei einem kurzzeitig nicht erreichbaren Lautsprecher erscheint).
+    """
     client = SSCClient(
         host=entry.data[CONF_HOST],
-        port=entry.data.get(CONF_PORT, 45),
+        port=entry.data.get(CONF_PORT, DEFAULT_PORT),
         interface=entry.data.get(CONF_INTERFACE) or None,
         timeout=DEFAULT_TIMEOUT,
     )
