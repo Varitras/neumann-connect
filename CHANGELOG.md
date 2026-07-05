@@ -3,6 +3,28 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
+## [1.9.0] – Nicht schreibbare Werte korrigiert, Kommentare überarbeitet, Bugfixes
+
+### Geändert (KH 120 II, nicht schreibbar → jetzt Lesewert)
+- Input Gain, Input Select, Mid Gain, Output Level (SPL), Treble Gain
+- "Einstellungen speichern"-Button standardmäßig deaktiviert (nicht funktional)
+
+### Geändert (KH 750, nicht schreibbar → jetzt Lesewert)
+- Bass Management, Channel B Input Mode, Subwoofer Input Gain,
+  Subwoofer Low-Cut, Subwoofer Output Level, Subwoofer Phase,
+  Subwoofer Phase Inversion
+
+### Behoben
+- Ausgang-1/2-Stummschaltung (`out1_mute`/`out2_mute`, KH 750) fehlte
+  komplett - wieder ergänzt
+- `settle_time` in `ssc_client.py` nutzt jetzt die vorgesehene Konstante
+  `DEFAULT_QUERY_SETTLE` statt eines fest verdrahteten Werts
+- Ungenutzte Konstante `PATH_IDENTITY_VENDOR` entfernt
+
+### Aufgeräumt
+- Alle Code-Kommentare überarbeitet: kurz und fachlich statt ausführlicher
+  Recherche-Historie
+
 ## [1.8.1] – Bugfix: Geräte-Suche fand keine Lautsprecher mehr
 
 **Hintergrund:** In 1.8.0 wurden die Parameter des mDNS-Callbacks

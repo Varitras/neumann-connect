@@ -1,9 +1,4 @@
-"""Gemeinsame Hilfsfunktionen für verschachtelte SSC-JSON-Strukturen.
-
-Vorher waren `build_nested`/`deep_merge` sowohl in ssc_client.py als auch in
-coordinator.py separat implementiert (Code-Duplikation) - jetzt an einer
-Stelle, von beiden importiert.
-"""
+"""Gemeinsame Hilfsfunktionen für verschachtelte SSC-JSON-Strukturen."""
 
 from __future__ import annotations
 

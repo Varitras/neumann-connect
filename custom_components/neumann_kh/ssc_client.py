@@ -1,19 +1,11 @@
 """Eigenständiger asyncio-Client für das Sennheiser Sound Control Protocol (SSC).
 
-Neumann KH DSP Lautsprecher (KH 80, KH 120 II, KH 150, KH 750 DSP, ...) werden
-über SSC gesteuert: JSON-Nachrichten über eine TCP-Verbindung (Standardport 45),
-jede Nachricht durch "\\r\\n" oder "\\n" abgeschlossen (siehe Sennheiser SSC
-Developer's Guide, Abschnitt "TCP/IP").
+JSON über TCP (Standardport 45), jede Nachricht mit "\\r\\n" oder "\\n"
+abgeschlossen. "get" = Pfad mit Wert `null` anfragen, "set" = Pfad mit
+gewünschtem Wert senden.
 
-Eine "get"-Anfrage wird gestellt, indem der gewünschte Pfad mit dem JSON-Wert
-`null` angefragt wird, z. B. {"audio":{"out":{"mute":null}}}.
-Eine "set"-Anfrage liefert stattdessen den gewünschten Wert, z. B.
-{"audio":{"out":{"mute":true}}}.
-
-Wichtig für IPv6 Link-Local Adressen (fe80::...): Diese benötigen eine
-Scope-ID (Interface-Name), sonst kann das Betriebssystem die Route nicht
-auflösen. Der Client hängt die Scope-ID automatisch an, falls eine
-Link-Local-Adresse übergeben wurde und noch keine Scope-ID enthalten ist.
+IPv6 Link-Local-Adressen (fe80::...) brauchen eine Scope-ID (Interface) -
+wird automatisch angehängt, falls nötig.
 """
 
 from __future__ import annotations
@@ -24,6 +16,7 @@ import logging
 from typing import Any
 
 from ._util import build_nested, deep_merge, extract
+from .const import DEFAULT_QUERY_SETTLE
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -45,15 +38,7 @@ class SSCTimeoutError(Exception):
 
 
 class SSCDeviceError(Exception):
-    """Wird ausgelöst, wenn das Gerät eine Anfrage explizit ablehnt (OSC-Fehlerantwort).
-
-    Beispiel (per echtem Hardware-Test bestätigt): Fragt man einen auf dem
-    Gerät nicht existierenden Pfad ab oder setzt ihn, antwortet die KH 120 II
-    mit {"osc":{"error":[400,{"desc":"message not understood"}]}} statt mit
-    dem erwarteten Wert. Ohne diese Erkennung würde ein solcher Fehler
-    unbemerkt im Ergebnis-Dict landen, statt dem Aufrufer klar zu signalisieren,
-    dass die Anfrage abgelehnt wurde.
-    """
+    """Gerät lehnt die Anfrage ab (OSC-Fehlerantwort, z. B. Fehler 400/404/405)."""
 
 
 class SSCClient:
@@ -65,7 +50,7 @@ class SSCClient:
         port: int,
         interface: str | None = None,
         timeout: float = 3.0,
-        settle_time: float = 0.4,
+        settle_time: float = DEFAULT_QUERY_SETTLE,
     ) -> None:
         self._host = host
         self._port = port
@@ -75,12 +60,8 @@ class SSCClient:
         self._reader: asyncio.StreamReader | None = None
         self._writer: asyncio.StreamWriter | None = None
         self._lock = asyncio.Lock()
-        # Priority-Mechanismus (siehe request(priority=True) und
-        # yield_if_priority_waiting()): Wird gesetzt, sobald eine Nutzeraktion
-        # (set) auf den Lock wartet, während ein langer Poll-Zyklus läuft. Der
-        # Poll prüft dieses Flag zwischen seinen Einzelabfragen und gibt dann
-        # den Lock kurz frei, damit die Nutzeraktion sofort drankommt, statt
-        # den gesamten restlichen Poll-Zyklus abwarten zu müssen.
+        # Signalisiert dem Poll-Loop, dass eine Nutzeraktion auf den Lock
+        # wartet (siehe request(priority=True)) - Poll gibt Lock dann frei.
         self._priority_waiting = asyncio.Event()
 
     @property
@@ -90,15 +71,7 @@ class SSCClient:
 
     @property
     def _connect_host(self) -> str:
-        """Hängt bei Link-Local-Adressen (fe80::/10) die Scope-ID (Interface) an.
-
-        IPv6 Link-Local umfasst laut RFC 4291 den Bereich fe80::/10, also die
-        Präfixe fe80 bis febf. In der Praxis vergeben alle bekannten KH-Geräte
-        zwar fe80, aber die Prüfung deckt den vollständigen Standardbereich ab.
-        Eine Scope-ID (z. B. "%eth0") wird nur angehängt, wenn die Adresse
-        noch keine enthält und ein Interface bekannt ist - ohne Scope-ID kann
-        das Betriebssystem eine Link-Local-Route nicht auflösen.
-        """
+        """Hängt bei Link-Local-Adressen (fe80::/10, RFC 4291) die Scope-ID an."""
         host = self._host
         if "%" not in host and self._interface and self._is_link_local(host):
             return f"{host}%{self._interface}"
@@ -192,15 +165,11 @@ class SSCClient:
         return results
 
     async def request(self, payload: dict, priority: bool = False) -> dict:
-        """Sendet eine SSC-Nachricht und liefert das (ggf. zusammengeführte) Ergebnis-Dict.
+        """Sendet eine SSC-Nachricht und liefert das zusammengeführte Ergebnis-Dict.
 
-        priority=True markiert eine Nutzeraktion (set/get, die auf eine direkte
-        Reaktion wartet). Läuft gerade ein langer Poll-Zyklus, der den Lock
-        hält, wird ihm über `_priority_waiting` signalisiert, den Lock nach
-        seiner nächsten Einzelabfrage kurz freizugeben - so wartet die
-        Nutzeraktion maximal eine Abfrage lang statt den gesamten restlichen
-        Zyklus. Das Flag wird zurückgesetzt, sobald diese Aktion den Lock
-        tatsächlich erhalten hat.
+        priority=True markiert eine Nutzeraktion: läuft gerade ein Poll-Zyklus,
+        wird ihm signalisiert, den Lock nach der aktuellen Einzelabfrage
+        freizugeben, statt den ganzen Zyklus abzuwarten.
         """
         if priority:
             self._priority_waiting.set()
@@ -244,11 +213,7 @@ class SSCClient:
         return extract(response, path)
 
     async def set(self, path: tuple[str, ...], value: Any, priority: bool = True) -> Any:
-        """Setzt einen Wert und gibt den vom Gerät bestätigten Wert zurück.
-
-        priority=True als Default, da ein "set" praktisch immer eine direkte
-        Nutzeraktion ist, die eine unmittelbare Reaktion erwartet.
-        """
+        """Setzt einen Wert und gibt den vom Gerät bestätigten Wert zurück."""
         response = await self.request(build_nested(path, value), priority=priority)
         return extract(response, path)
 

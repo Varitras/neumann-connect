@@ -1,18 +1,8 @@
 """Sensor-Entities: Messwerte (dB) sowie reine Info-/Diagnose-Sensoren.
 
-Messwerte (Live-Pegel, Standby-Countdown, Temperatur) sind ohne passende
-HA-`device_class` für dB-Werte (es gibt keine offizielle device_class für
-Audiopegel in dB) - `state_class` und `native_unit_of_measurement` werden
-trotzdem gesetzt. Die Temperatur NUTZT die offizielle
-`SensorDeviceClass.TEMPERATURE`.
-
-Info-Sensoren liefern reine Textwerte ohne Einheit/state_class und sind als
-`entity_category: diagnostic` markiert.
-
-WICHTIG: `ui/input_gain` und `ui/control_mode` sind laut khtool-Metadaten
-SCHREIBBAR und deshalb NICHT hier, sondern als `number` bzw. `select`
-umgesetzt (siehe number.py/select.py) - ein Pfad bekommt nur EINE Entity,
-nie eine read-only UND eine read-write Variante gleichzeitig.
+Info-Sensoren liefern reine Textwerte und sind als `entity_category:
+diagnostic` markiert. Nicht schreibbare Werte (per Test bestätigt) landen
+hier statt in number.py/select.py.
 """
 
 from __future__ import annotations
@@ -38,6 +28,8 @@ from .const import (
     PATH_DEVICE_TEMPERATURE,
     PATH_IDENTITY_HW_VERSION,
     PATH_INPUT_CURRENT,
+    PATH_INPUT_GAIN,
+    PATH_INPUT_SELECT,
     PATH_METER_INPUT_LEVEL,
     PATH_METER_OUTPUT_LEVEL,
     PATH_OUT1_LABEL,
@@ -46,6 +38,16 @@ from .const import (
     PATH_OUT2_LOUDSPEAKER,
     PATH_OUTPUT_LABEL,
     PATH_STANDBY_COUNTDOWN,
+    PATH_UI_BASS_MANAGEMENT,
+    PATH_UI_CHANNEL_B_INPUT_MODE,
+    PATH_UI_MID_GAIN,
+    PATH_UI_OUTPUT_LEVEL,
+    PATH_UI_SUB_INPUT_GAIN,
+    PATH_UI_SUB_LOW_CUT,
+    PATH_UI_SUB_OUTPUT_LEVEL,
+    PATH_UI_SUB_PHASE,
+    PATH_UI_SUB_PHASE_INVERSION,
+    PATH_UI_TREBLE_GAIN,
 )
 from .coordinator import NeumannKHCoordinator
 from .entity import NeumannKHEntity
@@ -57,16 +59,14 @@ _LOGGER = logging.getLogger(__name__)
 class NeumannKHSensorDescription(SensorEntityDescription):
     """Beschreibung einer Sensor-Entity inkl. SSC-Pfad.
 
-    numeric: Ob der Wert als Zahl behandelt werden soll (float-Konvertierung,
-    z. B. für dB-Messwerte) oder als reiner Text (z. B. Eingangstyp).
-    kelvin_to_celsius: Rohwert wird als Kelvin interpretiert und nach Celsius
-    umgerechnet (laut khtool-Metadaten bestätigt: Einheit "K").
+    numeric: Zahl (float-Konvertierung) oder reiner Text.
+    kelvin_to_celsius: Rohwert ist Kelvin, wird nach Celsius umgerechnet.
     """
 
     ssc_path: tuple[str, ...] = ()
     numeric: bool = True
     kelvin_to_celsius: bool = False
-    translate_unknown: bool = False  # "UNKNOWN" -> "Nicht zugewiesen" (siehe Sammel-Liste Punkt 9)
+    translate_unknown: bool = False  # "UNKNOWN" -> "Nicht zugewiesen"
 
 
 COMMON_SENSOR_DESCRIPTIONS: tuple[NeumannKHSensorDescription, ...] = (
@@ -106,6 +106,50 @@ COMMON_SENSOR_DESCRIPTIONS: tuple[NeumannKHSensorDescription, ...] = (
     ),
 )
 
+# Nur bei Nicht-Subwoofer-Modellen. Per Test bestätigt nicht schreibbar.
+NON_SUBWOOFER_SENSOR_DESCRIPTIONS: tuple[NeumannKHSensorDescription, ...] = (
+    NeumannKHSensorDescription(
+        key="input_gain",
+        translation_key="input_gain",
+        icon="mdi:tune-vertical",
+        native_unit_of_measurement="dB",
+        state_class=SensorStateClass.MEASUREMENT,
+        ssc_path=PATH_INPUT_GAIN,
+    ),
+    NeumannKHSensorDescription(
+        key="input_select",
+        translation_key="input_select",
+        icon="mdi:audio-input-rca",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        ssc_path=PATH_INPUT_SELECT,
+        numeric=False,
+    ),
+    NeumannKHSensorDescription(
+        key="mid_gain",
+        translation_key="mid_gain",
+        icon="mdi:sine-wave",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        ssc_path=PATH_UI_MID_GAIN,
+        numeric=False,
+    ),
+    NeumannKHSensorDescription(
+        key="treble_gain",
+        translation_key="treble_gain",
+        icon="mdi:sine-wave",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        ssc_path=PATH_UI_TREBLE_GAIN,
+        numeric=False,
+    ),
+    NeumannKHSensorDescription(
+        key="output_level_select",
+        translation_key="output_level_select",
+        icon="mdi:volume-high",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        ssc_path=PATH_UI_OUTPUT_LEVEL,
+        numeric=False,
+    ),
+)
+
 # Nur bei erkanntem Subwoofer (siehe MODELS_WITH_SUBWOOFER_FEATURES)
 SUBWOOFER_SENSOR_DESCRIPTIONS: tuple[NeumannKHSensorDescription, ...] = (
     NeumannKHSensorDescription(
@@ -127,10 +171,6 @@ SUBWOOFER_SENSOR_DESCRIPTIONS: tuple[NeumannKHSensorDescription, ...] = (
         entity_registry_enabled_default=False,  # hochfrequente Live-Werte, standardmäßig aus
         ssc_path=PATH_METER_OUTPUT_LEVEL,
     ),
-    # out1/out2 "loudspeaker" hat laut khtool-Metadaten zwar eine feste
-    # Optionsliste, aber KEIN "writeable"-Flag (anders als alle anderen
-    # bestätigt schreibbaren Felder) - bleibt deshalb vorsichtshalber
-    # read-only, statt es ungeprüft als `select` umzusetzen.
     NeumannKHSensorDescription(
         key="out1_label",
         translation_key="out1_label",
@@ -177,6 +217,63 @@ SUBWOOFER_SENSOR_DESCRIPTIONS: tuple[NeumannKHSensorDescription, ...] = (
         ssc_path=PATH_OUTPUT_LABEL,
         numeric=False,
     ),
+    # Per Test bestätigt nicht schreibbar - reine Lesewerte.
+    NeumannKHSensorDescription(
+        key="bass_management",
+        translation_key="bass_management",
+        icon="mdi:speaker",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        ssc_path=PATH_UI_BASS_MANAGEMENT,
+        numeric=False,
+    ),
+    NeumannKHSensorDescription(
+        key="channel_b_input_mode",
+        translation_key="channel_b_input_mode",
+        icon="mdi:import",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        ssc_path=PATH_UI_CHANNEL_B_INPUT_MODE,
+        numeric=False,
+    ),
+    NeumannKHSensorDescription(
+        key="subwoofer_input_gain",
+        translation_key="subwoofer_input_gain",
+        icon="mdi:tune-vertical",
+        native_unit_of_measurement="dB",
+        state_class=SensorStateClass.MEASUREMENT,
+        ssc_path=PATH_UI_SUB_INPUT_GAIN,
+    ),
+    NeumannKHSensorDescription(
+        key="subwoofer_low_cut",
+        translation_key="subwoofer_low_cut",
+        icon="mdi:sine-wave",
+        native_unit_of_measurement="dB",
+        state_class=SensorStateClass.MEASUREMENT,
+        ssc_path=PATH_UI_SUB_LOW_CUT,
+    ),
+    NeumannKHSensorDescription(
+        key="subwoofer_output_level",
+        translation_key="subwoofer_output_level",
+        icon="mdi:volume-high",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        ssc_path=PATH_UI_SUB_OUTPUT_LEVEL,
+        numeric=False,
+    ),
+    NeumannKHSensorDescription(
+        key="subwoofer_phase",
+        translation_key="subwoofer_phase",
+        icon="mdi:rotate-360",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        ssc_path=PATH_UI_SUB_PHASE,
+        numeric=False,
+    ),
+    NeumannKHSensorDescription(
+        key="subwoofer_phase_inversion",
+        translation_key="subwoofer_phase_inversion",
+        icon="mdi:sine-wave",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        ssc_path=PATH_UI_SUB_PHASE_INVERSION,
+        numeric=False,
+    ),
 )
 
 
@@ -189,6 +286,8 @@ async def async_setup_entry(
     descriptions = list(COMMON_SENSOR_DESCRIPTIONS)
     if entry.data.get(CONF_MODEL) in MODELS_WITH_SUBWOOFER_FEATURES:
         descriptions.extend(SUBWOOFER_SENSOR_DESCRIPTIONS)
+    else:
+        descriptions.extend(NON_SUBWOOFER_SENSOR_DESCRIPTIONS)
 
     async_add_entities(
         NeumannKHSensor(coordinator, entry, description) for description in descriptions
@@ -220,19 +319,14 @@ class NeumannKHSensor(NeumannKHEntity, SensorEntity):
                 return "Nicht zugewiesen"
             return value
 
-        # Die Live-Pegelmessungen (m/in/level, m/out/level) liefern lt.
-        # echtem Hardware-Test LISTEN von Werten (ein Wert pro Kanal), kein
-        # Einzelwert. Wir zeigen den lautesten (höchsten) Kanal an. Dabei nur
-        # tatsächlich numerische Listeneinträge berücksichtigen, damit ein
-        # unerwarteter Fremdwert die max()-Auswertung nicht sprengt.
+        # Live-Pegel liefern eine LISTE (ein Wert pro Kanal) - lautesten Kanal anzeigen.
         if isinstance(value, list):
             numeric_items = [v for v in value if isinstance(v, (int, float))]
             if not numeric_items:
                 return None
             value = max(numeric_items)
 
-        # Defensive Konvertierung: nicht-numerische Werte führen zu "unbekannt"
-        # statt zu einer Exception im Statusabgleich.
+        # Defensive Konvertierung: nicht-numerischer Wert -> "unbekannt" statt Exception.
         try:
             numeric_value = float(value)
         except (ValueError, TypeError):

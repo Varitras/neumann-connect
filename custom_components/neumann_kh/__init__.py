@@ -28,14 +28,7 @@ PLATFORMS: list[Platform] = [
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Richtet einen Config Entry (einen Lautsprecher) ein.
-
-    `async_config_entry_first_refresh()` wandelt einen fehlschlagenden ersten
-    Poll-Versuch automatisch in `ConfigEntryNotReady` um - HA versucht das
-    Setup dann später von selbst erneut, statt die Integration dauerhaft
-    fehlschlagen zu lassen (das ist die Meldung "Failed setup, will retry",
-    die z. B. bei einem kurzzeitig nicht erreichbaren Lautsprecher erscheint).
-    """
+    """Richtet einen Config Entry (einen Lautsprecher) ein."""
     client = SSCClient(
         host=entry.data[CONF_HOST],
         port=entry.data.get(CONF_PORT, DEFAULT_PORT),
@@ -56,14 +49,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Entlädt einen Config Entry und schließt die TCP-Verbindung sauber.
-
-    Die Verbindung wird auch dann geschlossen, wenn das Entladen der
-    Plattformen fehlschlägt - ein offener Socket soll nicht zurückbleiben,
-    nur weil eine Plattform sich nicht sauber entladen ließ. Der Coordinator
-    wird nur bei erfolgreichem Unload aus hass.data entfernt (sonst bleibt er
-    für einen späteren erneuten Unload-Versuch referenzierbar).
-    """
+    """Entlädt einen Config Entry und schließt die TCP-Verbindung sauber."""
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
     coordinator: NeumannKHCoordinator | None = hass.data.get(DOMAIN, {}).get(entry.entry_id)

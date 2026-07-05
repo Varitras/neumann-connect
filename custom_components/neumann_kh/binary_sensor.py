@@ -1,16 +1,10 @@
 """Binary-Sensor-Entities: Clip-Anzeige, Warnungs-Indikator sowie (nur
 Subwoofer) Digital-Bypass und Auto-Standby-Status (nur lesend).
 
-Clip/Warnungen liefert das Gerät als LISTE (Clip: ein Bool pro Kanal;
-Warnungen: eine Liste von Warncodes, z. B. ["NO_WARNING"] im Normalzustand).
-Die jeweils rohe Liste wird zusätzlich als Attribut mitgegeben.
+Clip/Warnungen liefert das Gerät als Liste (ein Wert pro Kanal).
 
-WICHTIGE KORREKTUR zu Auto-Standby: Die Schreibbarkeit von
-"device/standby/enabled" ist MODELLSPEZIFISCH, nicht universell nicht-
-schreibbar. Auf der KH 120 II funktioniert das Schreiben (siehe switch.py -
-dort als Switch für Nicht-Subwoofer-Modelle umgesetzt). Nur auf der KH 750
-wurde das Schreiben per echtem Hardware-Test abgelehnt (Fehler 405) - dort
-bleibt es deshalb bei diesem reinen Lesewert.
+Auto-Standby ist modellspezifisch: auf der KH 120 II als Switch schreibbar
+(siehe switch.py), auf der KH 750 nur lesend (Schreiben abgelehnt).
 """
 
 from __future__ import annotations
@@ -41,8 +35,7 @@ from .const import (
 from .coordinator import NeumannKHCoordinator
 from .entity import NeumannKHEntity
 
-# Wert, den das Gerät im warnungsfreien Normalzustand liefert (siehe echter
-# khtool-Dump: {"warnings":["NO_WARNING"]}).
+# Wert im warnungsfreien Normalzustand.
 _NO_WARNING = "NO_WARNING"
 
 
@@ -73,8 +66,7 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[NeumannKHBinarySensorDescription, ...] = (
     ),
 )
 
-# Nur bei erkanntem Subwoofer (siehe MODELS_WITH_SUBWOOFER_FEATURES) -
-# Pendant zu input_clip, aber für die Ausgänge (Hauptausgang + out1 + out2).
+# Nur bei erkanntem Subwoofer.
 SUBWOOFER_BINARY_SENSOR_DESCRIPTIONS: tuple[NeumannKHBinarySensorDescription, ...] = (
     NeumannKHBinarySensorDescription(
         key="output_clip",

@@ -96,17 +96,10 @@ Neumann Control App vergeben hast, lässt du das Interface-Feld einfach leer.
 
 ## Angelegte Entities pro Lautsprecher
 
-Wertebereiche/Optionen unten stammen aus **khtools interner
-`khtool_commands.json`-Metadaten-Datenbank** (strukturierte Angaben zu Typ,
-Schreibbarkeit, Min/Max, exakten Optionen je Modell/Firmware) - deutlich
-zuverlässiger als reines Schätzen. Wichtige Einschränkung: Diese Datei
-beschreibt nicht immer 1:1 das tatsächliche Geräteverhalten (siehe
-"Bekannte Grenzen" unten, Auto-Standby-Beispiel) - wo ein echter
-Hardware-Test etwas anderes gezeigt hat, hat der Test Vorrang.
-
 **Standard-Aktivierung (Nicht-Subwoofer-Modelle wie KH 120 II):** Alle
 Entities sind standardmäßig aktiviert, **außer** "Dimm" (existiert dort
-nicht) und "Steuerungsmodus" (Sicherheits-Ausnahme, siehe unten).
+nicht), "Steuerungsmodus" (Sicherheits-Ausnahme) und "Einstellungen
+speichern" (nicht funktional).
 
 | Entity | Typ | Bereich | SSC-Pfad |
 |---|---|---|---|
@@ -116,23 +109,21 @@ nicht) und "Steuerungsmodus" (Sicherheits-Ausnahme, siehe unten).
 | Logo-Helligkeit* | `number` | 0–125 % | `ui/logo/brightness` |
 | Auto-Standby-Zeit | `number` | 1–240 min | `device/standby/auto_standby_time` |
 | Standby-Schwellwert | `number` | −80 bis −55 dBu | `device/standby/level` |
-| Eingangsverstärkung (nur Nicht-Subwoofer) | `number` | −15–0 dB | `ui/input_gain` |
 | Stummschaltung | `switch` | – | `audio/out/mute` |
 | Gerät identifizieren (An/Aus) | `switch` | – | `device/identification/visual` |
 | Phasenumkehr (nur Nicht-Subwoofer) | `switch` | – | `audio/out/phaseinversion` |
-| Auto-Standby (nur Nicht-Subwoofer; auf KH 750 stattdessen `binary_sensor`, siehe unten) | `switch` | – | `device/standby/enabled` |
-| Bass/Mitten/Höhen (nur Nicht-Subwoofer) | `select` | feste Stufen (z. B. Bass: -6/-4/-2/0 dB) | `ui/bass_gain`, `ui/mid_gain`, `ui/treble_gain` |
-| Ausgangspegel SPL (nur Nicht-Subwoofer) | `select` | 94/100/108/114 dB SPL | `ui/output_level` |
-| Eingangsauswahl (Default: deaktiviert, unverifiziert) | `select` | MONO/AES3 R/AES3 L/ANALOG | `ui/input_select` |
-| Eingangs-Interface (Default: deaktiviert bei Subwoofer, sonst aktiviert) | `select` | ANALOG ONLY/DIGITAL ONLY/DIGITAL DISCARDS ANALOG | `audio/in/interface` |
+| Auto-Standby (nur Nicht-Subwoofer; auf KH 750 stattdessen `binary_sensor`) | `switch` | – | `device/standby/enabled` |
+| Bass (nur Nicht-Subwoofer) | `select` | -6/-4/-2/0 dB | `ui/bass_gain` |
+| Eingangs-Interface (Default: deaktiviert bei Subwoofer, sonst aktiviert, Schreibbarkeit unverifiziert) | `select` | ANALOG ONLY/DIGITAL ONLY/DIGITAL DISCARDS ANALOG | `audio/in/interface` |
 | Steuerungsmodus (Default: **immer** deaktiviert, siehe Warnung unten) | `select` | NETWORK/LOCAL | `ui/control_mode` |
 | Gerätename (Default: deaktiviert) | `text` | max. 52 Zeichen | `device/name` |
 | Eingangspegel live | `sensor` | dB | `m/in/level` |
 | Standby-Countdown (Default: deaktiviert) | `sensor` | min | `device/standby/countdown` |
 | Hardware-Version, aktueller Eingang (Diagnose) | `sensor` | Text | `device/identity/hw_version`, `audio/in/current_input` |
+| Eingangsverstärkung, Eingangsauswahl, Mitten, Höhen, Ausgangspegel SPL (nur Nicht-Subwoofer; per Test nicht schreibbar, Diagnose) | `sensor` | dB bzw. Text | `ui/input_gain`, `ui/input_select`, `ui/mid_gain`, `ui/treble_gain`, `ui/output_level` |
 | Eingang übersteuert (Clip) | `binary_sensor` | – | `m/in/clip` |
 | Warnung (Diagnose) | `binary_sensor` | – | `warnings` |
-| Einstellungen speichern* | `button` | – | `device/save_settings` |
+| Einstellungen speichern* (Default: deaktiviert, per Test nicht funktional) | `button` | – | `device/save_settings` |
 | Werkseinstellungen wiederherstellen (Default: deaktiviert, Zwei-Schritt-Bestätigung) | `button` | – | `device/restore` |
 
 \* **Nur** bei KH 80 / KH 150 / KH 120 II – laut khtool-Dokumentation nicht bei
@@ -142,29 +133,19 @@ Einrichten und blendet diese Entities für die KH 750 aus.
 ### Zusätzliche Entities nur bei erkanntem Subwoofer (KH 750)
 
 Die KH 750 hat zwei zusätzliche Bass-Management-Ausgänge (`out1`/`out2`) für
-angeschlossene Zusatzlautsprecher, sowie mehrere subwooferspezifische
-Kalibrierungswerte. Alle unten gelisteten Entities werden **nur** angelegt,
-wenn beim Einrichten `KH 750` als Modell erkannt wurde. Alle sind
-standardmäßig **deaktiviert** (unverifizierte Wertebereiche bzw.
-Routing-Risiko, siehe "Bekannte Grenzen"), außer den beiden
-Subwoofer-Kalibrierungswerten (Eingangsverstärkung, Low-Cut) sowie
-Auto-Standby-Zeit/-Schwellwert (gemeinsam mit Nicht-Subwoofer-Modellen).
+angeschlossene Zusatzlautsprecher. Alle unten gelisteten Entities werden
+**nur** angelegt, wenn beim Einrichten `KH 750` als Modell erkannt wurde.
 
 | Entity | Typ | Bereich | SSC-Pfad |
 |---|---|---|---|
-| Subwoofer-Eingangsverstärkung | `number` | −12 bis +2 dB | `ui/subwoofer_input_gain` |
-| Subwoofer Low-Cut | `number` | −12–0 dB | `ui/subwoofer_low_cut` |
 | Ausgang 1/2 Pegel (Default: deaktiviert) | `number` | 0–120 dB | `audio/out1/level`, `audio/out2/level` |
 | Ausgang 1/2 Verzögerung (Default: deaktiviert) | `number` | 0–1000 Samples | `audio/out1/delay`, `audio/out2/delay` |
-| Subwoofer-Ausgangspegel | `select` | 94/100/108/114 dB SPL | `ui/subwoofer_output_level` |
-| Subwoofer-Phase | `select` | 0° / −45° / −90° / −135° | `ui/subwoofer_phase` |
-| Subwoofer-Phaseninversion | `select` | 0° / −180° | `ui/subwoofer_phase_inversion` |
-| Bass-Management (Default: deaktiviert, Routing-Risiko) | `select` | DISABLED/ACTIVE | `ui/bass_management` |
-| Kanal-B-Eingangsmodus (Default: deaktiviert, Routing-Risiko) | `select` | 4 feste Modi | `ui/channel_b_input_mode` |
-| Gerätetemperatur (Default: deaktiviert, Einheit unverifiziert) | `sensor` | °C (angenommen aus Kelvin) | `device/temperature` |
+| Ausgang 1/2 Stumm (Default: deaktiviert) | `switch` | – | `audio/out1/mute`, `audio/out2/mute` |
+| Gerätetemperatur (Default: aktiviert, Einheit Kelvin) | `sensor` | °C | `device/temperature` |
 | Ausgangspegel live (Default: deaktiviert) | `sensor` | dB | `m/out/level` |
 | Ausgangsbezeichnung (Hauptausgang, Diagnose) | `sensor` | Text | `audio/out/label` |
 | Ausgang 1/2 Bezeichnung, Ausgang 1/2 Lautsprecher (Default: deaktiviert, Diagnose, nur lesend) | `sensor` | Text ("Nicht zugewiesen" statt "UNKNOWN") | `audio/out1/label`, `audio/out1/loudspeaker`, `audio/out2/label`, `audio/out2/loudspeaker` |
+| Subwoofer-Eingangsverstärkung, Low-Cut, Ausgangspegel, Phase, Phaseninversion, Bass-Management, Kanal-B-Eingangsmodus (per Test nicht schreibbar, Diagnose) | `sensor` | dB bzw. Text | `ui/subwoofer_input_gain`, `ui/subwoofer_low_cut`, `ui/subwoofer_output_level`, `ui/subwoofer_phase`, `ui/subwoofer_phase_inversion`, `ui/bass_management`, `ui/channel_b_input_mode` |
 | Ausgang übersteuert (Clip, Default: deaktiviert) | `binary_sensor` | – | `m/out/clip` |
 | Digitaler Bypass (Diagnose) | `binary_sensor` | – | `audio/digital_bypass` |
 | Auto-Standby-Status (nur lesend – auf der KH 750 per Hardware-Test nicht schreibbar, siehe "Bekannte Grenzen") | `binary_sensor` | – | `device/standby/enabled` |
@@ -201,82 +182,45 @@ dieser Integration, sondern Home Assistants Kernmechanismus für
 ## Bekannte Grenzen
 
 - Der 7-/20-Band-Equalizer (`eq1`/`eq2`/`eq3`, alle Ausgänge) wird bewusst
-  nicht abgebildet (komplexe Array-Struktur, hohes Risiko für
-  Fehlbedienung) – bei Bedarf gerne als Erweiterung.
-- **Auto-Standby ist NUR auf der KH 750 nicht schreibbar** (auf der KH 120 II
-  funktioniert es per Nutzer-Test bestätigt): Auf der KH 750 wurde
-  `device/standby/enabled` per echtem Hardware-Test mit Fehler 405 ("method
-  not allowed") abgelehnt, ein alternativer Pfad (`ui/auto_standby`) mit
-  Fehler 400 ("message not understood"). Beide Tests liefen ausschließlich
-  gegen die KH 750 - eine frühere Version dieser Integration hatte das
-  fälschlich auf alle Modelle verallgemeinert. **Wichtige Lehre daraus:**
-  khtools Metadaten sind eine gute Quelle für Wertebereiche/Optionen, aber
-  keine Garantie, dass ein Pfad auf jedem Modell/jeder Firmware tatsächlich
-  schreibbar ist - und ein Testergebnis auf einem Gerät lässt sich nicht
-  automatisch auf ein anderes Modell übertragen. Deshalb: KH 120 II →
-  `switch` (schreibbar), KH 750 → `binary_sensor` (nur lesend).
-- **Eingangsumschaltung (KH 120 II) bleibt unverifiziert:** Sowohl
-  `ui/input_select` als auch `audio/in/interface` wurden mit falschen
-  Testwerten real abgelehnt; die laut Metadaten korrekten Werte
-  (MONO/AES3 R/AES3 L/ANALOG bzw. ANALOG ONLY/DIGITAL ONLY/DIGITAL
-  DISCARDS ANALOG) wurden noch nicht gegen echte Hardware getestet.
-- **Steuerungsmodus (`ui/control_mode`) bleibt IMMER standardmäßig
-  deaktiviert**, auch wenn sonst "alle Entities außer Dimm" aktiviert
-  sind: Ein Wechsel zu `LOCAL` könnte die Netzwerksteuerung – und damit
-  diese Integration – komplett vom Gerät trennen, bis manuell am Gerät
-  zurückgestellt wird. Das ist eine bewusste Sicherheits-Ausnahme.
-- **Werksreset (`device/restore`):** Der korrekte Wert
-  (`"FACTORY_DEFAULTS"`) ist jetzt durch khtools Metadaten-Datenbank
-  bestätigt (nicht mehr geraten wie in einer früheren Version dieser
-  Integration). Trotzdem bewusst mit einer **Zwei-Schritt-Sicherheits-
-  abfrage** umgesetzt: Der erste Tastendruck "bewaffnet" den Button nur
-  (mit einer Warnung als Benachrichtigung), der eigentliche Reset erfolgt
-  erst bei einem zweiten Druck innerhalb von 30 Sekunden. Alternativ (ohne
-  Netzwerk) läuft der Werksreset über eine physische Schalterfolge am
-  Gerät selbst:
+  nicht abgebildet (komplexe Array-Struktur, hohes Risiko für Fehlbedienung).
+- Auto-Standby ist nur auf der KH 750 nicht schreibbar (auf der KH 120 II
+  funktioniert es). Deshalb: KH 120 II → `switch`, KH 750 → `binary_sensor`.
+- Eingangsumschaltung (KH 120 II, `ui/input_select` bzw.
+  `audio/in/interface`) bleibt unverifiziert schreibbar - standardmäßig
+  deaktiviert bzw. nur lesend.
+- Steuerungsmodus (`ui/control_mode`) bleibt immer deaktiviert: ein Wechsel
+  zu `LOCAL` könnte die Netzwerksteuerung vom Gerät trennen.
+- Werksreset (`device/restore`) hat eine Zwei-Schritt-Sicherheitsabfrage:
+  erster Tastendruck bewaffnet nur, zweiter Druck innerhalb 30s löst aus.
+  Alternativ über eine physische Schalterfolge am Gerät selbst:
   - **KH 80 DSP:** Beim Booten (Logo noch rot) den SETTINGS-Schalter
     mehrfach hoch/runter bewegen, bis das Logo kurz pink flackert.
   - **KH 750:** Beim Booten (Power-LED durchgehend rot) den
     AUTO STANDBY/STANDBY-Schalter mehrfach hoch/runter bewegen.
   - **KH 120 II / KH 150:** Beim Booten (Logo blinkt) den CONTROL-Schalter
     mehrfach hoch/runter bewegen, bis das Logo kurz schnell rot/pink blinkt.
-  
+
   (Quelle: [Neumann KH Monitor Troubleshooting](https://help.neumann.com/hc/en-us/articles/39978248897049-KH-Monitor-Troubleshooting))
-- **Bass-Management/Kanal-B-Eingangsmodus (KH 750) bleiben standardmäßig
-  deaktiviert:** Ein falscher Wert könnte die Ausgangsroutung des gesamten
-  Subwoofer-Systems durcheinanderbringen.
-- `dimm` (`audio/out/dimm`) existiert per Hardware-Test auf einer KH 120 II
-  (Firmware 1_7_3) NICHT - die Entity bleibt bestehen (evtl. bei anderen
-  Modellen vorhanden), zeigt aber "unknown" und wirft beim Versuch, den
-  Wert zu ändern, eine klare Fehlermeldung.
-- `solo` (`audio/out/solo`) wurde entfernt - taucht im vollständigen
-  Geräte-Dump der KH 120 II nicht auf.
-- **"Identifizieren" ist ein Schalter, kein Auto-Stopp-Button:** Ein echter
-  Hardware-Test hat gezeigt, dass das Blinken zwar von selbst aufhört,
-  aber erst nach mehreren Minuten (nicht ~10 Sekunden, wie die allgemeine
-  SSC-Doku für andere Sennheiser-Geräte vermuten ließ).
-- **Gerätetemperatur (KH 750):** Einheit laut khtool-Metadaten bestätigt
-  Kelvin (307 → ≈ 34,85 °C) - Rechnung ist also nicht mehr nur eine
-  Annahme, sondern dokumentiert bestätigt.
+- Folgende KH-750-Werte sind per Test bestätigt nicht schreibbar und deshalb
+  reine Lesewerte: Bass-Management, Kanal-B-Eingangsmodus,
+  Subwoofer-Eingangsverstärkung/Low-Cut/Ausgangspegel/Phase/Phaseninversion.
+- Folgende KH-120-II-Werte sind ebenso per Test bestätigt nicht schreibbar:
+  Input Gain, Input Select, Mitten, Höhen, Ausgangspegel (SPL),
+  "Einstellungen speichern".
+- `dimm` (`audio/out/dimm`) existiert auf der KH 120 II nicht - Entity
+  bleibt bestehen (andere Modelle), zeigt dort "unbekannt".
+- "Identifizieren" ist ein Schalter, kein Auto-Stopp-Button: Das Blinken
+  hört erst nach mehreren Minuten von selbst auf.
+- Gerätetemperatur (KH 750): Einheit Kelvin, umgerechnet in °C.
 
 ## Code-Härtung
 
-Folgende Robustheits-Verbesserungen wurden ergänzt (Details siehe
-CHANGELOG.md):
-- Gemeinsame Hilfsfunktionen (`_util.py`) statt doppelter Implementierung in
-  `ssc_client.py` und `coordinator.py`
+Details siehe CHANGELOG.md. Kurzüberblick:
+- Gemeinsame Hilfsfunktionen (`_util.py`) statt doppelter Implementierung
 - Schutz gegen unerwartet große/nie terminierte Geräteantworten
-  (`asyncio.LimitOverrunError`)
-- Ein unerwarteter Fehler bei einem einzelnen Poll-Pfad reißt nicht mehr den
-  gesamten Poll-Zyklus mit - nur der betroffene Wert wird übersprungen
-- Gesamt-Zeitlimit für einen kompletten Poll-Zyklus (Schutz gegen ein
-  "hängendes" Gerät)
-- Leerer Name wird jetzt auch beim manuellen Setup abgelehnt (vorher nur
-  beim Scan-Schritt)
-- Ein unerwarteter Fehler beim mDNS-Scan führt zu einer klaren
-  Fehlermeldung statt eines Absturzes des Einrichtungs-Dialogs
-- Firmware-Version wird beim Einrichten zusätzlich ausgelesen und als
-  `sw_version` im Geräte-Info-Bereich angezeigt
+- Fehler bei einem einzelnen Poll-Pfad reißt nicht den ganzen Zyklus mit
+- Gesamt-Zeitlimit pro Poll-Zyklus, Priority-Pfad für Nutzeraktionen
+- Firmware-Version wird als `sw_version` im Geräte-Info angezeigt
 - Nutzeraktionen (Schalter/Regler/Auswahl) haben Vorrang vor einem laufenden
   Poll-Zyklus (Priority-Pfad) - reagieren dadurch direkt, ohne den Poll
   abzuwarten

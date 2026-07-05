@@ -1,38 +1,14 @@
 """DataUpdateCoordinator für die Neumann KH (SSC) Integration.
 
-Der Coordinator fragt bei jedem Poll-Zyklus JEDEN benötigten Wert EINZELN
-und explizit ab (eine eigene SSC-Nachricht pro Blattpfad).
+Fragt bei jedem Poll-Zyklus jeden Wert einzeln ab (eine SSC-Nachricht pro
+Blattpfad). Sammelnachrichten und Container-Abfragen (z. B. {"device":null})
+werden von der Firmware abgelehnt - nur einzelne, konkrete Blattpfade
+funktionieren zuverlässig.
 
-Hintergrund (per echtem Hardware-Test mit khtool bestätigt, zwei gescheiterte
-Zwischenschritte):
-1. Eine Sammelnachricht mit mehreren Blättern wird von der Firmware komplett
-   abgelehnt, sobald auch nur EIN Blatt darin unbekannt ist
-   ("message not understood", OSC-Fehler 400) - und zwar für ALLE Werte in
-   der Nachricht, nicht nur den fehlerhaften.
-2. Eine Container-Abfrage wie {"device":null} (in der Annahme, das Gerät
-   würde automatisch alle vorhandenen Blätter darunter zurückgeben) wird
-   ebenfalls abgelehnt ("address not found", OSC-Fehler 404).
-Einzig einzelne, konkrete, nachweislich existierende Blattpfade funktionieren
-zuverlässig - das macht auch khtool laut eigenem Log
-("Reading available commands ... from khtool_commands.json") tatsächlich so:
-pro Modell/Firmware eine Liste bekannter Einzelpfade, jeweils separat
-abgefragt.
-
-Fehlerbehandlung (drei Stufen):
-- Verbindungsfehler (Gerät nicht erreichbar, Timeout): lässt den GESAMTEN
-  Poll-Zyklus fehlschlagen (UpdateFailed) - deutet auf ein echtes
-  Erreichbarkeitsproblem hin.
-- Gerät lehnt EINEN einzelnen Pfad ab (SSCDeviceError, z. B. weil dieses
-  Modell/diese Firmware die Eigenschaft nicht unterstützt - wie "dimm" auf
-  der KH 120 II): nur dieser eine Wert wird übersprungen (Debug-Log), die
-  übrigen Werte werden trotzdem aktualisiert.
-- Unerwarteter Fehler bei einem einzelnen Pfad (z. B. ein Bug in einer
-  zukünftigen Änderung): wird geloggt und übersprungen, statt den gesamten
-  Poll-Zyklus (und damit alle Entities) mitzureißen.
-
-Zusätzlich begrenzt ein Gesamt-Zeitlimit (POLL_CYCLE_TIMEOUT_SECONDS) die
-Dauer eines kompletten Poll-Zyklus, damit ein "hängendes" (aber technisch
-noch antwortendes) Gerät nicht beliebig lange blockiert.
+Fehlerbehandlung: Verbindungsfehler lassen den ganzen Zyklus fehlschlagen.
+Ein abgelehnter/fehlerhafter Einzelpfad wird übersprungen, die übrigen Werte
+werden trotzdem aktualisiert. Ein Zeitlimit (POLL_CYCLE_TIMEOUT_SECONDS)
+verhindert, dass ein hängendes Gerät den Zyklus blockiert.
 """
 
 from __future__ import annotations
@@ -75,12 +51,10 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.client = client
         self.model = model
         self._poll_paths = list(POLL_PATHS)
-        # ui/logo/brightness existiert lt. khtool-Doku nur bei KH 80/150/120 II,
-        # NICHT bei KH 750 - wird deshalb nur bei passendem Modell abgefragt.
+        # Logo-Helligkeit nur bei passenden Modellen (nicht KH 750).
         if model in MODELS_WITH_LOGO_AND_SAVE:
             self._poll_paths.append(PATH_LOGO_BRIGHTNESS)
-        # Subwoofer-spezifische Pfade (out1/out2, Temperatur, Ausgangs-
-        # Metering, Subwoofer-UI-Werte) nur bei erkanntem Subwoofer abfragen.
+        # Subwoofer-spezifische Pfade nur bei erkanntem Subwoofer.
         if model in MODELS_WITH_SUBWOOFER_FEATURES:
             self._poll_paths.extend(SUBWOOFER_POLL_PATHS)
 
@@ -101,26 +75,15 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         reachable = False
         try:
             for path in self._poll_paths:
-                # Priority-Pfad (siehe SSCClient.request): Wartet gerade eine
-                # Nutzeraktion (z. B. ein Schalter-Tastendruck) auf den Lock,
-                # kurz pausieren. Das gibt den soeben (nach der letzten
-                # Einzelabfrage) freigegebenen Lock der wartenden Nutzeraktion,
-                # bevor der Poll ihn mit der nächsten Abfrage wieder greift -
-                # so drängelt sich die Nutzeraktion zwischen zwei Poll-Abfragen
-                # hinein, statt den gesamten restlichen Zyklus abzuwarten.
+                # Priority-Pfad: wartende Nutzeraktion kurz vorlassen.
                 if self.client.priority_waiting.is_set():
-                    # Ein kurzes Nachgeben genügt: sleep(0) reicht nicht immer,
-                    # da der Lock erst beim nächsten await-Punkt übernommen
-                    # wird - ein minimaler realer Sleep gibt der wartenden
-                    # Nutzeraktion zuverlässig den Vortritt.
                     await asyncio.sleep(0.05)
 
                 try:
                     value = await self.client.get(path)
                 except SSCDeviceError:
-                    # Dieser einzelne Pfad wird vom Gerät nicht unterstützt -
-                    # überspringen, aber mit den übrigen Pfaden weitermachen.
-                    reachable = True  # Gerät hat geantwortet, also grundsätzlich erreichbar
+                    # Pfad von diesem Gerät nicht unterstützt - überspringen.
+                    reachable = True
                     _LOGGER.debug(
                         "Pfad %s wird vom Gerät nicht unterstützt, überspringe", path
                     )
@@ -136,8 +99,6 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             raise UpdateFailed(f"Neumann KH nicht erreichbar: {err}") from err
 
         if not reachable:
-            # Keine einzige Anfrage war erfolgreich - eher ein echtes
-            # Erreichbarkeitsproblem als lauter zufällig nicht unterstützte Pfade.
             raise UpdateFailed("Neumann KH: keine der abgefragten Eigenschaften war erreichbar")
 
         return merged

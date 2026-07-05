@@ -1,9 +1,4 @@
-"""Text-Entity: Gerätename (device/name).
-
-Laut khtools interner Metadaten-Datenbank ist "device/name" ein
-schreibbares String-Feld (max. 52 Zeichen). Modellunabhängig, wird für alle
-Lautsprecher angelegt.
-"""
+"""Text-Entity: Gerätename (device/name), max. 52 Zeichen, modellunabhängig."""
 
 from __future__ import annotations
 
@@ -24,7 +19,7 @@ DEVICE_NAME_DESCRIPTION = TextEntityDescription(
     icon="mdi:tag-outline",
     mode=TextMode.TEXT,
     native_max=DEVICE_NAME_MAX_LENGTH,
-    entity_registry_enabled_default=False,  # ändert den am Gerät selbst angezeigten Namen - bewusst mit Bedacht
+    entity_registry_enabled_default=False,  # ändert den am Gerät angezeigten Namen
 )
 
 

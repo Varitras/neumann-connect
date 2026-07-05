@@ -49,9 +49,6 @@
       "logo_brightness": { "name": "Logo-Helligkeit" },
       "standby_auto_time": { "name": "Auto-Standby-Zeit" },
       "standby_level": { "name": "Standby-Schwellwert" },
-      "input_gain": { "name": "Eingangsverstärkung" },
-      "subwoofer_input_gain": { "name": "Subwoofer-Eingangsverstärkung" },
-      "subwoofer_low_cut": { "name": "Subwoofer Low-Cut" },
       "out1_level": { "name": "Ausgang 1 Pegel" },
       "out1_delay": { "name": "Ausgang 1 Verzögerung" },
       "out2_level": { "name": "Ausgang 2 Pegel" },
@@ -60,21 +57,15 @@
     "select": {
       "control_mode": { "name": "Steuerungsmodus" },
       "input_interface": { "name": "Eingangs-Interface" },
-      "bass_gain": { "name": "Bass" },
-      "mid_gain": { "name": "Mitten" },
-      "treble_gain": { "name": "Höhen" },
-      "output_level_select": { "name": "Ausgangspegel (SPL)" },
-      "input_select": { "name": "Eingangsauswahl" },
-      "subwoofer_output_level": { "name": "Subwoofer-Ausgangspegel" },
-      "subwoofer_phase": { "name": "Subwoofer-Phase" },
-      "subwoofer_phase_inversion": { "name": "Subwoofer-Phaseninversion" },
-      "bass_management": { "name": "Bass-Management" },
-      "channel_b_input_mode": { "name": "Kanal-B-Eingangsmodus" }
+      "bass_gain": { "name": "Bass" }
     },
     "switch": {
       "mute": { "name": "Stummschaltung" },
       "identify": { "name": "Identifizieren" },
-      "phase_invert": { "name": "Phasenumkehr" }
+      "phase_invert": { "name": "Phasenumkehr" },
+      "auto_standby": { "name": "Auto-Standby" },
+      "out1_mute": { "name": "Ausgang 1 Stumm" },
+      "out2_mute": { "name": "Ausgang 2 Stumm" }
     },
     "sensor": {
       "input_level_meter": { "name": "Eingangspegel (live)" },
@@ -87,7 +78,19 @@
       "out1_loudspeaker": { "name": "Ausgang 1 Lautsprecher" },
       "out2_label": { "name": "Ausgang 2 Bezeichnung" },
       "out2_loudspeaker": { "name": "Ausgang 2 Lautsprecher" },
-      "output_label": { "name": "Ausgangsbezeichnung" }
+      "output_label": { "name": "Ausgangsbezeichnung" },
+      "input_gain": { "name": "Eingangsverstärkung" },
+      "input_select": { "name": "Eingangsauswahl" },
+      "mid_gain": { "name": "Mitten" },
+      "treble_gain": { "name": "Höhen" },
+      "output_level_select": { "name": "Ausgangspegel (SPL)" },
+      "bass_management": { "name": "Bass-Management" },
+      "channel_b_input_mode": { "name": "Kanal-B-Eingangsmodus" },
+      "subwoofer_input_gain": { "name": "Subwoofer-Eingangsverstärkung" },
+      "subwoofer_low_cut": { "name": "Subwoofer Low-Cut" },
+      "subwoofer_output_level": { "name": "Subwoofer-Ausgangspegel" },
+      "subwoofer_phase": { "name": "Subwoofer-Phase" },
+      "subwoofer_phase_inversion": { "name": "Subwoofer-Phaseninversion" }
     },
     "binary_sensor": {
       "input_clip": { "name": "Eingang übersteuert" },

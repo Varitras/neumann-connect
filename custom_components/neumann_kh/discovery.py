@@ -1,19 +1,8 @@
 """Aktive mDNS/Zeroconf-Gerätesuche für Neumann KH (SSC) Lautsprecher.
 
-Die SSC-Spezifikation (Sennheiser Sound Control Protocol) schreibt vor, dass
-sich jedes SSC-Gerät, das TCP unterstützt, per DNS-SD (Apple Bonjour) unter
-dem Dienst-Typ "_ssc._tcp.local." im Netzwerk bekannt macht - genau wie z. B.
-AirPlay- oder Chromecast-Geräte.
-
-Dieses Modul nutzt Home Assistants bereits laufende Zeroconf-Instanz (kein
-zusätzlicher eigener mDNS-Listener), um für ein paar Sekunden aktiv nach
-solchen Diensten zu suchen (Scan-Button im Config Flow statt automatischer
-Hintergrund-Erkennung).
-
-Wichtiger Vorteil ggü. der manuellen IP-Eingabe: Bei Link-Local-IPv6-Adressen
-(fe80::...) liefert python-zeroconf über `parsed_scoped_addresses()` die
-Adresse bereits inklusive Scope-ID (z. B. "fe80::...%3") - das manuelle
-Auswählen des Netzwerk-Interfaces entfällt für automatisch gefundene Geräte.
+SSC-Geräte machen sich per DNS-SD unter "_ssc._tcp.local." bekannt. Nutzt
+Home Assistants laufende Zeroconf-Instanz für einen zeitlich begrenzten
+aktiven Scan (Scan-Button im Config Flow, keine Hintergrund-Erkennung).
 """
 
 from __future__ import annotations
@@ -48,23 +37,15 @@ async def async_scan_for_speakers(
 ) -> list[DiscoveredSpeaker]:
     """Sucht `duration` Sekunden lang aktiv nach SSC-Geräten im Netzwerk.
 
-    Gibt eine Liste roher Kandidaten zurück (Adresse + Port), noch OHNE
-    Identitätsabfrage (Modell/Seriennummer) - das übernimmt der Config Flow
-    im Anschluss über den normalen SSCClient, da mDNS TXT-Records das nicht
-    zuverlässig genug liefern.
+    Liefert nur Adresse + Port; Identitätsabfrage (Modell/Seriennummer)
+    übernimmt der Config Flow im Anschluss über den normalen SSCClient.
     """
     aiozc = await ha_zeroconf.async_get_async_instance(hass)
     found_names: set[str] = set()
 
     def _on_change(zeroconf, service_type, name, state_change) -> None:  # noqa: ANN001
-        # WICHTIG: python-zeroconf ruft diesen Handler mit BENANNTEN
-        # Argumenten auf (zeroconf=..., service_type=..., name=...,
-        # state_change=...), nicht rein positional. Die Parameternamen
-        # müssen deshalb exakt so heißen - ein Umbenennen (z. B. zu
-        # "_zeroconf") führt zu einem TypeError beim Aufruf und damit dazu,
-        # dass gar keine Geräte mehr gefunden werden (siehe CHANGELOG 1.8.1).
-        # `zeroconf`/`service_type` werden hier nicht verwendet, daher kein
-        # zusätzlicher Code - das ist normal für diesen Callback-Typ.
+        # Parameternamen müssen exakt so heißen - zeroconf ruft mit Keyword-
+        # Argumenten auf, ein Umbenennen bricht den Callback (siehe 1.8.1).
         if state_change is ServiceStateChange.Added:
             found_names.add(name)
 

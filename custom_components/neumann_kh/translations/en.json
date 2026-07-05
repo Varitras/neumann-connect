@@ -49,9 +49,6 @@
       "logo_brightness": { "name": "Logo brightness" },
       "standby_auto_time": { "name": "Auto standby time" },
       "standby_level": { "name": "Standby threshold level" },
-      "input_gain": { "name": "Input gain" },
-      "subwoofer_input_gain": { "name": "Subwoofer input gain" },
-      "subwoofer_low_cut": { "name": "Subwoofer low cut" },
       "out1_level": { "name": "Output 1 level" },
       "out1_delay": { "name": "Output 1 delay" },
       "out2_level": { "name": "Output 2 level" },
@@ -60,21 +57,15 @@
     "select": {
       "control_mode": { "name": "Control mode" },
       "input_interface": { "name": "Input interface" },
-      "bass_gain": { "name": "Bass gain" },
-      "mid_gain": { "name": "Mid gain" },
-      "treble_gain": { "name": "Treble gain" },
-      "output_level_select": { "name": "Output level (SPL)" },
-      "input_select": { "name": "Input select" },
-      "subwoofer_output_level": { "name": "Subwoofer output level" },
-      "subwoofer_phase": { "name": "Subwoofer phase" },
-      "subwoofer_phase_inversion": { "name": "Subwoofer phase inversion" },
-      "bass_management": { "name": "Bass management" },
-      "channel_b_input_mode": { "name": "Channel B input mode" }
+      "bass_gain": { "name": "Bass gain" }
     },
     "switch": {
       "mute": { "name": "Mute" },
       "identify": { "name": "Identify" },
-      "phase_invert": { "name": "Phase invert" }
+      "phase_invert": { "name": "Phase invert" },
+      "auto_standby": { "name": "Auto standby" },
+      "out1_mute": { "name": "Output 1 mute" },
+      "out2_mute": { "name": "Output 2 mute" }
     },
     "sensor": {
       "input_level_meter": { "name": "Input level (live)" },
@@ -87,7 +78,19 @@
       "out1_loudspeaker": { "name": "Output 1 loudspeaker" },
       "out2_label": { "name": "Output 2 label" },
       "out2_loudspeaker": { "name": "Output 2 loudspeaker" },
-      "output_label": { "name": "Output label" }
+      "output_label": { "name": "Output label" },
+      "input_gain": { "name": "Input gain" },
+      "input_select": { "name": "Input select" },
+      "mid_gain": { "name": "Mid gain" },
+      "treble_gain": { "name": "Treble gain" },
+      "output_level_select": { "name": "Output level (SPL)" },
+      "bass_management": { "name": "Bass management" },
+      "channel_b_input_mode": { "name": "Channel B input mode" },
+      "subwoofer_input_gain": { "name": "Subwoofer input gain" },
+      "subwoofer_low_cut": { "name": "Subwoofer low cut" },
+      "subwoofer_output_level": { "name": "Subwoofer output level" },
+      "subwoofer_phase": { "name": "Subwoofer phase" },
+      "subwoofer_phase_inversion": { "name": "Subwoofer phase inversion" }
     },
     "binary_sensor": {
       "input_clip": { "name": "Input clipping" },

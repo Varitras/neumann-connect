@@ -1,17 +1,10 @@
 """Button-Entities: 'Einstellungen speichern' und 'Werkseinstellungen wiederherstellen'.
 
-'Einstellungen speichern' (device/save_settings) ist lt. khtool-Dokumentation
-nur für KH 80 / KH 150 / KH 120 II verfügbar, NICHT für KH 750 - daher wird
-diese Entity nur bei passendem Modell angelegt.
+'Einstellungen speichern' nur bei KH 80/150/120 II (nicht KH 750; auf KH 120 II
+per Test nicht funktional, daher standardmäßig deaktiviert).
 
-'Werkseinstellungen wiederherstellen' (device/restore) ist laut khtools
-interner Metadaten-Datenbank bestätigt schreibbar (Werte "" oder
-"FACTORY_DEFAULTS"). TROTZDEM bewusst mit einer Zwei-Schritt-Sicherheits-
-abfrage umgesetzt: Der erste Druck "bewaffnet" den Button nur (zeigt eine
-Warnung als persistente Benachrichtigung), der eigentliche Reset erfolgt
-erst bei einem ZWEITEN Druck innerhalb von 30 Sekunden. Grund: Ein
-Werksreset ist eine destruktive Aktion an echter Hardware - das bleibt
-riskant, auch wenn der Wert jetzt dokumentiert bestätigt ist.
+'Werkseinstellungen wiederherstellen' mit Zwei-Schritt-Sicherheitsabfrage:
+erster Druck bewaffnet nur, zweiter Druck innerhalb 30s löst den Reset aus.
 """
 
 from __future__ import annotations
@@ -48,6 +41,7 @@ SAVE_SETTINGS_DESCRIPTION = ButtonEntityDescription(
     key="save_settings",
     translation_key="save_settings",
     icon="mdi:content-save-outline",
+    entity_registry_enabled_default=False,  # per Test nicht funktional (KH 120 II)
 )
 
 RESTORE_DESCRIPTION = ButtonEntityDescription(

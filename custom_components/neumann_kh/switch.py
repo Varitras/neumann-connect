@@ -1,28 +1,11 @@
 """Switch-Entities: Mute, Gerät identifizieren, Auto-Standby (nur Nicht-
 Subwoofer), Phasenumkehr (nur Nicht-Subwoofer).
 
-Per echtem Hardware-Test (khtool-Dump einer KH 120 II, Firmware 1_7_3)
-korrigiert:
-- "solo" existiert im vollständigen Geräte-Dump NICHT und wurde entfernt.
-- Es gibt nur EINE Phasenumkehr für den gesamten (Haupt-)Ausgang
-  ("audio/out/phaseinversion"), keine getrennte Ein-/Ausgangs-Phasenumkehr.
-  Existiert laut khtools Metadaten NUR bei Nicht-Subwoofer-Modellen (KH 750
-  hat stattdessen "subwoofer_phase_inversion", siehe select.py).
+"Identifizieren" ist ein Schalter statt eines Auto-Stopp-Buttons, da das
+Blinken erst nach mehreren Minuten von selbst aufhört.
 
-"Gerät identifizieren" (device/identification/visual) ist als SCHALTER
-umgesetzt, nicht als Auto-Stopp-Button: Ein echter Hardware-Test hat
-gezeigt, dass das Blinken zwar von selbst aufhört, aber erst nach mehreren
-Minuten (nicht ~10 Sekunden, wie die allgemeine SSC-Doku für andere
-Sennheiser-Geräte vermuten ließ) - ein An/Aus-Schalter gibt die Kontrolle
-darüber zurück an den Nutzer.
-
-"Auto-Standby" (device/standby/enabled): WICHTIGE KORREKTUR - Schreibbarkeit
-ist MODELLSPEZIFISCH, nicht universell nicht-schreibbar (wie in einer
-früheren Version dieser Integration fälschlich angenommen). Per echtem
-Nutzer-Test bestätigt: Auf der KH 120 II FUNKTIONIERT das Schreiben. Die
-Fehler 405 ("method not allowed") und 400 ("message not understood") wurden
-ausschließlich auf der KH 750 (Subwoofer) getestet und gelten nur dort -
-siehe binary_sensor.py für die dort verwendete, nur lesende Variante.
+"Auto-Standby" ist modellspezifisch schreibbar: auf der KH 120 II
+funktioniert das Schreiben, auf der KH 750 nicht (siehe binary_sensor.py).
 """
 
 from __future__ import annotations
@@ -40,6 +23,8 @@ from .const import (
     DOMAIN,
     MODELS_WITH_SUBWOOFER_FEATURES,
     PATH_IDENTIFY,
+    PATH_OUT1_MUTE,
+    PATH_OUT2_MUTE,
     PATH_OUTPUT_MUTE,
     PATH_OUTPUT_PHASE_INVERSION,
     PATH_STANDBY_ENABLED,
@@ -72,8 +57,7 @@ COMMON_SWITCH_DESCRIPTIONS: tuple[NeumannKHSwitchDescription, ...] = (
     ),
 )
 
-# Nur bei Nicht-Subwoofer-Modellen (existiert laut khtool-Metadaten nur dort,
-# bzw. ist dort nachweislich schreibbar - siehe Auto-Standby-Korrektur oben)
+# Nur bei Nicht-Subwoofer-Modellen (nur dort schreibbar).
 NON_SUBWOOFER_SWITCH_DESCRIPTIONS: tuple[NeumannKHSwitchDescription, ...] = (
     NeumannKHSwitchDescription(
         key="phase_invert",
@@ -89,6 +73,24 @@ NON_SUBWOOFER_SWITCH_DESCRIPTIONS: tuple[NeumannKHSwitchDescription, ...] = (
     ),
 )
 
+# Nur bei erkanntem Subwoofer.
+SUBWOOFER_SWITCH_DESCRIPTIONS: tuple[NeumannKHSwitchDescription, ...] = (
+    NeumannKHSwitchDescription(
+        key="out1_mute",
+        translation_key="out1_mute",
+        icon="mdi:volume-mute",
+        entity_registry_enabled_default=False,  # nur relevant, falls Out1 belegt ist
+        ssc_path=PATH_OUT1_MUTE,
+    ),
+    NeumannKHSwitchDescription(
+        key="out2_mute",
+        translation_key="out2_mute",
+        icon="mdi:volume-mute",
+        entity_registry_enabled_default=False,  # nur relevant, falls Out2 belegt ist
+        ssc_path=PATH_OUT2_MUTE,
+    ),
+)
+
 
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
@@ -99,6 +101,8 @@ async def async_setup_entry(
     descriptions = list(COMMON_SWITCH_DESCRIPTIONS)
     if entry.data.get(CONF_MODEL) not in MODELS_WITH_SUBWOOFER_FEATURES:
         descriptions.extend(NON_SUBWOOFER_SWITCH_DESCRIPTIONS)
+    else:
+        descriptions.extend(SUBWOOFER_SWITCH_DESCRIPTIONS)
 
     async_add_entities(
         NeumannKHSwitch(coordinator, entry, description) for description in descriptions

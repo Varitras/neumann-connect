@@ -48,12 +48,7 @@ _SELECTED_DEVICE = "selected_device"
 
 
 async def _async_get_interface_options(hass: HomeAssistant) -> list[selector.SelectOptionDict]:
-    """Ermittelt die auf dem HA-Host bekannten Netzwerk-Interfaces für das Dropdown.
-
-    Nutzt Home Assistants eingebaute network-Komponente (async_get_adapters),
-    die auch von anderen Integrationen (z. B. HomeKit, DLNA) zur
-    Interface-Auswahl verwendet wird - kein zusätzliches Python-Paket nötig.
-    """
+    """Ermittelt die auf dem HA-Host bekannten Netzwerk-Interfaces für das Dropdown."""
     options = [
         selector.SelectOptionDict(
             value=_NO_INTERFACE_VALUE,
@@ -97,14 +92,7 @@ def _build_manual_schema(interface_options: list[selector.SelectOptionDict]) -> 
 
 
 def _already_configured_serials(hass: HomeAssistant) -> set[str]:
-    """Sammelt die Seriennummern (unique_id) aller bereits eingerichteten Lautsprecher.
-
-    Wird genutzt, um in der Scan-Auswahlliste bereits verbundene Geräte zu
-    kennzeichnen, statt dass der Nutzer sie versehentlich ein zweites Mal
-    versucht hinzuzufügen (was ohnehin an `_abort_if_unique_id_configured()`
-    scheitern würde, aber ohne vorherige Kennzeichnung erst nach der Auswahl
-    auffällt statt schon in der Liste selbst).
-    """
+    """Sammelt die Seriennummern aller bereits eingerichteten Lautsprecher."""
     return {
         entry.unique_id
         for entry in hass.config_entries.async_entries(DOMAIN)
@@ -288,14 +276,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(step_id="scan", data_schema=self._build_scan_schema())
 
     def _build_scan_schema(self) -> vol.Schema:
-        """Baut das Auswahl-Formular aus den zuletzt gefundenen Geräten (self._discovered).
-
-        Bereits eingerichtete Lautsprecher werden in der Liste mit
-        "✓ Bereits verbunden" gekennzeichnet, bleiben aber auswählbar (falls
-        der Nutzer sie z. B. absichtlich neu einrichten will - der eigentliche
-        Schutz vor echten Duplikaten läuft weiterhin über
-        `_abort_if_unique_id_configured()` bei der tatsächlichen Auswahl).
-        """
+        """Baut das Auswahl-Formular aus den zuletzt gefundenen Geräten."""
         configured_serials = _already_configured_serials(self.hass)
         options = []
         for key, info in self._discovery_info.items():
