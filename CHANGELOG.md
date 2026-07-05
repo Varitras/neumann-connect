@@ -3,6 +3,37 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
+## [1.8.0] – Reaktivität & Robustheit
+
+### Hinzugefügt
+- **Priority-Pfad für Nutzeraktionen:** Ein "set" (z. B. Schalter, Auswahl,
+  Regler) drängelt sich jetzt zwischen zwei Einzelabfragen eines laufenden
+  Poll-Zyklus hinein, statt bis zu ~25s auf dessen Ende zu warten. Der Poll
+  gibt den Verbindungs-Lock nach seiner aktuellen Einzelabfrage kurz frei,
+  sobald eine Nutzeraktion darauf wartet (`SSCClient.priority_waiting`).
+  Schalter reagieren dadurch spürbar direkter, ohne dass parallele Zugriffe
+  auf denselben Socket entstehen (die Verbindung bleibt sauber serialisiert).
+
+### Geändert (Robustheit)
+- **Bestätigten Wert HA-idiomatisch einspielen:** `_apply_confirmed_value()`
+  nutzt jetzt den offiziellen `async_set_updated_data()`-Weg des Coordinators
+  (auf einer Kopie der Daten) statt `coordinator.data` direkt zu mutieren -
+  vermeidet subtile Races mit dem Listener-Mechanismus und benachrichtigt
+  alle gebundenen Entities konsistent.
+- **Defensive Zahlkonvertierung:** `number`- und `sensor`-Entities fangen
+  nicht-numerische Gerätewerte jetzt ab (zeigen "unbekannt" statt eine
+  Exception im Statusabgleich auszulösen). Bei Live-Pegel-Listen werden nur
+  tatsächlich numerische Einträge für die max()-Auswertung berücksichtigt.
+- **Verbindung immer schließen:** `async_unload_entry` schließt die
+  TCP-Verbindung jetzt auch dann, wenn das Entladen einer Plattform
+  fehlschlägt - kein offener Socket bleibt zurück.
+- **Korrekte Link-Local-Erkennung:** Die Scope-ID wird jetzt für den
+  gesamten IPv6-Link-Local-Bereich fe80::/10 (fe80–febf) angehängt, nicht
+  nur bei exakt "fe80"-Präfix (RFC 4291). Mit Grenzfall-Tests abgesichert.
+
+### Aufgeräumt
+- `discovery.py`: ungenutzte Callback-Parameter mit "_" markiert (kosmetisch).
+
 ## [1.7.0] – Bereits verbundene Lautsprecher in der Suche kennzeichnen
 
 ### Hinzugefügt

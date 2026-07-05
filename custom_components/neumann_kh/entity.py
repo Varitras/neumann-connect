@@ -47,23 +47,39 @@ class NeumannKHEntity(CoordinatorEntity[NeumannKHCoordinator]):
         self._unique_id_base = serial
 
     async def _apply_confirmed_value(self, path: tuple[str, ...], confirmed_value: Any) -> None:
-        """Übernimmt einen vom Gerät bestätigten Wert sofort in den Cache.
+        """Übernimmt einen vom Gerät bestätigten Wert sofort - ohne erneute Netzwerk-Anfrage.
 
-        Schreibt den Wert direkt in `coordinator.data` (ohne erneute
-        Netzwerk-Anfrage) und aktualisiert den Zustand dieser Entity sofort.
-        Andere Entities desselben Geräts sehen den neuen Wert beim nächsten
-        regulären Poll-Zyklus (max. 30s) - unkritisch, da nur die gerade
-        geänderte Entity eine sofortige Rückmeldung braucht.
+        Nach einem "set" bestätigt das Gerät in DERSELBEN Antwort bereits den
+        neuen, übernommenen Wert. Diesen direkt zu übernehmen (statt einen
+        kompletten Poll-Zyklus anzustoßen) vermeidet eine Race Condition, bei
+        der der geänderte Wert zurückgelesen werden könnte, BEVOR das Gerät ihn
+        intern übernommen hat - der Schalter/die Auswahl sprang dann kurz
+        zurück.
 
-        Falls das Gerät keinen eindeutigen Wert zurückliefert (None),
-        stattdessen sicherheitshalber einen echten Refresh anstoßen, damit
-        der Zustand langfristig nicht falsch hängen bleibt.
+        Umsetzung über den offiziellen `async_set_updated_data()`-Weg des
+        Coordinators (statt `coordinator.data` direkt zu mutieren): Das ist
+        HA-idiomatisch, benachrichtigt alle an den Coordinator gebundenen
+        Entities konsistent und vermeidet subtile Races mit dem
+        Listener-Mechanismus. Es wird auf einer KOPIE der aktuellen Daten
+        gearbeitet, damit kein gerade laufender Leser ein halb-aktualisiertes
+        dict sieht.
+
+        Liefert das Gerät ausnahmsweise keinen eindeutigen Wert zurück (None),
+        wird sicherheitshalber ein normaler Refresh angestoßen, damit der
+        Zustand langfristig nicht falsch hängen bleibt.
         """
         if confirmed_value is None:
             await self.coordinator.async_request_refresh()
             return
 
-        if self.coordinator.data is None:
-            self.coordinator.data = {}
-        deep_merge(self.coordinator.data, build_nested(path, confirmed_value))
-        self.async_write_ha_state()
+        # Flache Kopie der obersten Ebene genügt nicht, da deep_merge
+        # verschachtelte Dicts in-place verändert - deshalb eine echte
+        # (tiefe genug reichende) Kopie über den vorhandenen Merge-Mechanismus:
+        # zuerst die bestehenden Daten in ein frisches dict mergen, dann den
+        # neuen Wert. So bleibt das ursprüngliche coordinator.data unangetastet,
+        # bis async_set_updated_data es atomar ersetzt.
+        new_data: dict[str, Any] = {}
+        if self.coordinator.data:
+            deep_merge(new_data, self.coordinator.data)
+        deep_merge(new_data, build_nested(path, confirmed_value))
+        self.coordinator.async_set_updated_data(new_data)

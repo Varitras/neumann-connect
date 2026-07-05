@@ -101,6 +101,20 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         reachable = False
         try:
             for path in self._poll_paths:
+                # Priority-Pfad (siehe SSCClient.request): Wartet gerade eine
+                # Nutzeraktion (z. B. ein Schalter-Tastendruck) auf den Lock,
+                # kurz pausieren. Das gibt den soeben (nach der letzten
+                # Einzelabfrage) freigegebenen Lock der wartenden Nutzeraktion,
+                # bevor der Poll ihn mit der nächsten Abfrage wieder greift -
+                # so drängelt sich die Nutzeraktion zwischen zwei Poll-Abfragen
+                # hinein, statt den gesamten restlichen Zyklus abzuwarten.
+                if self.client.priority_waiting.is_set():
+                    # Ein kurzes Nachgeben genügt: sleep(0) reicht nicht immer,
+                    # da der Lock erst beim nächsten await-Punkt übernommen
+                    # wird - ein minimaler realer Sleep gibt der wartenden
+                    # Nutzeraktion zuverlässig den Vortritt.
+                    await asyncio.sleep(0.05)
+
                 try:
                     value = await self.client.get(path)
                 except SSCDeviceError:

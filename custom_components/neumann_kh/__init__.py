@@ -56,11 +56,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Entlädt einen Config Entry und schließt die TCP-Verbindung sauber."""
+    """Entlädt einen Config Entry und schließt die TCP-Verbindung sauber.
+
+    Die Verbindung wird auch dann geschlossen, wenn das Entladen der
+    Plattformen fehlschlägt - ein offener Socket soll nicht zurückbleiben,
+    nur weil eine Plattform sich nicht sauber entladen ließ. Der Coordinator
+    wird nur bei erfolgreichem Unload aus hass.data entfernt (sonst bleibt er
+    für einen späteren erneuten Unload-Versuch referenzierbar).
+    """
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-    if unload_ok:
-        coordinator: NeumannKHCoordinator = hass.data[DOMAIN].pop(entry.entry_id)
+
+    coordinator: NeumannKHCoordinator | None = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+    if coordinator is not None:
+        # Verbindung immer schließen, unabhängig vom Plattform-Unload-Ergebnis.
         await coordinator.client.close()
+        if unload_ok:
+            hass.data[DOMAIN].pop(entry.entry_id, None)
+
     return unload_ok
 
 

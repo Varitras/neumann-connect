@@ -24,6 +24,7 @@ bestehen (evtl. bei anderen Modellen vorhanden) und zeigt in diesem Fall
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any
 
@@ -79,6 +80,8 @@ from .const import (
 from .coordinator import NeumannKHCoordinator
 from .entity import NeumannKHEntity
 from .ssc_client import SSCDeviceError
+
+_LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -308,7 +311,19 @@ class NeumannKHNumber(NeumannKHEntity, NumberEntity):
         value = self.coordinator.value(self.entity_description.ssc_path)
         if value is None:
             return None
-        return float(value)
+        # Defensive Konvertierung: Sollte das Gerät wider Erwarten einen nicht
+        # in eine Zahl konvertierbaren Wert liefern (z. B. leerer String bei
+        # einem noch nicht initialisierten Feld), lieber None zurückgeben als
+        # den Statusabgleich der Entity mit einer Exception zu stören.
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            _LOGGER.debug(
+                "Nicht-numerischer Wert für %s: %r - zeige 'unbekannt'",
+                self.entity_description.key,
+                value,
+            )
+            return None
 
     async def async_set_native_value(self, value: float) -> None:
         """Schreibt den neuen Wert per SSC "set" und aktualisiert danach den Cache."""

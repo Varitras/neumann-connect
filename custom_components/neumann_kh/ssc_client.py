@@ -75,14 +75,43 @@ class SSCClient:
         self._reader: asyncio.StreamReader | None = None
         self._writer: asyncio.StreamWriter | None = None
         self._lock = asyncio.Lock()
+        # Priority-Mechanismus (siehe request(priority=True) und
+        # yield_if_priority_waiting()): Wird gesetzt, sobald eine Nutzeraktion
+        # (set) auf den Lock wartet, während ein langer Poll-Zyklus läuft. Der
+        # Poll prüft dieses Flag zwischen seinen Einzelabfragen und gibt dann
+        # den Lock kurz frei, damit die Nutzeraktion sofort drankommt, statt
+        # den gesamten restlichen Poll-Zyklus abwarten zu müssen.
+        self._priority_waiting = asyncio.Event()
+
+    @property
+    def priority_waiting(self) -> asyncio.Event:
+        """Event, das anzeigt, dass eine Nutzeraktion auf den Lock wartet."""
+        return self._priority_waiting
 
     @property
     def _connect_host(self) -> str:
-        """Hängt bei Link-Local-Adressen (fe80::...) die Scope-ID (Interface) an."""
+        """Hängt bei Link-Local-Adressen (fe80::/10) die Scope-ID (Interface) an.
+
+        IPv6 Link-Local umfasst laut RFC 4291 den Bereich fe80::/10, also die
+        Präfixe fe80 bis febf. In der Praxis vergeben alle bekannten KH-Geräte
+        zwar fe80, aber die Prüfung deckt den vollständigen Standardbereich ab.
+        Eine Scope-ID (z. B. "%eth0") wird nur angehängt, wenn die Adresse
+        noch keine enthält und ein Interface bekannt ist - ohne Scope-ID kann
+        das Betriebssystem eine Link-Local-Route nicht auflösen.
+        """
         host = self._host
-        if host.lower().startswith("fe80") and "%" not in host and self._interface:
+        if "%" not in host and self._interface and self._is_link_local(host):
             return f"{host}%{self._interface}"
         return host
+
+    @staticmethod
+    def _is_link_local(host: str) -> bool:
+        """Prüft, ob eine IPv6-Adresse im Link-Local-Bereich fe80::/10 liegt."""
+        prefix = host.lower().split("%", 1)[0][:4]
+        if len(prefix) < 4 or not prefix.startswith("fe"):
+            return False
+        # Drittes Hex-Zeichen muss im Bereich 8..b liegen (fe80..febf = /10).
+        return prefix[2] in "89ab"
 
     async def _ensure_connected(self) -> None:
         if self._writer is not None and not self._writer.is_closing():
@@ -162,9 +191,22 @@ class SSCClient:
                 _LOGGER.debug("Ungültige SSC-Antwort von %s ignoriert: %s", self._host, line)
         return results
 
-    async def request(self, payload: dict) -> dict:
-        """Sendet eine SSC-Nachricht und liefert das (ggf. zusammengeführte) Ergebnis-Dict."""
+    async def request(self, payload: dict, priority: bool = False) -> dict:
+        """Sendet eine SSC-Nachricht und liefert das (ggf. zusammengeführte) Ergebnis-Dict.
+
+        priority=True markiert eine Nutzeraktion (set/get, die auf eine direkte
+        Reaktion wartet). Läuft gerade ein langer Poll-Zyklus, der den Lock
+        hält, wird ihm über `_priority_waiting` signalisiert, den Lock nach
+        seiner nächsten Einzelabfrage kurz freizugeben - so wartet die
+        Nutzeraktion maximal eine Abfrage lang statt den gesamten restlichen
+        Zyklus. Das Flag wird zurückgesetzt, sobald diese Aktion den Lock
+        tatsächlich erhalten hat.
+        """
+        if priority:
+            self._priority_waiting.set()
         async with self._lock:
+            if priority:
+                self._priority_waiting.clear()
             await self._ensure_connected()
             try:
                 await self._send_raw(payload)
@@ -196,14 +238,18 @@ class SSCClient:
 
             return merged
 
-    async def get(self, path: tuple[str, ...]) -> Any:
+    async def get(self, path: tuple[str, ...], priority: bool = False) -> Any:
         """Fragt einen einzelnen Wert ab (get = Anfrage mit JSON null)."""
-        response = await self.request(build_nested(path, None))
+        response = await self.request(build_nested(path, None), priority=priority)
         return extract(response, path)
 
-    async def set(self, path: tuple[str, ...], value: Any) -> Any:
-        """Setzt einen Wert und gibt den vom Gerät bestätigten Wert zurück."""
-        response = await self.request(build_nested(path, value))
+    async def set(self, path: tuple[str, ...], value: Any, priority: bool = True) -> Any:
+        """Setzt einen Wert und gibt den vom Gerät bestätigten Wert zurück.
+
+        priority=True als Default, da ein "set" praktisch immer eine direkte
+        Nutzeraktion ist, die eine unmittelbare Reaktion erwartet.
+        """
+        response = await self.request(build_nested(path, value), priority=priority)
         return extract(response, path)
 
     @staticmethod

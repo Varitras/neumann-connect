@@ -56,7 +56,10 @@ async def async_scan_for_speakers(
     aiozc = await ha_zeroconf.async_get_async_instance(hass)
     found_names: set[str] = set()
 
-    def _on_change(zeroconf, service_type, name, state_change) -> None:  # noqa: ANN001
+    def _on_change(_zeroconf, _service_type, name, state_change) -> None:  # noqa: ANN001
+        # Signatur von zeroconf vorgegeben; nur `name` und `state_change`
+        # werden benötigt, die übrigen Parameter sind mit "_" als ungenutzt
+        # markiert.
         if state_change is ServiceStateChange.Added:
             found_names.add(name)
 

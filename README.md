@@ -277,4 +277,15 @@ CHANGELOG.md):
   Fehlermeldung statt eines Absturzes des Einrichtungs-Dialogs
 - Firmware-Version wird beim Einrichten zusätzlich ausgelesen und als
   `sw_version` im Geräte-Info-Bereich angezeigt
+- Nutzeraktionen (Schalter/Regler/Auswahl) haben Vorrang vor einem laufenden
+  Poll-Zyklus (Priority-Pfad) - reagieren dadurch direkt, ohne den Poll
+  abzuwarten
+- Bestätigte Werte werden HA-idiomatisch über `async_set_updated_data()`
+  eingespielt (statt direkter Cache-Mutation)
+- `number`/`sensor` fangen nicht-numerische Gerätewerte defensiv ab (zeigen
+  "unbekannt" statt eine Exception auszulösen)
+- Die TCP-Verbindung wird beim Entladen immer geschlossen, auch wenn eine
+  Plattform sich nicht sauber entladen lässt
+- Link-Local-Scope-ID wird für den vollständigen Bereich fe80::/10 korrekt
+  angehängt (RFC 4291)
 

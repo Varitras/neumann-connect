@@ -17,6 +17,7 @@ nie eine read-only UND eine read-write Variante gleichzeitig.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 
 from homeassistant.components.sensor import (
@@ -48,6 +49,8 @@ from .const import (
 )
 from .coordinator import NeumannKHCoordinator
 from .entity import NeumannKHEntity
+
+_LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -219,13 +222,26 @@ class NeumannKHSensor(NeumannKHEntity, SensorEntity):
 
         # Die Live-Pegelmessungen (m/in/level, m/out/level) liefern lt.
         # echtem Hardware-Test LISTEN von Werten (ein Wert pro Kanal), kein
-        # Einzelwert. Wir zeigen den lautesten (höchsten) Kanal an.
+        # Einzelwert. Wir zeigen den lautesten (höchsten) Kanal an. Dabei nur
+        # tatsächlich numerische Listeneinträge berücksichtigen, damit ein
+        # unerwarteter Fremdwert die max()-Auswertung nicht sprengt.
         if isinstance(value, list):
-            if not value:
+            numeric_items = [v for v in value if isinstance(v, (int, float))]
+            if not numeric_items:
                 return None
-            value = max(value)
+            value = max(numeric_items)
 
-        numeric_value = float(value)
+        # Defensive Konvertierung: nicht-numerische Werte führen zu "unbekannt"
+        # statt zu einer Exception im Statusabgleich.
+        try:
+            numeric_value = float(value)
+        except (ValueError, TypeError):
+            _LOGGER.debug(
+                "Nicht-numerischer Wert für %s: %r - zeige 'unbekannt'",
+                self.entity_description.key,
+                value,
+            )
+            return None
         if self.entity_description.kelvin_to_celsius:
             numeric_value -= 273.15
         return numeric_value
