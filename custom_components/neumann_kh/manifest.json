@@ -1,0 +1,13 @@
+{
+  "domain": "neumann_kh",
+  "name": "Neumann KH (SSC)",
+  "codeowners": [],
+  "config_flow": true,
+  "dependencies": ["zeroconf"],
+  "documentation": "https://github.com/schwinn/khtool",
+  "integration_type": "device",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/schwinn/khtool/issues",
+  "requirements": [],
+  "version": "1.2.0"
+}
