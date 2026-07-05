@@ -1,0 +1,62 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add Neumann KH speaker",
+        "menu_options": {
+          "scan": "Search network automatically",
+          "manual": "Enter manually (IP address)"
+        }
+      },
+      "manual": {
+        "title": "Manual setup",
+        "description": "Connection details for the speaker (SSC protocol, port 45).",
+        "data": {
+          "name": "Name (e.g. \"KH 120 II Left\")",
+          "host": "IP address (IPv6 link-local fe80::... or IPv4)",
+          "interface": "Network interface (select from list, or type a custom value if not shown — only needed for link-local addresses)",
+          "port": "Port"
+        }
+      },
+      "scan": {
+        "title": "Discovered speakers",
+        "description": "Select a discovered device and give it a name. Submitting with no device selected will search again.",
+        "data": {
+          "selected_device": "Discovered device",
+          "name": "Name (e.g. \"KH 120 II Left\")"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the speaker. Check IP address and interface.",
+      "timeout": "Timeout - no response received from the speaker.",
+      "interface_required_for_link_local": "A fe80:: address requires the network interface to be set.",
+      "no_devices_found": "No SSC speakers found on the network. Submit again to retry, or go back and choose manual setup.",
+      "discovery_expired": "The device list has expired, please search again.",
+      "name_required": "Please enter a name for the device.",
+      "unknown": "Unexpected error."
+    },
+    "abort": {
+      "already_configured": "This speaker is already configured."
+    }
+  },
+  "entity": {
+    "number": {
+      "output_level": { "name": "Output level" },
+      "output_dimm": { "name": "Dimm" },
+      "output_delay": { "name": "Delay" },
+      "logo_brightness": { "name": "Logo brightness" }
+    },
+    "switch": {
+      "mute": { "name": "Mute" },
+      "phase_invert": { "name": "Phase invert" }
+    },
+    "sensor": {
+      "input_gain": { "name": "Input gain" },
+      "input_level_meter": { "name": "Input level (live)" }
+    },
+    "button": {
+      "save_settings": { "name": "Save settings" }
+    }
+  }
+}

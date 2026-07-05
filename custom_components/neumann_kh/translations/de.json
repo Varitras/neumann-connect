@@ -1,0 +1,62 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Neumann KH Lautsprecher hinzufügen",
+        "menu_options": {
+          "scan": "Automatisch im Netzwerk suchen",
+          "manual": "Manuell eingeben (IP-Adresse)"
+        }
+      },
+      "manual": {
+        "title": "Manuelle Einrichtung",
+        "description": "Verbindungsdaten des Lautsprechers (SSC-Protokoll, Port 45).",
+        "data": {
+          "name": "Name (z. B. \"KH 120 II Links\")",
+          "host": "IP-Adresse (IPv6 Link-Local fe80::... oder IPv4)",
+          "interface": "Netzwerk-Interface (aus Liste wählen, oder eigenen Wert eintippen, falls nicht gelistet – nur bei Link-Local nötig)",
+          "port": "Port"
+        }
+      },
+      "scan": {
+        "title": "Gefundene Lautsprecher",
+        "description": "Wähle ein gefundenes Gerät aus und vergib einen Namen. Ohne Auswahl abschicken startet die Suche erneut.",
+        "data": {
+          "selected_device": "Gefundenes Gerät",
+          "name": "Name (z. B. \"KH 120 II Links\")"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbindung zum Lautsprecher fehlgeschlagen. IP-Adresse und Interface prüfen.",
+      "timeout": "Zeitüberschreitung - keine Antwort vom Lautsprecher erhalten.",
+      "interface_required_for_link_local": "Bei einer fe80::-Adresse muss das Netzwerk-Interface angegeben werden.",
+      "no_devices_found": "Keine SSC-Lautsprecher im Netzwerk gefunden. Erneut absenden für einen neuen Versuch, oder zurückgehen und 'Manuell eingeben' wählen.",
+      "discovery_expired": "Die Geräteliste ist abgelaufen, bitte Suche erneut starten.",
+      "name_required": "Bitte einen Namen für das Gerät eingeben.",
+      "unknown": "Unerwarteter Fehler."
+    },
+    "abort": {
+      "already_configured": "Dieser Lautsprecher ist bereits konfiguriert."
+    }
+  },
+  "entity": {
+    "number": {
+      "output_level": { "name": "Ausgangspegel" },
+      "output_dimm": { "name": "Dimm" },
+      "output_delay": { "name": "Verzögerung" },
+      "logo_brightness": { "name": "Logo-Helligkeit" }
+    },
+    "switch": {
+      "mute": { "name": "Stummschaltung" },
+      "phase_invert": { "name": "Phasenumkehr" }
+    },
+    "sensor": {
+      "input_gain": { "name": "Eingangsverstärkung" },
+      "input_level_meter": { "name": "Eingangspegel (live)" }
+    },
+    "button": {
+      "save_settings": { "name": "Einstellungen speichern" }
+    }
+  }
+}
