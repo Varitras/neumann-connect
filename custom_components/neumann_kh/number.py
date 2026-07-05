@@ -118,7 +118,7 @@ COMMON_NUMBER_DESCRIPTIONS: tuple[NeumannKHNumberDescription, ...] = (
     ),
 )
 
-# Nur für KH 80 / KH 150 / KH 120 II verfügbar (nicht KH 750)
+# Nur für Nicht-Subwoofer-Modelle verfügbar, siehe MODELS_WITH_LOGO_AND_SAVE
 BRIGHTNESS_DESCRIPTION = NeumannKHNumberDescription(
     key="logo_brightness",
     translation_key="logo_brightness",

@@ -15,6 +15,27 @@ siehe [HA Developer Blog](https://developers.home-assistant.io/blog/2026/02/24/b
 Basiert auf den SSC-Adresspfaden, die im
 [khtool-Projekt](https://github.com/schwinn/khtool) dokumentiert sind.
 
+## Unterstützte Modelle
+
+**Getestet mit echter Hardware:** KH 120 II, KH 750 DSP.
+
+**Vermutlich funktionsfähig, aber unverifiziert** (gleiche DSP-/SSC-Basis
+laut Herstellerangaben, keine eigenen Tests): KH 80 DSP, KH 150, sowie
+deren AES67-Varianten (KH 120 II AES67, KH 150 AES67). Wertebereiche
+(Delay, Logo-Helligkeit etc.) sind von der KH 120 II übernommen und
+könnten bei diesen Modellen leicht abweichen.
+
+**Nicht unterstützbar** (keine DSP-/Netzwerkfunktion, rein analog): KH 310,
+KH 420 und andere klassische analoge KH-Monitore. Diese lassen sich nicht
+per SSC ansprechen - ein Einrichtungsversuch schlägt einfach mit
+"Verbindung fehlgeschlagen" fehl, das ist kein Fehler dieser Integration.
+
+**Komplett ungetestet, evtl. kompatibel:** Die neueren DSP-Subwoofer
+KH 805 II, KH 810 II, KH 870 II (2024/2025 vorgestellt, laut Hersteller
+"bauen auf dem KH 750 DSP auf") sind bisher nicht in der Modell-Erkennung
+hinterlegt - falls du eines dieser Geräte besitzt und testen möchtest,
+gerne melden.
+
 ## Einrichtung
 
 1. Ordner `custom_components/neumann_kh` in dein Home-Assistant-Konfigurationsverzeichnis kopieren
@@ -91,9 +112,6 @@ Im Config Flow trägst du dann z. B. ein:
 > oder direkten Layer-2-Zugriff auf das Netzwerksegment der Lautsprecher,
 > sonst ist die Link-Local-Adresse nicht erreichbar.
 
-Falls du den Lautsprechern stattdessen eine feste **IPv4-Adresse** über die
-Neumann Control App vergeben hast, lässt du das Interface-Feld einfach leer.
-
 ## Angelegte Entities pro Lautsprecher
 
 **Schreibbar vs. nur lesbar (nach Entity-Typ):**
@@ -123,14 +141,14 @@ speichern" (nicht funktional).
 |---|---|---|---|
 | Ausgangspegel | `number` | 0–120 dB | `audio/out/level` |
 | Dimm (Default: deaktiviert, nicht bei KH 120 II vorhanden) | `number` | −120–0 dB | `audio/out/dimm` |
-| Verzögerung | `number` | 0–5760 Samples @48kHz (KH 750: 0–1000) | `audio/out/delay` |
+| Verzögerung | `number` | 0–5760 Samples @48kHz (KH 750 DSP: 0–1000) | `audio/out/delay` |
 | Logo-Helligkeit* | `number` | 0–125 % | `ui/logo/brightness` |
 | Auto-Standby-Zeit | `number` | 1–240 min | `device/standby/auto_standby_time` |
 | Standby-Schwellwert | `number` | −80 bis −55 dBu | `device/standby/level` |
 | Stummschaltung | `switch` | – | `audio/out/mute` |
 | Gerät identifizieren (An/Aus) | `switch` | – | `device/identification/visual` |
 | Phasenumkehr (nur Nicht-Subwoofer) | `switch` | – | `audio/out/phaseinversion` |
-| Auto-Standby (nur Nicht-Subwoofer; auf KH 750 stattdessen `binary_sensor`) | `switch` | – | `device/standby/enabled` |
+| Auto-Standby (nur Nicht-Subwoofer; auf KH 750 DSP stattdessen `binary_sensor`) | `switch` | – | `device/standby/enabled` |
 | Eingangs-Interface (Default: deaktiviert bei Subwoofer, sonst aktiviert, Schreibbarkeit unverifiziert) | `select` | ANALOG ONLY/DIGITAL ONLY/DIGITAL DISCARDS ANALOG | `audio/in/interface` |
 | Steuerungsmodus (Default: **immer** deaktiviert, siehe Warnung unten) | `select` | NETWORK/LOCAL | `ui/control_mode` |
 | Gerätename (Default: deaktiviert) | `text` | max. 52 Zeichen | `device/name` |
@@ -146,14 +164,16 @@ speichern" (nicht funktional).
 | Geräte-Discovery ausführen (Diagnose) | `button` | – | – |
 
 \* **Nur** bei KH 80 / KH 150 / KH 120 II – laut khtool-Dokumentation nicht bei
-KH 750 verfügbar. Die Integration erkennt das Modell automatisch beim
-Einrichten und blendet diese Entities für die KH 750 aus.
+KH 750 DSP verfügbar. Die Integration erkennt das Modell automatisch beim
+Einrichten und blendet diese Entities für die KH 750 DSP aus.
 
-### Zusätzliche Entities nur bei erkanntem Subwoofer (KH 750)
+### Zusätzliche Entities nur bei erkanntem Subwoofer (KH 750 DSP)
 
-Die KH 750 hat zwei zusätzliche Bass-Management-Ausgänge (`out1`/`out2`) für
+Die KH 750 DSP hat zwei zusätzliche Bass-Management-Ausgänge (`out1`/`out2`) für
 angeschlossene Zusatzlautsprecher. Alle unten gelisteten Entities werden
-**nur** angelegt, wenn beim Einrichten `KH 750` als Modell erkannt wurde.
+**nur** angelegt, wenn beim Einrichten `KH 750` als Modell erkannt wurde
+(das Gerät meldet sich über SSC selbst nur als `KH 750`, ohne "DSP" -
+die Integration akzeptiert beide Schreibweisen).
 
 | Entity | Typ | Bereich | SSC-Pfad |
 |---|---|---|---|
@@ -167,7 +187,7 @@ angeschlossene Zusatzlautsprecher. Alle unten gelisteten Entities werden
 | Subwoofer-Eingangsverstärkung, Low-Cut, Ausgangspegel, Phase, Phaseninversion, Bass-Management, Kanal-B-Eingangsmodus (per Test nicht schreibbar, Diagnose) | `sensor` | dB bzw. Text | `ui/subwoofer_input_gain`, `ui/subwoofer_low_cut`, `ui/subwoofer_output_level`, `ui/subwoofer_phase`, `ui/subwoofer_phase_inversion`, `ui/bass_management`, `ui/channel_b_input_mode` |
 | Ausgang übersteuert (Clip, Default: deaktiviert) | `binary_sensor` | – | `m/out/clip` |
 | Digitaler Bypass (Diagnose) | `binary_sensor` | – | `audio/digital_bypass` |
-| Auto-Standby-Status (nur lesend – auf der KH 750 per Hardware-Test nicht schreibbar, siehe "Bekannte Grenzen") | `binary_sensor` | – | `device/standby/enabled` |
+| Auto-Standby-Status (nur lesend – auf der KH 750 DSP per Hardware-Test nicht schreibbar, siehe "Bekannte Grenzen") | `binary_sensor` | – | `device/standby/enabled` |
 
 Standardmäßig deaktivierte Entities kannst du in **Einstellungen → Geräte &
 Dienste → [Gerät] → Entities** manuell aktivieren.
@@ -185,7 +205,7 @@ einzelnen Wert ab (z. B. `dimm` auf der KH 120 II), wird nur dieser
 übersprungen - die übrigen Werte werden trotzdem aktualisiert.
 
 **Standby-Verhalten (wichtig, kein Bug):** Geht ein Lautsprecher (insb. die
-KH 750) in den Standby, schaltet er offenbar auch seinen Netzwerk-Stack ab
+KH 750 DSP) in den Standby, schaltet er offenbar auch seinen Netzwerk-Stack ab
 und antwortet nicht mehr auf SSC-Anfragen. Alle Entities werden dann
 korrekterweise **"nicht verfügbar"** - das ist das von Home Assistant
 empfohlene Verhalten (`CoordinatorEntity` markiert Entities automatisch als
@@ -200,10 +220,8 @@ dieser Integration, sondern Home Assistants Kernmechanismus für
 
 ## Bekannte Grenzen
 
-- Der 7-/20-Band-Equalizer (`eq1`/`eq2`/`eq3`, alle Ausgänge) wird bewusst
-  nicht abgebildet (komplexe Array-Struktur, hohes Risiko für Fehlbedienung).
-- Auto-Standby ist nur auf der KH 750 nicht schreibbar (auf der KH 120 II
-  funktioniert es). Deshalb: KH 120 II → `switch`, KH 750 → `binary_sensor`.
+- Auto-Standby ist nur auf der KH 750 DSP nicht schreibbar (auf der KH 120 II
+  funktioniert es). Deshalb: KH 120 II → `switch`, KH 750 DSP → `binary_sensor`.
 - Eingangsumschaltung (KH 120 II, `ui/input_select` bzw.
   `audio/in/interface`) bleibt unverifiziert schreibbar - standardmäßig
   deaktiviert bzw. nur lesend.
@@ -214,7 +232,7 @@ dieser Integration, sondern Home Assistants Kernmechanismus für
   Alternativ über eine physische Schalterfolge am Gerät selbst:
   - **KH 80 DSP:** Beim Booten (Logo noch rot) den SETTINGS-Schalter
     mehrfach hoch/runter bewegen, bis das Logo kurz pink flackert.
-  - **KH 750:** Beim Booten (Power-LED durchgehend rot) den
+  - **KH 750 DSP:** Beim Booten (Power-LED durchgehend rot) den
     AUTO STANDBY/STANDBY-Schalter mehrfach hoch/runter bewegen.
   - **KH 120 II / KH 150:** Beim Booten (Logo blinkt) den CONTROL-Schalter
     mehrfach hoch/runter bewegen, bis das Logo kurz schnell rot/pink blinkt.
@@ -230,47 +248,26 @@ dieser Integration, sondern Home Assistants Kernmechanismus für
   bleibt bestehen (andere Modelle), zeigt dort "unbekannt".
 - "Identifizieren" ist ein Schalter, kein Auto-Stopp-Button: Das Blinken
   hört erst nach mehreren Minuten von selbst auf.
-- Gerätetemperatur (KH 750): Einheit Kelvin, umgerechnet in °C.
-
-## Code-Härtung
-
-Details siehe CHANGELOG.md. Kurzüberblick:
-- Gemeinsame Hilfsfunktionen (`_util.py`) statt doppelter Implementierung
-- Schutz gegen unerwartet große/nie terminierte Geräteantworten
-- Fehler bei einem einzelnen Poll-Pfad reißt nicht den ganzen Zyklus mit
-- Gesamt-Zeitlimit pro Poll-Zyklus, Priority-Pfad für Nutzeraktionen
-- Firmware-Version wird als `sw_version` im Geräte-Info angezeigt
-- Nutzeraktionen (Schalter/Regler/Auswahl) haben Vorrang vor einem laufenden
-  Poll-Zyklus (Priority-Pfad) - reagieren dadurch direkt, ohne den Poll
-  abzuwarten
-- Bestätigte Werte werden HA-idiomatisch über `async_set_updated_data()`
-  eingespielt (statt direkter Cache-Mutation)
-- `number`/`sensor` fangen nicht-numerische Gerätewerte defensiv ab (zeigen
-  "unbekannt" statt eine Exception auszulösen)
-- Die TCP-Verbindung wird beim Entladen immer geschlossen, auch wenn eine
-  Plattform sich nicht sauber entladen lässt
-- Link-Local-Scope-ID wird für den vollständigen Bereich fe80::/10 korrekt
-  angehängt (RFC 4291)
+- Gerätetemperatur (KH 750 DSP): Einheit Kelvin, umgerechnet in °C.
 
 ## Namensgedächtnis, Backup & Geräte-Discovery
 
 Drei getrennte, dauerhafte Speicher (unabhängig von Config Entries,
-überleben also auch das Löschen und Neueinrichten eines Geräts), je ein
-Eintrag pro Seriennummer:
+überleben also auch das Löschen und Neueinrichten eines Geräts, alle in
+`storage.py`), je ein Eintrag pro Seriennummer:
 
-- **`.storage/neumann_kh_names`** (`name_storage.py`): zuletzt verwendeter
-  Name. Beim erneuten Einrichten über die automatische Suche wird das
-  Namensfeld damit vorausgefüllt.
-- **`.storage/neumann_kh_backups`** (`backup_storage.py`): Ergebnis des
-  `Backup erstellen`-Buttons - alle bekannten Werte außer Live-Messwerten,
-  zusätzlich als JSON-Datei unter `/config/www/` zum Download.
-- **`.storage/neumann_kh_discovery`** (`discovery_storage.py`): Ergebnis
-  des `Geräte-Discovery ausführen`-Buttons (Diagnose) - kombiniert unsere
-  bekannten Pfade mit einem Best-effort-Versuch über `osc/schema` +
-  `osc/limits` (optionale SSC-Methoden, nicht jede Firmware unterstützt
-  sie - schlägt dieser Teil fehl, bleibt er einfach leer). Die
-  Seriennummer ist in diesem Export zensiert (nur die letzten 3 Zeichen
-  bleiben sichtbar).
+- **`.storage/neumann_kh_names`**: zuletzt verwendeter Name. Beim erneuten
+  Einrichten über die automatische Suche wird das Namensfeld damit
+  vorausgefüllt.
+- **`.storage/neumann_kh_backups`**: Ergebnis des `Backup erstellen`-Buttons
+  - alle bekannten Werte außer Live-Messwerten, zusätzlich als JSON-Datei
+  unter `/config/www/` zum Download.
+- **`.storage/neumann_kh_discovery`**: Ergebnis des `Geräte-Discovery
+  ausführen`-Buttons (Diagnose) - kombiniert unsere bekannten Pfade mit
+  einem Best-effort-Versuch über `osc/schema` + `osc/limits` (optionale
+  SSC-Methoden, nicht jede Firmware unterstützt sie - schlägt dieser Teil
+  fehl, bleibt er einfach leer). Die Seriennummer ist in diesem Export
+  zensiert (nur die letzten 3 Zeichen bleiben sichtbar).
 
 Backup und Discovery laufen ausschließlich manuell über die jeweiligen
 Buttons - keine automatische Auslösung im Hintergrund.
@@ -281,7 +278,7 @@ Die Auswahlliste beim automatischen Scan enthält außerdem einen Eintrag
 ## EQ (parametrischer Equalizer)
 
 Eine vollständige 1:1-Abbildung aller EQ-Parameter (Typ/Frequenz/Gain/Boost/
-Q/Enabled je Band) wäre bei der KH 750 ca. 800 Entities - nicht mehr
+Q/Enabled je Band) wäre bei der KH 750 DSP ca. 800 Entities - nicht mehr
 überschaubar. Stattdessen bewusst auf Container-Ebene reduziert:
 
 - **Ein Ein/Aus-Schalter pro EQ-Container** (`switch`, Kategorie
@@ -304,11 +301,11 @@ alphabetisch zusammen gruppiert erscheinen.
 |---|---|---|
 | KH 120 II (Nicht-Subwoofer) | `audio/out/eq2` | 10 |
 | KH 120 II (Nicht-Subwoofer) | `audio/out/eq3` | 20 |
-| KH 750 (Hauptausgang) | `audio/out/eq2` | 10 |
-| KH 750 (out1/out2 je) | `eq1` (Crossover) | 2 |
-| KH 750 (out1/out2 je) | `eq2` | 10 |
-| KH 750 (out1/out2 je) | `eq3` | 10 |
+| KH 750 DSP (Hauptausgang) | `audio/out/eq2` | 10 |
+| KH 750 DSP (out1/out2 je) | `eq1` (Crossover) | 2 |
+| KH 750 DSP (out1/out2 je) | `eq2` | 10 |
+| KH 750 DSP (out1/out2 je) | `eq3` | 10 |
 
 Macht in Summe **4 Entities** (KH 120 II: 2 Container × Schalter+Button)
-bzw. **14 Entities** (KH 750: 7 Container × Schalter+Button).
+bzw. **14 Entities** (KH 750 DSP: 7 Container × Schalter+Button).
 

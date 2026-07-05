@@ -92,6 +92,13 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         "Pfad %s wird vom Gerät nicht unterstützt, überspringe", path
                     )
                     continue
+                except (SSCConnectionError, SSCTimeoutError):
+                    # Verbindungsproblem betrifft den ganzen Zyklus, nicht nur
+                    # diesen einen Pfad - weiterreichen an die äußere
+                    # Behandlung, statt für jeden verbleibenden Pfad erneut
+                    # denselben Fehler zu loggen und einen neuen (ebenfalls
+                    # scheiternden) Verbindungsversuch zu starten.
+                    raise
                 except Exception:  # noqa: BLE001 - ein Bug bei einem Pfad soll nicht alle Werte mitreißen
                     _LOGGER.exception(
                         "Unerwarteter Fehler beim Abfragen von Pfad %s, überspringe", path

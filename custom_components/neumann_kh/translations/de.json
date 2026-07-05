@@ -13,7 +13,7 @@
         "description": "Verbindungsdaten des Lautsprechers (SSC-Protokoll, Port 45).",
         "data": {
           "name": "Name (z. B. \"KH 120 II Links\")",
-          "host": "IP-Adresse (IPv6 Link-Local fe80::... oder IPv4)",
+          "host": "IP-Adresse (IPv6, z. B. Link-Local fe80::...)",
           "interface": "Netzwerk-Interface (aus Liste wählen, oder eigenen Wert eintippen, falls nicht gelistet – nur bei Link-Local nötig)",
           "port": "Port"
         }

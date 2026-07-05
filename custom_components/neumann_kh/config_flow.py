@@ -5,7 +5,7 @@ Reines UI-Setup (kein YAML nötig). Startpunkt ist ein Menü mit zwei Wegen:
 - "scan": Aktive mDNS/Zeroconf-Suche im Netzwerk (siehe discovery.py), das
   Ergebnis wird als Auswahlliste angezeigt, danach ein zweiter Schritt zur
   Namensvergabe (vorausgefüllt, falls dieses Gerät schon einmal einen Namen
-  hatte - siehe name_storage.py).
+  hatte - siehe storage.py).
 - "manual": Klassische manuelle Eingabe (IP-Adresse, Interface-Dropdown,
   Port, Name) - Fallback für Geräte, die die automatische Suche nicht findet.
 
@@ -25,7 +25,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 
-from . import name_storage
+from . import storage
 from .const import (
     CONF_FIRMWARE_VERSION,
     CONF_INTERFACE,
@@ -43,7 +43,7 @@ from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeou
 
 _LOGGER = logging.getLogger(__name__)
 
-_NO_INTERFACE_VALUE = ""  # "kein Interface angegeben" (z. B. bei fester IPv4-Adresse)
+_NO_INTERFACE_VALUE = ""  # "kein Interface angegeben" (z. B. bei globaler, nicht Link-Local IPv6-Adresse)
 _SELECTED_DEVICE = "selected_device"
 _RESCAN_VALUE = "__rescan__"
 
@@ -53,7 +53,7 @@ async def _async_get_interface_options(hass: HomeAssistant) -> list[selector.Sel
     options = [
         selector.SelectOptionDict(
             value=_NO_INTERFACE_VALUE,
-            label="(keine Angabe – nur bei fester IPv4-Adresse nötig)",
+            label="(keine Angabe – nur bei globaler, nicht Link-Local IPv6-Adresse nötig)",
         )
     ]
     try:
@@ -171,7 +171,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     await self.async_set_unique_id(str(unique_id))
                     self._abort_if_unique_id_configured()
                     if serial:
-                        await name_storage.async_remember_name(self.hass, serial, name)
+                        await storage.async_remember_name(self.hass, serial, name)
 
                     return self.async_create_entry(
                         title=name,
@@ -266,7 +266,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 await self.async_set_unique_id(str(unique_id))
                 self._abort_if_unique_id_configured()
                 if info.get("serial"):
-                    await name_storage.async_remember_name(self.hass, info["serial"], name)
+                    await storage.async_remember_name(self.hass, info["serial"], name)
 
                 return self.async_create_entry(
                     title=name,
@@ -284,7 +284,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         remembered_name = None
         if info.get("serial"):
-            remembered_name = await name_storage.async_get_remembered_name(self.hass, info["serial"])
+            remembered_name = await storage.async_get_remembered_name(self.hass, info["serial"])
 
         schema = vol.Schema({vol.Required(CONF_NAME): str})
         if remembered_name:

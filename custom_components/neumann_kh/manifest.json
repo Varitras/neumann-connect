@@ -4,10 +4,10 @@
   "codeowners": [],
   "config_flow": true,
   "dependencies": ["zeroconf"],
-  "documentation": "https://github.com/schwinn/khtool",
+  "documentation": "https://github.com/Varitras/Neumann-Connect",
   "integration_type": "device",
   "iot_class": "local_polling",
-  "issue_tracker": "https://github.com/schwinn/khtool/issues",
+  "issue_tracker": "https://github.com/Varitras/Neumann-Connect/issues",
   "requirements": [],
-  "version": "1.12.0"
+  "version": "1.13.0"
 }

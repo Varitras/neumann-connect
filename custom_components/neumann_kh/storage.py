@@ -1,7 +1,13 @@
-"""Dauerhafter Speicher (HA-Store) für Gerätedaten, die Config-Entry-Löschungen
-überleben sollen: zuletzt verwendeter Name, Backup, Discovery-Export.
+"""Dauerhafter Speicher (HA-Store) für Namensgedächtnis, Backup und
+Discovery-Ergebnisse. Drei getrennte Speicher mit eigenem Schlüssel, landen
+dadurch auch als drei separate Dateien unter `.storage/`:
 
-Ein Eintrag pro Seriennummer, wächst unbegrenzt (auf Wunsch des Nutzers).
+- `neumann_kh_names`: zuletzt verwendeter Name je Seriennummer
+- `neumann_kh_backups`: Einstellungs-Backup je Seriennummer
+- `neumann_kh_discovery`: Discovery-Ergebnis je Seriennummer
+
+Alle drei wachsen unbegrenzt (auf Wunsch des Nutzers) und überleben das
+Löschen und Neueinrichten eines Config Entry.
 """
 
 from __future__ import annotations
@@ -14,72 +20,70 @@ from homeassistant.helpers.storage import Store
 from .const import DOMAIN
 
 _STORAGE_VERSION = 1
-_STORAGE_KEY = f"{DOMAIN}_devices"
 
 
-def _get_store(hass: HomeAssistant) -> Store:
-    return Store(hass, _STORAGE_VERSION, _STORAGE_KEY)
+def _get_store(hass: HomeAssistant, suffix: str) -> Store:
+    return Store(hass, _STORAGE_VERSION, f"{DOMAIN}_{suffix}")
 
 
-async def _async_load(hass: HomeAssistant) -> dict[str, Any]:
-    store = _get_store(hass)
-    data = await store.async_load()
-    return data or {"devices": {}}
-
-
-async def _async_save(hass: HomeAssistant, data: dict[str, Any]) -> None:
-    await _get_store(hass).async_save(data)
+# --- Namensgedächtnis --------------------------------------------------------
 
 
 async def async_remember_name(hass: HomeAssistant, serial: str, name: str) -> None:
     """Speichert den zuletzt verwendeten Namen für eine Seriennummer."""
     if not serial:
         return
-    data = await _async_load(hass)
-    devices = data.setdefault("devices", {})
-    devices.setdefault(serial, {})["name"] = name
-    await _async_save(hass, data)
+    store = _get_store(hass, "names")
+    data = await store.async_load() or {"names": {}}
+    data.setdefault("names", {})[serial] = name
+    await store.async_save(data)
 
 
 async def async_get_remembered_name(hass: HomeAssistant, serial: str) -> str | None:
     """Liefert den zuletzt verwendeten Namen für eine Seriennummer, falls bekannt."""
     if not serial:
         return None
-    data = await _async_load(hass)
-    return data.get("devices", {}).get(serial, {}).get("name")
+    data = await _get_store(hass, "names").async_load() or {"names": {}}
+    return data.get("names", {}).get(serial)
+
+
+# --- Backup ------------------------------------------------------------------
 
 
 async def async_save_backup(hass: HomeAssistant, serial: str, backup: dict[str, Any]) -> None:
     """Speichert einen Einstellungs-Backup für eine Seriennummer."""
     if not serial:
         return
-    data = await _async_load(hass)
-    devices = data.setdefault("devices", {})
-    devices.setdefault(serial, {})["backup"] = backup
-    await _async_save(hass, data)
+    store = _get_store(hass, "backups")
+    data = await store.async_load() or {"backups": {}}
+    data.setdefault("backups", {})[serial] = backup
+    await store.async_save(data)
 
 
 async def async_get_backup(hass: HomeAssistant, serial: str) -> dict[str, Any] | None:
     """Liefert den zuletzt gespeicherten Backup für eine Seriennummer, falls vorhanden."""
     if not serial:
         return None
-    data = await _async_load(hass)
-    return data.get("devices", {}).get(serial, {}).get("backup")
+    data = await _get_store(hass, "backups").async_load() or {"backups": {}}
+    return data.get("backups", {}).get(serial)
+
+
+# --- Discovery -----------------------------------------------------------
 
 
 async def async_save_discovery(hass: HomeAssistant, serial: str, discovery: dict[str, Any]) -> None:
     """Speichert ein Discovery-Ergebnis (alle bekannten Werte/Bereiche) für eine Seriennummer."""
     if not serial:
         return
-    data = await _async_load(hass)
-    devices = data.setdefault("devices", {})
-    devices.setdefault(serial, {})["discovery"] = discovery
-    await _async_save(hass, data)
+    store = _get_store(hass, "discovery")
+    data = await store.async_load() or {"discovery": {}}
+    data.setdefault("discovery", {})[serial] = discovery
+    await store.async_save(data)
 
 
 async def async_get_discovery(hass: HomeAssistant, serial: str) -> dict[str, Any] | None:
     """Liefert das zuletzt gespeicherte Discovery-Ergebnis für eine Seriennummer, falls vorhanden."""
     if not serial:
         return None
-    data = await _async_load(hass)
-    return data.get("devices", {}).get(serial, {}).get("discovery")
+    data = await _get_store(hass, "discovery").async_load() or {"discovery": {}}
+    return data.get("discovery", {}).get(serial)

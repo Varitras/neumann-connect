@@ -13,7 +13,7 @@
         "description": "Connection details for the speaker (SSC protocol, port 45).",
         "data": {
           "name": "Name (e.g. \"KH 120 II Left\")",
-          "host": "IP address (IPv6 link-local fe80::... or IPv4)",
+          "host": "IP address (IPv6, e.g. link-local fe80::...)",
           "interface": "Network interface (select from list, or type a custom value if not shown — only needed for link-local addresses)",
           "port": "Port"
         }

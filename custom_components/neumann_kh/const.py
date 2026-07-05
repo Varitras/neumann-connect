@@ -20,11 +20,32 @@ UPDATE_INTERVAL_SECONDS = 30
 POLL_CYCLE_TIMEOUT_SECONDS = 25.0  # Zeitlimit für einen kompletten Poll-Zyklus
 
 # Modelle mit Logo-Helligkeit + save_settings
-MODELS_WITH_LOGO_AND_SAVE = ("KH 80", "KH 150", "KH 120", "KH 120 II")
+# Modelle mit Logo-Helligkeit + save_settings. "KH 80"/"KH 150"/"KH 120 II"
+# sind bestätigt (KH 120 II per echtem Hardware-Test, die anderen laut
+# khtool-Dokumentation). Die "DSP"/"AES67"-Varianten sind UNVERIFIZIERTE
+# Ergänzungen (unbekannt, welchen exakten Produktnamen diese Geräte über
+# SSC tatsächlich melden) - analog zur KH-750/KH-750-DSP-Erkenntnis, dass
+# der offizielle Produktname nicht zwingend dem SSC-Meldewert entspricht.
+# "KH 120" (ohne "II") ist ebenfalls unverifiziert - das ursprüngliche
+# KH 120 von 2010 hatte laut Recherche vermutlich noch keinen DSP; bleibt
+# hier trotzdem stehen (harmlos, falls es diesen Wert nie gibt).
+MODELS_WITH_LOGO_AND_SAVE = (
+    "KH 80",
+    "KH 80 DSP",
+    "KH 150",
+    "KH 150 AES67",
+    "KH 120",
+    "KH 120 II",
+    "KH 120 II AES67",
+)
 
 # Modelle mit Subwoofer-/Bass-Management-Funktionen (out1/out2, Temperatur,
 # Ausgangs-Metering, Subwoofer-UI-Werte)
-MODELS_WITH_SUBWOOFER_FEATURES = ("KH 750",)
+# Offiziell heißt das Produkt "KH 750 DSP", das Gerät meldet sich über SSC
+# aber selbst nur als "KH 750" (per echtem Hardware-Dump bestätigt) - beide
+# Varianten werden akzeptiert, falls eine andere Firmware/Einheit den
+# vollen Namen meldet.
+MODELS_WITH_SUBWOOFER_FEATURES = ("KH 750", "KH 750 DSP")
 
 # --- Zeroconf/mDNS-Gerätesuche ---------------------------------------------
 SSC_ZEROCONF_SERVICE_TYPE = "_ssc._tcp.local."

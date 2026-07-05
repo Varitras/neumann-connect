@@ -8,8 +8,7 @@ per Test nicht funktional, daher standardmäßig deaktiviert).
 erster Druck bewaffnet nur, zweiter Druck innerhalb 30s löst den Reset aus.
 
 'Backup erstellen' und 'Geräte-Discovery ausführen' speichern ihr Ergebnis
-dauerhaft (siehe backup_storage.py/discovery_storage.py, pro Seriennummer) und
-zusätzlich als JSON-Datei
+dauerhaft (siehe storage.py, pro Seriennummer) und zusätzlich als JSON-Datei
 zum Download unter /config/www/.
 """
 
@@ -31,7 +30,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from . import backup_storage, discovery_storage
+from . import storage
 from .backup_export import async_build_backup
 from .const import (
     CONF_MODEL,
@@ -195,7 +194,7 @@ class NeumannKHBackupButton(NeumannKHEntity, ButtonEntity):
         timestamp = datetime.now(timezone.utc).isoformat()
         backup = {"timestamp": timestamp, "model": model, "serial": serial, "values": values}
 
-        await backup_storage.async_save_backup(self.hass, serial, backup)
+        await storage.async_save_backup(self.hass, serial, backup)
         filename = f"neumann_kh_backup_{serial}.json"
         url = await self.hass.async_add_executor_job(
             _write_export_file, self.hass, filename, backup
@@ -237,7 +236,7 @@ class NeumannKHDiscoveryButton(NeumannKHEntity, ButtonEntity):
 
         # Speicherung intern über die echte Seriennummer (Zuordnung/Abruf),
         # der Inhalt (und die Datei) enthält aber nur die zensierte Variante.
-        await discovery_storage.async_save_discovery(self.hass, serial, record)
+        await storage.async_save_discovery(self.hass, serial, record)
         filename = f"neumann_kh_discovery_{masked_serial}.json"
         url = await self.hass.async_add_executor_job(
             _write_export_file, self.hass, filename, record

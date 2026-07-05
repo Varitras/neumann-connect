@@ -3,6 +3,36 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
+## [1.13.0] – Bugfix Verbindungsabbruch, erweiterte Modell-Erkennung, Aufräumen
+
+### Behoben
+- **Wichtiger Bugfix:** Ist der Lautsprecher nicht erreichbar, fing der
+  generische Fehler-Handler pro Einzelpfad `SSCConnectionError`/
+  `SSCTimeoutError` ab, statt sie sauber an die äußere Behandlung
+  weiterzureichen. Dadurch versuchte der Poll-Zyklus bei jedem der
+  ~25-45 Pfade erneut zu verbinden (statt einmal sauber abzubrechen),
+  was zu massiver Log-Flut ("Unerwarteter Fehler...") und teils zum
+  Überschreiten des Gesamt-Zeitlimits führte. Bricht jetzt sofort nach
+  dem ersten fehlgeschlagenen Verbindungsversuch ab
+- `storage.py` wieder zu einer Datei zusammengeführt (war kurzzeitig in
+  drei Module aufgeteilt) - die drei `.storage/`-Ausgabedateien
+  (`neumann_kh_names`, `neumann_kh_backups`, `neumann_kh_discovery`)
+  bleiben davon unberührt
+
+### Geändert
+- `manifest.json`: `documentation`/`issue_tracker` zeigen jetzt auf das
+  eigene Repository (`github.com/Varitras/Neumann-Connect`) statt auf
+  khtool
+- Modell-Erkennung erweitert: akzeptiert jetzt auch "KH 750 DSP" (nicht
+  nur "KH 750"), sowie "KH 80 DSP", "KH 150 AES67", "KH 120 II AES67" für
+  Logo-Helligkeit/Save-Settings - unverifiziert, da keine eigene Hardware
+  zum Testen vorhanden
+- README: neuer Abschnitt zu unterstützten/nicht unterstützten Modellen
+  (KH 310/KH 420 sind rein analog, nicht SSC-fähig); IPv4-bezogene
+  Anleitungstexte entfernt (Lautsprecher sind laut offizieller Doku
+  IPv6-only); veraltete Hinweise auf nicht umgesetzten EQ sowie der
+  "Code-Härtung"-Abschnitt entfernt
+
 ## [1.12.0] – Bass Gain zu Diagnose, Speicher aufgeteilt
 
 ### Geändert
