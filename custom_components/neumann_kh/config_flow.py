@@ -3,14 +3,13 @@
 Reines UI-Setup (kein YAML nötig). Startpunkt ist ein Menü mit zwei Wegen:
 
 - "scan": Aktive mDNS/Zeroconf-Suche im Netzwerk (siehe discovery.py), das
-  Ergebnis wird als Auswahlliste angezeigt - kein manuelles Eintippen von
-  IP-Adresse/Interface nötig.
+  Ergebnis wird als Auswahlliste angezeigt, danach ein zweiter Schritt zur
+  Namensvergabe (vorausgefüllt, falls dieses Gerät schon einmal einen Namen
+  hatte - siehe storage.py).
 - "manual": Klassische manuelle Eingabe (IP-Adresse, Interface-Dropdown,
-  Port, Name) - Fallback für Geräte, die die automatische Suche nicht
-  findet (z. B. wenn HA mDNS-Multicast nicht empfangen kann).
+  Port, Name) - Fallback für Geräte, die die automatische Suche nicht findet.
 
-Für jeden Lautsprecher wird ein eigener Config Entry angelegt (z. B.
-"KH 120 II Links", "KH 120 II Rechts", "KH 750 Sub 1", ...).
+Für jeden Lautsprecher wird ein eigener Config Entry angelegt.
 """
 
 from __future__ import annotations
@@ -26,6 +25,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 
+from . import storage
 from .const import (
     CONF_FIRMWARE_VERSION,
     CONF_INTERFACE,
@@ -45,6 +45,7 @@ _LOGGER = logging.getLogger(__name__)
 
 _NO_INTERFACE_VALUE = ""  # "kein Interface angegeben" (z. B. bei fester IPv4-Adresse)
 _SELECTED_DEVICE = "selected_device"
+_RESCAN_VALUE = "__rescan__"
 
 
 async def _async_get_interface_options(hass: HomeAssistant) -> list[selector.SelectOptionDict]:
@@ -134,9 +135,10 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     def __init__(self) -> None:
-        # Zwischenspeicher für den Scan-Schritt (lebt nur innerhalb dieses Flows)
+        # Zwischenspeicher, lebt nur innerhalb dieses Flows.
         self._discovered: dict[str, DiscoveredSpeaker] = {}
         self._discovery_info: dict[str, dict[str, str | None]] = {}
+        self._pending_key: str | None = None
 
     # --- Einstiegspunkt: Menü mit den beiden Wegen -------------------------
 
@@ -168,6 +170,8 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     unique_id = serial or f"{host}_{port}"
                     await self.async_set_unique_id(str(unique_id))
                     self._abort_if_unique_id_configured()
+                    if serial:
+                        await storage.async_remember_name(self.hass, serial, name)
 
                     return self.async_create_entry(
                         title=name,
@@ -193,53 +197,19 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(step_id="manual", data_schema=schema, errors=errors)
 
-    # --- Weg 2: Aktiver mDNS-Scan mit Auswahlliste --------------------------
+    # --- Weg 2: Aktiver mDNS-Scan, danach Namensvergabe ---------------------
 
     async def async_step_scan(self, user_input: dict[str, Any] | None = None) -> FlowResult:
-        errors: dict[str, str] = {}
-
-        # Zweiter Aufruf: Nutzer hat aus der Liste ein Gerät gewählt und einen
-        # Namen vergeben. Erkennbar am vorhandenen "selected_device"-Feld -
-        # so lässt sich sauber zwischen "Formular abschicken" und "erneut
-        # scannen" (leeres user_input, siehe unten) unterscheiden.
+        # Nutzer hat aus der Liste etwas gewählt.
         if user_input is not None and _SELECTED_DEVICE in user_input:
             selected_key = user_input[_SELECTED_DEVICE]
-            name = user_input.get(CONF_NAME, "").strip()
-            candidate = self._discovered.get(selected_key)
-            info = self._discovery_info.get(selected_key)
+            if selected_key != _RESCAN_VALUE:
+                self._pending_key = selected_key
+                return await self.async_step_scan_confirm()
+            # "Erneut suchen" gewählt -> unten normal neu scannen.
 
-            if candidate is None or info is None:
-                errors["base"] = "discovery_expired"
-            elif not name:
-                errors["base"] = "name_required"
-            else:
-                unique_id = info.get("serial") or f"{candidate.host}_{candidate.port}"
-                await self.async_set_unique_id(str(unique_id))
-                self._abort_if_unique_id_configured()
-
-                return self.async_create_entry(
-                    title=name,
-                    data={
-                        CONF_NAME: name,
-                        CONF_HOST: candidate.host,
-                        # Scope-ID steckt bereits in candidate.host (%<scope>),
-                        # eine gesonderte Interface-Angabe ist daher nicht nötig.
-                        CONF_INTERFACE: "",
-                        CONF_PORT: candidate.port,
-                        CONF_MODEL: info.get("product") or "KH DSP",
-                        CONF_SERIAL: info.get("serial") or "",
-                        CONF_FIRMWARE_VERSION: info.get("version") or "",
-                    },
-                )
-
-            # Fehler: dieselbe Auswahlliste erneut mit Fehlermeldung anzeigen
-            schema = self.add_suggested_values_to_schema(
-                self._build_scan_schema(), user_input
-            )
-            return self.async_show_form(step_id="scan", data_schema=schema, errors=errors)
-
-        # Erster Aufruf ODER Klick auf "Erneut suchen" (leeres user_input):
-        # aktiv im Netzwerk nach SSC-Geräten suchen.
+        # Erster Aufruf, Klick auf "Erneut suchen", oder Rücksprung von einem
+        # abgelaufenen Discovery-Ergebnis: aktiv im Netzwerk suchen.
         try:
             speakers = await async_scan_for_speakers(self.hass)
         except Exception:  # noqa: BLE001 - Scan soll bei Fehlern klar scheitern, nicht crashen
@@ -275,10 +245,66 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(step_id="scan", data_schema=self._build_scan_schema())
 
+    async def async_step_scan_confirm(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        """Zweiter Schritt: Name vergeben (vorausgefüllt, falls Gerät bekannt)."""
+        errors: dict[str, str] = {}
+        candidate = self._discovered.get(self._pending_key or "")
+        info = self._discovery_info.get(self._pending_key or "")
+
+        if candidate is None or info is None:
+            # Discovery-Ergebnis abgelaufen (z. B. Flow zu lange offen) -> neu scannen.
+            return self.async_show_form(
+                step_id="scan", data_schema=vol.Schema({}), errors={"base": "discovery_expired"}
+            )
+
+        if user_input is not None:
+            name = user_input.get(CONF_NAME, "").strip()
+            if not name:
+                errors["base"] = "name_required"
+            else:
+                unique_id = info.get("serial") or f"{candidate.host}_{candidate.port}"
+                await self.async_set_unique_id(str(unique_id))
+                self._abort_if_unique_id_configured()
+                if info.get("serial"):
+                    await storage.async_remember_name(self.hass, info["serial"], name)
+
+                return self.async_create_entry(
+                    title=name,
+                    data={
+                        CONF_NAME: name,
+                        CONF_HOST: candidate.host,
+                        # Scope-ID steckt bereits in candidate.host (%<scope>).
+                        CONF_INTERFACE: "",
+                        CONF_PORT: candidate.port,
+                        CONF_MODEL: info.get("product") or "KH DSP",
+                        CONF_SERIAL: info.get("serial") or "",
+                        CONF_FIRMWARE_VERSION: info.get("version") or "",
+                    },
+                )
+
+        remembered_name = None
+        if info.get("serial"):
+            remembered_name = await storage.async_get_remembered_name(self.hass, info["serial"])
+
+        schema = vol.Schema({vol.Required(CONF_NAME): str})
+        if remembered_name:
+            schema = self.add_suggested_values_to_schema(schema, {CONF_NAME: remembered_name})
+
+        return self.async_show_form(
+            step_id="scan_confirm",
+            data_schema=schema,
+            errors=errors,
+            description_placeholders={
+                "device": f"{info.get('product') or 'KH DSP'} – {candidate.host}"
+            },
+        )
+
     def _build_scan_schema(self) -> vol.Schema:
         """Baut das Auswahl-Formular aus den zuletzt gefundenen Geräten."""
         configured_serials = _already_configured_serials(self.hass)
-        options = []
+        options = [
+            selector.SelectOptionDict(value=_RESCAN_VALUE, label="🔄 Erneut suchen")
+        ]
         for key, info in self._discovery_info.items():
             label = f"{info.get('product') or 'KH DSP'} – {self._discovered[key].host}"
             if info.get("serial"):
@@ -294,6 +320,5 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         options=options, mode=selector.SelectSelectorMode.LIST
                     )
                 ),
-                vol.Required(CONF_NAME): str,
             }
         )

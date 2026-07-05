@@ -125,6 +125,8 @@ speichern" (nicht funktional).
 | Warnung (Diagnose) | `binary_sensor` | – | `warnings` |
 | Einstellungen speichern* (Default: deaktiviert, per Test nicht funktional) | `button` | – | `device/save_settings` |
 | Werkseinstellungen wiederherstellen (Default: deaktiviert, Zwei-Schritt-Bestätigung) | `button` | – | `device/restore` |
+| Backup erstellen (alle bekannten Werte außer Live-Messwerten) | `button` | – | – |
+| Geräte-Discovery ausführen (Diagnose) | `button` | – | – |
 
 \* **Nur** bei KH 80 / KH 150 / KH 120 II – laut khtool-Dokumentation nicht bei
 KH 750 verfügbar. Die Integration erkennt das Modell automatisch beim
@@ -232,4 +234,26 @@ Details siehe CHANGELOG.md. Kurzüberblick:
   Plattform sich nicht sauber entladen lässt
 - Link-Local-Scope-ID wird für den vollständigen Bereich fe80::/10 korrekt
   angehängt (RFC 4291)
+
+## Namensgedächtnis, Backup & Geräte-Discovery
+
+Ein dauerhafter Speicher (unabhängig von Config Entries, überlebt also auch
+das Löschen und Neueinrichten eines Geräts) merkt sich pro Seriennummer:
+
+- **Zuletzt verwendeter Name:** Beim erneuten Einrichten über die
+  automatische Suche wird das Namensfeld damit vorausgefüllt.
+- **Backup** (`Backup erstellen`-Button): alle bekannten Werte außer
+  Live-Messwerten, zusätzlich als JSON-Datei unter `/config/www/` zum
+  Download.
+- **Discovery** (`Geräte-Discovery ausführen`-Button, Diagnose): kombiniert
+  unsere bekannten Pfade mit einem Best-effort-Versuch über `osc/schema`
+  + `osc/limits` (optionale SSC-Methoden, nicht jede Firmware unterstützt
+  sie - schlägt dieser Teil fehl, bleibt er einfach leer).
+
+Backup und Discovery laufen zusätzlich automatisch einmalig im Hintergrund,
+sobald ein noch unbekanntes Gerät (neue Seriennummer) erfolgreich
+eingerichtet wurde.
+
+Die Auswahlliste beim automatischen Scan enthält außerdem einen Eintrag
+"🔄 Erneut suchen", um die Netzwerksuche direkt aus der Liste neu zu starten.
 

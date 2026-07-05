@@ -1,15 +1,23 @@
-"""Button-Entities: 'Einstellungen speichern' und 'Werkseinstellungen wiederherstellen'.
+"""Button-Entities: 'Einstellungen speichern', 'Werkseinstellungen wiederherstellen',
+'Backup erstellen' und 'Geräte-Discovery ausführen'.
 
 'Einstellungen speichern' nur bei KH 80/150/120 II (nicht KH 750; auf KH 120 II
 per Test nicht funktional, daher standardmäßig deaktiviert).
 
 'Werkseinstellungen wiederherstellen' mit Zwei-Schritt-Sicherheitsabfrage:
 erster Druck bewaffnet nur, zweiter Druck innerhalb 30s löst den Reset aus.
+
+'Backup erstellen' und 'Geräte-Discovery ausführen' speichern ihr Ergebnis
+dauerhaft (siehe storage.py, pro Seriennummer) und zusätzlich als JSON-Datei
+zum Download unter /config/www/.
 """
 
 from __future__ import annotations
 
+import json
+import os
 import time
+from datetime import datetime, timezone
 
 from homeassistant.components.button import ButtonEntity, ButtonEntityDescription
 from homeassistant.components.persistent_notification import (
@@ -17,12 +25,16 @@ from homeassistant.components.persistent_notification import (
     async_dismiss as async_dismiss_notification,
 )
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from . import storage
+from .backup_export import async_build_backup
 from .const import (
     CONF_MODEL,
+    CONF_SERIAL,
     DOMAIN,
     MODELS_WITH_LOGO_AND_SAVE,
     PATH_RESTORE,
@@ -30,6 +42,7 @@ from .const import (
     RESTORE_FACTORY_DEFAULTS_VALUE,
 )
 from .coordinator import NeumannKHCoordinator
+from .discovery_export import async_discover_all_values
 from .entity import NeumannKHEntity
 from .ssc_client import SSCDeviceError
 
@@ -51,6 +64,19 @@ RESTORE_DESCRIPTION = ButtonEntityDescription(
     entity_registry_enabled_default=False,  # destruktive Aktion, bewusst nicht standardmäßig sichtbar
 )
 
+BACKUP_DESCRIPTION = ButtonEntityDescription(
+    key="create_backup",
+    translation_key="create_backup",
+    icon="mdi:content-save-cog-outline",
+)
+
+DISCOVERY_DESCRIPTION = ButtonEntityDescription(
+    key="run_discovery",
+    translation_key="run_discovery",
+    icon="mdi:magnify-scan",
+    entity_category=EntityCategory.DIAGNOSTIC,
+)
+
 
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
@@ -58,11 +84,25 @@ async def async_setup_entry(
     """Legt die Button-Entities für einen Lautsprecher an."""
     coordinator: NeumannKHCoordinator = hass.data[DOMAIN][entry.entry_id]
 
-    entities: list[ButtonEntity] = [NeumannKHRestoreButton(coordinator, entry)]
+    entities: list[ButtonEntity] = [
+        NeumannKHRestoreButton(coordinator, entry),
+        NeumannKHBackupButton(coordinator, entry),
+        NeumannKHDiscoveryButton(coordinator, entry),
+    ]
     if entry.data.get(CONF_MODEL) in MODELS_WITH_LOGO_AND_SAVE:
         entities.append(NeumannKHSaveSettingsButton(coordinator, entry))
 
     async_add_entities(entities)
+
+
+def _write_export_file(hass: HomeAssistant, filename: str, data: dict) -> str:
+    """Schreibt ein JSON-Export unter /config/www/ und liefert die lokale URL."""
+    www_dir = hass.config.path("www")
+    os.makedirs(www_dir, exist_ok=True)
+    path = os.path.join(www_dir, filename)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+    return f"/local/{filename}"
 
 
 class NeumannKHSaveSettingsButton(NeumannKHEntity, ButtonEntity):
@@ -121,4 +161,78 @@ class NeumannKHRestoreButton(NeumannKHEntity, ButtonEntity):
             ),
             title="Neumann Connect: Werksreset bestätigen",
             notification_id=self._notification_id,
+        )
+
+
+class NeumannKHBackupButton(NeumannKHEntity, ButtonEntity):
+    """Liest alle bekannten Werte (ohne Live-Messwerte) und speichert sie als Backup."""
+
+    entity_description = BACKUP_DESCRIPTION
+
+    def __init__(self, coordinator: NeumannKHCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{self._unique_id_base}_create_backup"
+
+    async def async_press(self) -> None:
+        serial = self._entry.data.get(CONF_SERIAL) or self._entry.entry_id
+        model = self._entry.data.get(CONF_MODEL)
+
+        try:
+            values = await async_build_backup(self.coordinator.client, model)
+        except Exception as err:  # noqa: BLE001 - Backup/Discovery sind best-effort
+            raise HomeAssistantError(f"Backup fehlgeschlagen: {err}") from err
+
+        timestamp = datetime.now(timezone.utc).isoformat()
+        backup = {"timestamp": timestamp, "model": model, "serial": serial, "values": values}
+
+        await storage.async_save_backup(self.hass, serial, backup)
+        filename = f"neumann_kh_backup_{serial}.json"
+        url = await self.hass.async_add_executor_job(
+            _write_export_file, self.hass, filename, backup
+        )
+
+        async_create_notification(
+            self.hass,
+            f"Backup für **{self._entry.title}** gespeichert. Download: {url}",
+            title="Neumann Connect: Backup erstellt",
+            notification_id=f"{self._unique_id_base}_backup_done",
+        )
+
+
+class NeumannKHDiscoveryButton(NeumannKHEntity, ButtonEntity):
+    """Führt eine vollständige Geräte-Discovery aus und speichert das Ergebnis."""
+
+    entity_description = DISCOVERY_DESCRIPTION
+
+    def __init__(self, coordinator: NeumannKHCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{self._unique_id_base}_run_discovery"
+
+    async def async_press(self) -> None:
+        serial = self._entry.data.get(CONF_SERIAL) or self._entry.entry_id
+
+        try:
+            discovery = await async_discover_all_values(self.coordinator.client)
+        except Exception as err:  # noqa: BLE001 - Backup/Discovery sind best-effort
+            raise HomeAssistantError(f"Discovery fehlgeschlagen: {err}") from err
+
+        timestamp = datetime.now(timezone.utc).isoformat()
+        record = {
+            "timestamp": timestamp,
+            "model": self._entry.data.get(CONF_MODEL),
+            "serial": serial,
+            **discovery,
+        }
+
+        await storage.async_save_discovery(self.hass, serial, record)
+        filename = f"neumann_kh_discovery_{serial}.json"
+        url = await self.hass.async_add_executor_job(
+            _write_export_file, self.hass, filename, record
+        )
+
+        async_create_notification(
+            self.hass,
+            f"Discovery für **{self._entry.title}** gespeichert. Download: {url}",
+            title="Neumann Connect: Discovery abgeschlossen",
+            notification_id=f"{self._unique_id_base}_discovery_done",
         )

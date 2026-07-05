@@ -3,6 +3,27 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
+## [1.10.0] – Namensgedächtnis, Backup & Geräte-Discovery
+
+### Hinzugefügt
+- Neuer dauerhafter Speicher (`storage.py`, HA-Store, unabhängig von Config
+  Entries, ein Eintrag pro Seriennummer, wächst unbegrenzt)
+- **Namensgedächtnis:** Zuletzt verwendeter Name pro Seriennummer wird
+  gespeichert und beim erneuten Einrichten über die automatische Suche im
+  Namensfeld vorausgefüllt (neuer zweistufiger Scan-Flow: erst Gerät wählen,
+  dann Name bestätigen)
+- **"🔄 Erneut suchen"** als Eintrag in der Scan-Auswahlliste
+- **"Backup erstellen"-Button:** liest alle bekannten Werte (schreibbare
+  Einstellungen + Diagnose/Identität, ohne Live-Messwerte) und speichert sie
+  dauerhaft sowie als JSON-Datei unter `/config/www/`
+- **"Geräte-Discovery ausführen"-Button (Diagnose):** kombiniert unsere
+  bekannten Pfade mit einem Best-effort-Versuch über die optionalen
+  SSC-Methoden `osc/schema` + `osc/limits` (khtools eigener Mechanismus zur
+  Erzeugung von `khtool_commands.json`) - für zukünftige, uns noch
+  unbekannte Geräte/Modelle
+- Backup + Discovery laufen zusätzlich automatisch einmalig im Hintergrund
+  nach dem ersten erfolgreichen Setup eines noch unbekannten Geräts
+
 ## [1.9.0] – Nicht schreibbare Werte korrigiert, Kommentare überarbeitet, Bugfixes
 
 ### Geändert (KH 120 II, nicht schreibbar → jetzt Lesewert)

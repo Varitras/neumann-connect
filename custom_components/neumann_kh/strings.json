@@ -20,9 +20,15 @@
       },
       "scan": {
         "title": "Discovered speakers",
-        "description": "Select a discovered device and give it a name. Submitting with no device selected will search again.",
+        "description": "Select a discovered device, or search again.",
         "data": {
-          "selected_device": "Discovered device",
+          "selected_device": "Discovered device"
+        }
+      },
+      "scan_confirm": {
+        "title": "Name the speaker",
+        "description": "Device: {device}. Pre-filled if this device had a name before.",
+        "data": {
           "name": "Name (e.g. \"KH 120 II Left\")"
         }
       }
@@ -101,7 +107,9 @@
     },
     "button": {
       "save_settings": { "name": "Save settings" },
-      "restore_factory_defaults": { "name": "Restore factory defaults" }
+      "restore_factory_defaults": { "name": "Restore factory defaults" },
+      "create_backup": { "name": "Create backup" },
+      "run_discovery": { "name": "Run device discovery" }
     },
     "text": {
       "device_name": { "name": "Device name" }

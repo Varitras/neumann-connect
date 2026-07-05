@@ -20,9 +20,15 @@
       },
       "scan": {
         "title": "Gefundene Lautsprecher",
-        "description": "Wähle ein gefundenes Gerät aus und vergib einen Namen. Ohne Auswahl abschicken startet die Suche erneut.",
+        "description": "Wähle ein gefundenes Gerät aus, oder suche erneut.",
         "data": {
-          "selected_device": "Gefundenes Gerät",
+          "selected_device": "Gefundenes Gerät"
+        }
+      },
+      "scan_confirm": {
+        "title": "Lautsprecher benennen",
+        "description": "Gerät: {device}. Vorausgefüllt, falls dieses Gerät schon einmal einen Namen hatte.",
+        "data": {
           "name": "Name (z. B. \"KH 120 II Links\")"
         }
       }
@@ -101,7 +107,9 @@
     },
     "button": {
       "save_settings": { "name": "Einstellungen speichern" },
-      "restore_factory_defaults": { "name": "Werkseinstellungen wiederherstellen" }
+      "restore_factory_defaults": { "name": "Werkseinstellungen wiederherstellen" },
+      "create_backup": { "name": "Backup erstellen" },
+      "run_discovery": { "name": "Geräte-Discovery ausführen" }
     },
     "text": {
       "device_name": { "name": "Gerätename" }
