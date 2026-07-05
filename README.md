@@ -118,14 +118,16 @@ Dienste → [Gerät] → Entities** manuell aktivieren.
 ## Polling
 
 Alle Werte eines Lautsprechers werden alle 30 Sekunden abgeholt - und zwar
-**containerweise** (`device`, `ui`, `audio`, `m` als vier getrennte
-Anfragen), nicht als eine große Sammelnachricht. Grund: Ein per Hardware-Test
-bestätigtes Verhalten der Lautsprecher-Firmware lehnt eine GESAMTE SSC-Nachricht
-ab, sobald auch nur ein einzelner, nicht existierender Pfad darin vorkommt
-("message not understood", OSC-Fehler 400) - und zwar für ALLE Werte in
-dieser Nachricht, nicht nur den fehlerhaften. Eine Container-Abfrage lässt
-das Gerät stattdessen selbst entscheiden, was es zurückgibt - robuster
-gegenüber Modell-/Firmware-Unterschieden.
+**jeder Wert einzeln** (ein Blattpfad pro SSC-Nachricht), nicht als
+Sammelnachricht und nicht als Container-Abfrage. Grund (per zwei
+Hardware-Tests bestätigt): Die Firmware lehnt sowohl eine Sammelnachricht
+mit mehreren Blättern (sobald eines davon unbekannt ist) als auch eine
+Container-Abfrage wie `{"device":null}` komplett ab. Nur einzelne, konkrete,
+existierende Blattpfade funktionieren zuverlässig - genau das macht auch
+khtool laut eigenem Log intern so (modellspezifische Liste bekannter
+Einzelpfade). Lehnt das Gerät einen einzelnen Wert ab (z. B. `dimm` auf der
+KH 120 II), wird nur dieser übersprungen - die übrigen Werte werden
+trotzdem aktualisiert.
 
 ## Bekannte Grenzen
 

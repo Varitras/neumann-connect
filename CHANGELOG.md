@@ -3,6 +3,30 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
+## [1.3.1] – Container-Abfragen funktionieren doch nicht
+
+**Hintergrund:** Der 1.3.0-Fix (containerweises Polling, z. B. `{"device":null}`)
+ging von der Annahme aus, dass eine Container-Abfrage automatisch alle
+vorhandenen Blätter zurückgibt. Ein weiterer Hardware-Test hat gezeigt: Das
+stimmt nicht - die Firmware lehnt auch Container-Abfragen ab
+(`{"osc":{"error":[{"device":[404,{"desc":"address not found"}]}]}}`).
+Setup schlug dadurch komplett fehl ("Failed setup, will retry").
+
+### Geändert
+- Coordinator fragt jetzt **jeden Wert einzeln** ab (ein Blattpfad pro
+  SSC-Nachricht) - der einzige bisher zuverlässig bestätigte Ansatz,
+  passend zu khtools eigenem Vorgehen (modellspezifische Liste bekannter
+  Einzelpfade, siehe `khtool_commands.json`)
+- Geräte-Identität (Hersteller/Modell/Seriennummer) wird nicht mehr bei
+  jedem Poll-Zyklus wiederholt abgefragt - sie ändert sich zur Laufzeit
+  nicht und ist bereits einmalig beim Einrichten in den Config-Entry-Daten
+  gespeichert
+- Differenzierte Fehlerbehandlung: Ein genereller Verbindungsfehler lässt
+  den ganzen Poll-Zyklus fehlschlagen; lehnt das Gerät dagegen nur EINEN
+  einzelnen, nicht unterstützten Pfad ab (z. B. `dimm` auf der KH 120 II),
+  wird nur dieser übersprungen - die übrigen Werte werden trotzdem
+  aktualisiert
+
 ## [1.3.0] – Pfade korrigiert anhand echtem Hardware-Test (KH 120 II)
 
 **Hintergrund:** Nach der Ersteinrichtung zeigten fast alle Entities

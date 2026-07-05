@@ -40,11 +40,15 @@ SCAN_DURATION_SECONDS = 4.0
 # khtool-Dokumentation. Ein echter `khtool -q`-Dump einer KH 120 II
 # (Firmware 1_7_3) hat gezeigt, dass mehrere Pfade beim KH 120 II ANDERS
 # heißen bzw. gar nicht existieren. Die Pfade unten sind gegen diesen
-# realen Dump verifiziert. Nicht-existierende Pfade wurden entfernt, da ein
-# einzelner unbekannter Pfad in einer SSC-Anfrage laut Testergebnis
-# ("message not understood", OSC-Fehler 400) die GESAMTE Anfrage zum
-# Scheitern bringt - deshalb fragt der Coordinator jetzt ganze Container ab
-# (siehe SSC_POLL_CONTAINERS) statt einzelne, möglicherweise falsche Blätter.
+# realen Dump verifiziert.
+#
+# Zur Abfrage-Strategie (zwei gescheiterte Ansätze, bevor der aktuelle
+# funktionierte): (1) Eine Sammelnachricht mit mehreren Blättern scheitert
+# komplett, sobald auch nur EIN Blatt darin unbekannt ist ("message not
+# understood", Fehler 400). (2) Eine Container-Abfrage wie {"device":null}
+# wird von der Firmware ebenfalls nicht unterstützt ("address not found",
+# Fehler 404). Es funktionieren NUR einzelne, konkrete, existierende
+# Blattpfade - siehe POLL_PATHS unten und coordinator.py.
 PATH_IDENTITY_VENDOR = ("device", "identity", "vendor")
 PATH_IDENTITY_PRODUCT = ("device", "identity", "product")
 PATH_IDENTITY_SERIAL = ("device", "identity", "serial")
@@ -71,11 +75,23 @@ PATH_OUTPUT_PHASE_INVERSION = ("audio", "out", "phaseinversion")
 # Werten (ein Wert pro Kanal, z. B. [-122.8, -122.8]), kein Einzelwert.
 PATH_METER_INPUT_LEVEL = ("m", "in", "level")
 
-# Container, die der Coordinator bei jedem Poll-Zyklus EINZELN (als jeweils
-# eigene SSC-Nachricht) abfragt. Das Gerät expandiert einen Container
-# automatisch in alle vorhandenen Blätter - dadurch muss nie ein
-# möglicherweise falscher/nicht-existierender Blattname geraten werden.
-SSC_POLL_CONTAINERS = ("device", "ui", "audio", "m")
+# Blattpfade, die der Coordinator bei jedem Poll-Zyklus EINZELN abfragt
+# (jeweils eine eigene, spezifische SSC-Nachricht - siehe coordinator.py für
+# die Begründung: weder Sammelnachrichten noch Container-Abfragen wie
+# {"device":null} werden von der getesteten Firmware unterstützt, NUR
+# einzelne, konkrete, existierende Blattpfade funktionieren zuverlässig).
+# Geräte-Identität (Hersteller/Modell/Seriennummer) wird bewusst NICHT
+# wiederholt gepollt - die wird bereits einmalig beim Einrichten abgefragt
+# und in den Config-Entry-Daten gespeichert.
+POLL_PATHS = (
+    PATH_INPUT_GAIN,
+    PATH_OUTPUT_LEVEL,
+    PATH_OUTPUT_DIMM,
+    PATH_OUTPUT_DELAY,
+    PATH_OUTPUT_MUTE,
+    PATH_OUTPUT_PHASE_INVERSION,
+    PATH_METER_INPUT_LEVEL,
+)
 
 # Wertebereiche lt. khtool --help
 LEVEL_MIN = 0.0
