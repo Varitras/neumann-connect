@@ -1,9 +1,16 @@
-"""Binary-Sensor-Entities: Clip-Anzeige und Warnungs-Indikator.
+"""Binary-Sensor-Entities: Clip-Anzeige, Warnungs-Indikator sowie (nur
+Subwoofer) Digital-Bypass und Auto-Standby-Status (nur lesend).
 
-Beide Werte liefert das Gerät als LISTE (Clip: ein Bool pro Kanal;
+Clip/Warnungen liefert das Gerät als LISTE (Clip: ein Bool pro Kanal;
 Warnungen: eine Liste von Warncodes, z. B. ["NO_WARNING"] im Normalzustand).
-Die jeweils rohe Liste wird zusätzlich als Attribut mitgegeben, damit man bei
-Bedarf nachschauen kann, welcher Kanal/welche genaue Warnung betroffen ist.
+Die jeweils rohe Liste wird zusätzlich als Attribut mitgegeben.
+
+WICHTIGE KORREKTUR zu Auto-Standby: Die Schreibbarkeit von
+"device/standby/enabled" ist MODELLSPEZIFISCH, nicht universell nicht-
+schreibbar. Auf der KH 120 II funktioniert das Schreiben (siehe switch.py -
+dort als Switch für Nicht-Subwoofer-Modelle umgesetzt). Nur auf der KH 750
+wurde das Schreiben per echtem Hardware-Test abgelehnt (Fehler 405) - dort
+bleibt es deshalb bei diesem reinen Lesewert.
 """
 
 from __future__ import annotations
@@ -63,13 +70,6 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[NeumannKHBinarySensorDescription, ...] = (
         ssc_path=PATH_WARNINGS,
         is_warnings=True,
     ),
-    NeumannKHBinarySensorDescription(
-        key="auto_standby",
-        translation_key="auto_standby",
-        icon="mdi:power-sleep",
-        entity_registry_enabled_default=False,
-        ssc_path=PATH_STANDBY_ENABLED,
-    ),
 )
 
 # Nur bei erkanntem Subwoofer (siehe MODELS_WITH_SUBWOOFER_FEATURES) -
@@ -89,6 +89,12 @@ SUBWOOFER_BINARY_SENSOR_DESCRIPTIONS: tuple[NeumannKHBinarySensorDescription, ..
         icon="mdi:transit-connection-variant",
         entity_category="diagnostic",
         ssc_path=PATH_DIGITAL_BYPASS,
+    ),
+    NeumannKHBinarySensorDescription(
+        key="auto_standby",
+        translation_key="auto_standby",
+        icon="mdi:power-sleep",
+        ssc_path=PATH_STANDBY_ENABLED,
     ),
 )
 

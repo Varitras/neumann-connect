@@ -3,6 +3,26 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
+## [1.6.1] – Auto-Standby-Korrektur: modellspezifisch, nicht universell
+
+**Hintergrund:** In 1.6.0 wurde Auto-Standby fälschlich für ALLE Modelle zu
+einem reinen Lesewert (`binary_sensor`) gemacht. Grund war eine
+Übergeneralisierung: Die beiden Schreibfehler (405 "method not allowed" bei
+`device/standby/enabled`, 400 "message not understood" bei `ui/auto_standby`)
+wurden ausschließlich gegen die KH 750 getestet - nie gegen die KH 120 II.
+Der Nutzer hat bestätigt, dass Auto-Standby auf seiner KH 120 II tatsächlich
+funktioniert.
+
+### Behoben
+- Auto-Standby ist jetzt **modellabhängig**:
+  - **Nicht-Subwoofer-Modelle (KH 120 II etc.):** wieder ein schreibbarer
+    `switch` (`device/standby/enabled`)
+  - **KH 750:** bleibt ein reiner `binary_sensor` (nur dort per Hardware-Test
+    bestätigt nicht schreibbar)
+- README und Code-Kommentare korrigiert: Die Lehre aus diesem Vorfall ist
+  jetzt explizit dokumentiert - ein Testergebnis auf einem Modell lässt sich
+  nicht automatisch auf ein anderes Modell übertragen.
+
 ## [1.6.0] – Korrekturen anhand khtools interner Metadaten-Datenbank
 
 **Hintergrund:** Der Nutzer hat khtools interne `khtool_commands.json`

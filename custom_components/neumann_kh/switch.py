@@ -1,4 +1,5 @@
-"""Switch-Entities: Mute, Phasenumkehr (nur Nicht-Subwoofer), Gerät identifizieren.
+"""Switch-Entities: Mute, Gerät identifizieren, Auto-Standby (nur Nicht-
+Subwoofer), Phasenumkehr (nur Nicht-Subwoofer).
 
 Per echtem Hardware-Test (khtool-Dump einer KH 120 II, Firmware 1_7_3)
 korrigiert:
@@ -15,10 +16,13 @@ Minuten (nicht ~10 Sekunden, wie die allgemeine SSC-Doku für andere
 Sennheiser-Geräte vermuten ließ) - ein An/Aus-Schalter gibt die Kontrolle
 darüber zurück an den Nutzer.
 
-"Auto-Standby" (device/standby/enabled) ist bewusst KEIN Schalter mehr: Per
-zwei unabhängigen echten Hardware-Tests bestätigt nicht schreibbar (Fehler
-405 "method not allowed" bzw. 400 "message not understood" bei einem
-alternativen Pfad) - siehe binary_sensor.py für die nur lesende Variante.
+"Auto-Standby" (device/standby/enabled): WICHTIGE KORREKTUR - Schreibbarkeit
+ist MODELLSPEZIFISCH, nicht universell nicht-schreibbar (wie in einer
+früheren Version dieser Integration fälschlich angenommen). Per echtem
+Nutzer-Test bestätigt: Auf der KH 120 II FUNKTIONIERT das Schreiben. Die
+Fehler 405 ("method not allowed") und 400 ("message not understood") wurden
+ausschließlich auf der KH 750 (Subwoofer) getestet und gelten nur dort -
+siehe binary_sensor.py für die dort verwendete, nur lesende Variante.
 """
 
 from __future__ import annotations
@@ -38,6 +42,7 @@ from .const import (
     PATH_IDENTIFY,
     PATH_OUTPUT_MUTE,
     PATH_OUTPUT_PHASE_INVERSION,
+    PATH_STANDBY_ENABLED,
 )
 from .coordinator import NeumannKHCoordinator
 from .entity import NeumannKHEntity
@@ -67,12 +72,21 @@ COMMON_SWITCH_DESCRIPTIONS: tuple[NeumannKHSwitchDescription, ...] = (
     ),
 )
 
-# Nur bei Nicht-Subwoofer-Modellen (existiert laut khtool-Metadaten nur dort)
-PHASE_INVERT_DESCRIPTION = NeumannKHSwitchDescription(
-    key="phase_invert",
-    translation_key="phase_invert",
-    icon="mdi:sine-wave",
-    ssc_path=PATH_OUTPUT_PHASE_INVERSION,
+# Nur bei Nicht-Subwoofer-Modellen (existiert laut khtool-Metadaten nur dort,
+# bzw. ist dort nachweislich schreibbar - siehe Auto-Standby-Korrektur oben)
+NON_SUBWOOFER_SWITCH_DESCRIPTIONS: tuple[NeumannKHSwitchDescription, ...] = (
+    NeumannKHSwitchDescription(
+        key="phase_invert",
+        translation_key="phase_invert",
+        icon="mdi:sine-wave",
+        ssc_path=PATH_OUTPUT_PHASE_INVERSION,
+    ),
+    NeumannKHSwitchDescription(
+        key="auto_standby",
+        translation_key="auto_standby",
+        icon="mdi:power-sleep",
+        ssc_path=PATH_STANDBY_ENABLED,
+    ),
 )
 
 
@@ -84,7 +98,7 @@ async def async_setup_entry(
 
     descriptions = list(COMMON_SWITCH_DESCRIPTIONS)
     if entry.data.get(CONF_MODEL) not in MODELS_WITH_SUBWOOFER_FEATURES:
-        descriptions.append(PHASE_INVERT_DESCRIPTION)
+        descriptions.extend(NON_SUBWOOFER_SWITCH_DESCRIPTIONS)
 
     async_add_entities(
         NeumannKHSwitch(coordinator, entry, description) for description in descriptions

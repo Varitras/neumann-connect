@@ -120,6 +120,7 @@ nicht) und "Steuerungsmodus" (Sicherheits-Ausnahme, siehe unten).
 | Stummschaltung | `switch` | – | `audio/out/mute` |
 | Gerät identifizieren (An/Aus) | `switch` | – | `device/identification/visual` |
 | Phasenumkehr (nur Nicht-Subwoofer) | `switch` | – | `audio/out/phaseinversion` |
+| Auto-Standby (nur Nicht-Subwoofer; auf KH 750 stattdessen `binary_sensor`, siehe unten) | `switch` | – | `device/standby/enabled` |
 | Bass/Mitten/Höhen (nur Nicht-Subwoofer) | `select` | feste Stufen (z. B. Bass: -6/-4/-2/0 dB) | `ui/bass_gain`, `ui/mid_gain`, `ui/treble_gain` |
 | Ausgangspegel SPL (nur Nicht-Subwoofer) | `select` | 94/100/108/114 dB SPL | `ui/output_level` |
 | Eingangsauswahl (Default: deaktiviert, unverifiziert) | `select` | MONO/AES3 R/AES3 L/ANALOG | `ui/input_select` |
@@ -130,7 +131,6 @@ nicht) und "Steuerungsmodus" (Sicherheits-Ausnahme, siehe unten).
 | Standby-Countdown (Default: deaktiviert) | `sensor` | min | `device/standby/countdown` |
 | Hardware-Version, aktueller Eingang (Diagnose) | `sensor` | Text | `device/identity/hw_version`, `audio/in/current_input` |
 | Eingang übersteuert (Clip) | `binary_sensor` | – | `m/in/clip` |
-| Auto-Standby-Status (Default: deaktiviert, nur lesend) | `binary_sensor` | – | `device/standby/enabled` |
 | Warnung (Diagnose) | `binary_sensor` | – | `warnings` |
 | Einstellungen speichern* | `button` | – | `device/save_settings` |
 | Werkseinstellungen wiederherstellen (Default: deaktiviert, Zwei-Schritt-Bestätigung) | `button` | – | `device/restore` |
@@ -167,6 +167,7 @@ Auto-Standby-Zeit/-Schwellwert (gemeinsam mit Nicht-Subwoofer-Modellen).
 | Ausgang 1/2 Bezeichnung, Ausgang 1/2 Lautsprecher (Default: deaktiviert, Diagnose, nur lesend) | `sensor` | Text ("Nicht zugewiesen" statt "UNKNOWN") | `audio/out1/label`, `audio/out1/loudspeaker`, `audio/out2/label`, `audio/out2/loudspeaker` |
 | Ausgang übersteuert (Clip, Default: deaktiviert) | `binary_sensor` | – | `m/out/clip` |
 | Digitaler Bypass (Diagnose) | `binary_sensor` | – | `audio/digital_bypass` |
+| Auto-Standby-Status (nur lesend – auf der KH 750 per Hardware-Test nicht schreibbar, siehe "Bekannte Grenzen") | `binary_sensor` | – | `device/standby/enabled` |
 
 Standardmäßig deaktivierte Entities kannst du in **Einstellungen → Geräte &
 Dienste → [Gerät] → Entities** manuell aktivieren.
@@ -202,15 +203,18 @@ dieser Integration, sondern Home Assistants Kernmechanismus für
 - Der 7-/20-Band-Equalizer (`eq1`/`eq2`/`eq3`, alle Ausgänge) wird bewusst
   nicht abgebildet (komplexe Array-Struktur, hohes Risiko für
   Fehlbedienung) – bei Bedarf gerne als Erweiterung.
-- **Auto-Standby ist NICHT schreibbar**, obwohl khtools Metadaten-Datenbank
-  `device/standby/enabled` als schreibbar listet: Per echtem Hardware-Test
-  auf der KH 750 mit Fehler 405 ("method not allowed") abgelehnt. Ein
-  alternativer Pfad (`ui/auto_standby`, ebenfalls laut Metadaten
-  schreibbar) wurde ebenfalls real getestet und mit Fehler 400 ("message
-  not understood") abgelehnt. **Wichtige Lehre daraus:** khtools Metadaten
-  sind eine gute Quelle für Wertebereiche/Optionen, aber keine Garantie,
-  dass ein Pfad auf der eigenen Firmware tatsächlich schreibbar ist -
-  deshalb bleibt Auto-Standby ein reiner Lesewert (`binary_sensor`).
+- **Auto-Standby ist NUR auf der KH 750 nicht schreibbar** (auf der KH 120 II
+  funktioniert es per Nutzer-Test bestätigt): Auf der KH 750 wurde
+  `device/standby/enabled` per echtem Hardware-Test mit Fehler 405 ("method
+  not allowed") abgelehnt, ein alternativer Pfad (`ui/auto_standby`) mit
+  Fehler 400 ("message not understood"). Beide Tests liefen ausschließlich
+  gegen die KH 750 - eine frühere Version dieser Integration hatte das
+  fälschlich auf alle Modelle verallgemeinert. **Wichtige Lehre daraus:**
+  khtools Metadaten sind eine gute Quelle für Wertebereiche/Optionen, aber
+  keine Garantie, dass ein Pfad auf jedem Modell/jeder Firmware tatsächlich
+  schreibbar ist - und ein Testergebnis auf einem Gerät lässt sich nicht
+  automatisch auf ein anderes Modell übertragen. Deshalb: KH 120 II →
+  `switch` (schreibbar), KH 750 → `binary_sensor` (nur lesend).
 - **Eingangsumschaltung (KH 120 II) bleibt unverifiziert:** Sowohl
   `ui/input_select` als auch `audio/in/interface` wurden mit falschen
   Testwerten real abgelehnt; die laut Metadaten korrekten Werte
