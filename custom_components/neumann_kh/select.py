@@ -230,10 +230,10 @@ class NeumannKHSelect(NeumannKHEntity, SelectEntity):
 
     async def async_select_option(self, option: str) -> None:
         try:
-            await self.coordinator.client.set(self.entity_description.ssc_path, option)
+            confirmed = await self.coordinator.client.set(self.entity_description.ssc_path, option)
         except SSCDeviceError as err:
             raise HomeAssistantError(
                 f"Der Lautsprecher hat diese Auswahl abgelehnt (evtl. von diesem "
                 f"Modell/dieser Firmware nicht unterstützt): {err}"
             ) from err
-        await self.coordinator.async_request_refresh()
+        await self._apply_confirmed_value(self.entity_description.ssc_path, confirmed)

@@ -220,9 +220,6 @@ dieser Integration, sondern Home Assistants Kernmechanismus für
   Testwerten real abgelehnt; die laut Metadaten korrekten Werte
   (MONO/AES3 R/AES3 L/ANALOG bzw. ANALOG ONLY/DIGITAL ONLY/DIGITAL
   DISCARDS ANALOG) wurden noch nicht gegen echte Hardware getestet.
-  Ein [offenes GitHub-Issue](https://github.com/schwinn/khtool/issues/5)
-  bestätigt unabhängig, dass andere Nutzer ebenfalls keinen
-  funktionierenden Weg gefunden haben.
 - **Steuerungsmodus (`ui/control_mode`) bleibt IMMER standardmäßig
   deaktiviert**, auch wenn sonst "alle Entities außer Dimm" aktiviert
   sind: Ein Wechsel zu `LOCAL` könnte die Netzwerksteuerung – und damit

@@ -54,9 +54,9 @@ class NeumannKHDeviceNameText(NeumannKHEntity, TextEntity):
 
     async def async_set_value(self, value: str) -> None:
         try:
-            await self.coordinator.client.set(PATH_DEVICE_NAME, value)
+            confirmed = await self.coordinator.client.set(PATH_DEVICE_NAME, value)
         except SSCDeviceError as err:
             raise HomeAssistantError(
                 f"Der Lautsprecher hat den neuen Namen abgelehnt: {err}"
             ) from err
-        await self.coordinator.async_request_refresh()
+        await self._apply_confirmed_value(PATH_DEVICE_NAME, confirmed)

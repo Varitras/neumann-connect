@@ -130,13 +130,13 @@ class NeumannKHSwitch(NeumannKHEntity, SwitchEntity):
     async def _async_set(self, value: bool) -> None:
         """Setzt den Wert; wandelt eine Geräte-Ablehnung in eine klare HA-Fehlermeldung um."""
         try:
-            await self.coordinator.client.set(self.entity_description.ssc_path, value)
+            confirmed = await self.coordinator.client.set(self.entity_description.ssc_path, value)
         except SSCDeviceError as err:
             raise HomeAssistantError(
                 f"Der Lautsprecher hat diese Änderung abgelehnt (evtl. von diesem "
                 f"Modell/dieser Firmware nicht unterstützt): {err}"
             ) from err
-        await self.coordinator.async_request_refresh()
+        await self._apply_confirmed_value(self.entity_description.ssc_path, confirmed)
 
     async def async_turn_on(self, **kwargs) -> None:
         await self._async_set(True)

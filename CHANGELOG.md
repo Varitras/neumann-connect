@@ -3,6 +3,25 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
+## [1.6.2] – Schalter/Auswahl springen nicht mehr kurz zurück (Race Condition behoben)
+
+**Hintergrund:** Nach dem Betätigen eines Schalters/einer Auswahl (z. B.
+Auto-Standby, Identifizieren) sprang die Anzeige kurz auf den alten Wert
+zurück, bevor sie nach einigen Sekunden wieder korrekt wurde. Ursache: Nach
+jedem "set" wurde ein kompletter Poll-Zyklus (20+ Einzelabfragen)
+angestoßen. Wurde dabei ausgerechnet der gerade geänderte Wert abgefragt,
+BEVOR das Gerät ihn intern vollständig übernommen hatte, kam kurzzeitig der
+alte Wert zurück.
+
+### Behoben
+- `number`/`select`/`switch`/`text`: Nach einem "set" wird jetzt direkt der
+  vom Gerät in DERSELBEN Antwort bereits bestätigte Wert übernommen, statt
+  einen kompletten (langsameren) Poll-Zyklus anzustoßen. Das vermeidet die
+  Race Condition komplett und ist zusätzlich spürbar schneller. Neue
+  gemeinsame Methode `NeumannKHEntity._apply_confirmed_value()` in
+  `entity.py`. Liefert das Gerät ausnahmsweise keinen eindeutigen Wert
+  zurück, wird sicherheitshalber weiterhin ein normaler Refresh angestoßen.
+
 ## [1.6.1] – Auto-Standby-Korrektur: modellspezifisch, nicht universell
 
 **Hintergrund:** In 1.6.0 wurde Auto-Standby fälschlich für ALLE Modelle zu
