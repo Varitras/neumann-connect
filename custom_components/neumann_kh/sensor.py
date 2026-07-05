@@ -47,7 +47,6 @@ SENSOR_DESCRIPTIONS: tuple[NeumannKHSensorDescription, ...] = (
         native_unit_of_measurement="dB",
         state_class=SensorStateClass.MEASUREMENT,
         ssc_path=PATH_METER_INPUT_LEVEL,
-        entity_registry_enabled_default=False,  # hochfrequente Live-Werte, standardmäßig aus
     ),
 )
 

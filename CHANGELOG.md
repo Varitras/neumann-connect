@@ -3,6 +3,16 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
+## [1.3.2] – Entity-Standardwerte angepasst
+
+### Geändert
+- "Dimm" (`number.output_dimm`) ist jetzt standardmäßig **deaktiviert** -
+  existiert auf der KH 120 II nachweislich nicht (siehe 1.3.0/1.3.1),
+  bleibt aber verfügbar für Modelle wie die KH 750 DSP, falls dort
+  unterstützt
+- "Eingangspegel (live)" (`sensor.input_level_meter`) ist jetzt
+  standardmäßig **aktiviert** (vorher deaktiviert)
+
 ## [1.3.1] – Container-Abfragen funktionieren doch nicht
 
 **Hintergrund:** Der 1.3.0-Fix (containerweises Polling, z. B. `{"device":null}`)

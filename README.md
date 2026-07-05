@@ -99,13 +99,13 @@ beeinträchtigen (siehe "Polling" unten).
 | Entity | Typ | Bereich | SSC-Pfad |
 |---|---|---|---|
 | Ausgangspegel | `number` | 0–120 dB | `audio/out/level` |
-| Dimm (nicht bei KH 120 II vorhanden, siehe unten) | `number` | −120–0 dB | `audio/out/dimm` |
+| Dimm (Default: deaktiviert, nicht bei KH 120 II vorhanden, siehe unten) | `number` | −120–0 dB | `audio/out/dimm` |
 | Verzögerung | `number` | 0–3360 Samples @48kHz | `audio/out/delay` |
 | Logo-Helligkeit* | `number` | 0–100 % | `ui/logo/brightness` |
 | Stummschaltung | `switch` | – | `audio/out/mute` |
 | Phasenumkehr (Default: deaktiviert) | `switch` | – | `audio/out/phaseinversion` |
 | Eingangsverstärkung | `sensor` | dB | `ui/input_gain` |
-| Eingangspegel live (Default: deaktiviert) | `sensor` | dB, pro Kanal, angezeigt wird der lautere Kanal | `m/in/level` |
+| Eingangspegel live | `sensor` | dB, pro Kanal, angezeigt wird der lautere Kanal | `m/in/level` |
 | Einstellungen speichern* | `button` | – | `device/save_settings` |
 
 \* **Nur** bei KH 80 / KH 150 / KH 120 II – laut khtool-Dokumentation nicht bei

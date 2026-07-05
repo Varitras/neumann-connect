@@ -78,6 +78,7 @@ NUMBER_DESCRIPTIONS: tuple[NeumannKHNumberDescription, ...] = (
         native_step=0.5,
         native_unit_of_measurement="dB",
         mode=NumberMode.SLIDER,
+        entity_registry_enabled_default=False,  # auf KH 120 II nicht vorhanden, siehe README
         ssc_path=PATH_OUTPUT_DIMM,
     ),
     NeumannKHNumberDescription(
