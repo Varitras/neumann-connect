@@ -24,8 +24,10 @@ from .const import (
     CONF_MODEL,
     DOMAIN,
     MODELS_WITH_SUBWOOFER_FEATURES,
+    PATH_DIGITAL_BYPASS,
     PATH_METER_CLIP,
     PATH_METER_OUTPUT_CLIP,
+    PATH_STANDBY_ENABLED,
     PATH_WARNINGS,
 )
 from .coordinator import NeumannKHCoordinator
@@ -61,6 +63,13 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[NeumannKHBinarySensorDescription, ...] = (
         ssc_path=PATH_WARNINGS,
         is_warnings=True,
     ),
+    NeumannKHBinarySensorDescription(
+        key="auto_standby",
+        translation_key="auto_standby",
+        icon="mdi:power-sleep",
+        entity_registry_enabled_default=False,
+        ssc_path=PATH_STANDBY_ENABLED,
+    ),
 )
 
 # Nur bei erkanntem Subwoofer (siehe MODELS_WITH_SUBWOOFER_FEATURES) -
@@ -73,6 +82,13 @@ SUBWOOFER_BINARY_SENSOR_DESCRIPTIONS: tuple[NeumannKHBinarySensorDescription, ..
         device_class=BinarySensorDeviceClass.PROBLEM,
         entity_registry_enabled_default=False,
         ssc_path=PATH_METER_OUTPUT_CLIP,
+    ),
+    NeumannKHBinarySensorDescription(
+        key="digital_bypass",
+        translation_key="digital_bypass",
+        icon="mdi:transit-connection-variant",
+        entity_category="diagnostic",
+        ssc_path=PATH_DIGITAL_BYPASS,
     ),
 )
 

@@ -3,6 +3,84 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
+## [1.6.0] – Korrekturen anhand khtools interner Metadaten-Datenbank
+
+**Hintergrund:** Der Nutzer hat khtools interne `khtool_commands.json`
+bereitgestellt - strukturierte Metadaten (Typ, schreibbar ja/nein, Min/Max,
+exakte Optionen) für KH 120 II (Firmware 1_7_3) und KH 750 (Firmware
+2_1_2). Das ist eine deutlich zuverlässigere Quelle als die bisherigen
+Schätzwerte, ABER ein echter Hardware-Test (`ui/auto_standby`) hat gezeigt,
+dass diese Datei nicht immer mit dem tatsächlichen Geräteverhalten
+übereinstimmt - siehe README "Bekannte Grenzen".
+
+### Korrigiert (Wertebereiche)
+- Verzögerung: KH 120 II 0-**5760** Samples (statt 3360), KH 750 (Haupt/
+  out1/out2) 0-**1000** Samples (statt 3360) - jetzt modellabhängig
+- Standby-Zeit: 1-**240** min (statt 1-90)
+- Standby-Schwellwert: **-80 bis -55 dBu** (statt -90-0 dB, andere Einheit!)
+- Logo-Helligkeit: 0-**125** % (statt 0-100)
+- Subwoofer-Eingangsverstärkung: **-12 bis +2** dB (statt ±12)
+- Subwoofer-Low-Cut: **-12 bis 0** dB (statt ±12)
+
+### Geändert (Number → Select, da feste Stufen statt kontinuierlichem Bereich)
+- Bass/Mitten/Höhen (KH 120 II): jetzt `select` mit den tatsächlichen festen
+  Stufen (Bass/Mitten: -6/-4/-2/0 dB, Höhen: -2/-1/0/1 dB) statt Schieberegler
+- Subwoofer-Phase: jetzt `select` mit den tatsächlichen Werten
+  0°/-45°/-90°/-135° (statt kontinuierlichem 0-180°-Bereich)
+- Subwoofer-Phaseninversion: jetzt `select` mit den tatsächlichen Werten
+  "0"/"-180" (statt `switch` mit angenommenem "0"/"1")
+
+### Hinzugefügt
+- **Eingangsverstärkung** (`ui/input_gain`, Nicht-Subwoofer) als
+  schreibbares `number` (-15-0 dB) statt nur lesendem Sensor
+- **Ausgangspegel SPL** (`ui/output_level`, Nicht-Subwoofer) als neues
+  `select` (94/100/108/114 dB SPL) - Pendant zum Subwoofer-Ausgangspegel
+- **Eingangsauswahl** (`select`, `ui/input_select`) und **Eingangs-
+  Interface** (`select`, `audio/in/interface`) - Wertebereiche jetzt
+  bekannt, Schreibbarkeit aber weiterhin unverifiziert (mit falschen
+  Testwerten real abgelehnt)
+- **Steuerungsmodus** (`select`, `ui/control_mode`, NETWORK/LOCAL) - immer
+  standardmäßig deaktiviert (Sicherheits-Ausnahme: Risiko, sich vom Gerät
+  auszusperren)
+- **Gerätename** (`text`, `device/name`, max. 52 Zeichen) - neue Plattform
+  `text.py`
+- **"Werkseinstellungen wiederherstellen"-Button** (`device/restore`) mit
+  bestätigtem Wert `"FACTORY_DEFAULTS"` - trotzdem mit
+  Zwei-Schritt-Sicherheitsabfrage umgesetzt (erster Druck "bewaffnet" nur,
+  zweiter Druck innerhalb 30s löst tatsächlich aus)
+- **Digitaler Bypass** (`binary_sensor`, `audio/digital_bypass`, nur
+  Subwoofer)
+- **Ausgangsbezeichnung Hauptausgang** (`sensor`, `audio/out/label`, nur
+  Subwoofer)
+- "UNKNOWN" bei Ausgang-1/2-Lautsprecher wird jetzt als "Nicht zugewiesen"
+  angezeigt
+
+### Geändert (Verhalten)
+- **"Identifizieren"** ist jetzt ein **Schalter** (An/Aus) statt eines
+  Auto-Stopp-Buttons: Ein Hardware-Test zeigte, dass das Blinken erst nach
+  mehreren Minuten von selbst aufhört, nicht nach ~10 Sekunden
+- **"Auto-Standby"** ist nur noch ein reiner Lesewert (`binary_sensor`),
+  kein Schalter mehr: Per zwei unabhängigen Hardware-Tests bestätigt nicht
+  schreibbar (Fehler 405 bzw. 400 bei zwei verschiedenen Pfaden), obwohl
+  khtools Metadaten `device/standby/enabled` als schreibbar listen
+- **Alle KH-120-II-Entities sind jetzt standardmäßig aktiviert**, außer
+  "Dimm" (existiert dort nicht) und "Steuerungsmodus" (bewusste
+  Sicherheits-Ausnahme)
+
+### Code-Härtung
+- Gemeinsame Hilfsfunktionen (`_util.py`) statt doppelter Implementierung
+  von `build_nested`/`deep_merge` in `ssc_client.py` und `coordinator.py`
+- `ssc_client.py`: `asyncio.LimitOverrunError` wird abgefangen; `assert`
+  durch explizite Prüfung ersetzt
+- `coordinator.py`: unerwarteter Fehler bei einem Poll-Pfad reißt nicht
+  mehr den gesamten Zyklus mit; neues Gesamt-Zeitlimit pro Poll-Zyklus
+  (`POLL_CYCLE_TIMEOUT_SECONDS`)
+- `config_flow.py`: leerer Name auch beim manuellen Setup abgelehnt;
+  mDNS-Scan-Fehler führen zu klarer Meldung statt Absturz
+- `__init__.py`: `DEFAULT_PORT`-Konstante statt hartcodierter Zahl
+- Firmware-Version wird beim Einrichten zusätzlich gespeichert und als
+  `sw_version` im Geräte-Info angezeigt
+
 ## [1.5.0] – Subwoofer-Support (KH 750) und Code-Härtung
 
 **Hintergrund:** Ein echter `khtool -q`-Dump einer KH 750 (Firmware 2_1_2)

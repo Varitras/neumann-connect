@@ -1,17 +1,24 @@
-"""Switch-Entities: Mute, Phasenumkehr, Auto-Standby sowie (nur bei erkanntem
-Subwoofer) Subwoofer-Phaseninversion und Mute für die Zusatzausgänge out1/out2.
+"""Switch-Entities: Mute, Phasenumkehr (nur Nicht-Subwoofer), Gerät identifizieren.
 
 Per echtem Hardware-Test (khtool-Dump einer KH 120 II, Firmware 1_7_3)
 korrigiert:
-- "solo" existiert im vollständigen Geräte-Dump NICHT und wurde entfernt
-  (von diesem Modell/dieser Firmware offenbar nicht unterstützt).
+- "solo" existiert im vollständigen Geräte-Dump NICHT und wurde entfernt.
 - Es gibt nur EINE Phasenumkehr für den gesamten (Haupt-)Ausgang
-  ("audio/out/phaseinversion"), keine getrennte Ein-/Ausgangs-Phasenumkehr
-  wie ursprünglich (basierend auf der KH-80-Beispieldoku) angenommen.
+  ("audio/out/phaseinversion"), keine getrennte Ein-/Ausgangs-Phasenumkehr.
+  Existiert laut khtools Metadaten NUR bei Nicht-Subwoofer-Modellen (KH 750
+  hat stattdessen "subwoofer_phase_inversion", siehe select.py).
 
-Subwoofer-Phaseninversion (ui/subwoofer_phase_inversion) liefert/erwartet
-lt. echtem KH-750-Dump die Werte als STRING "0"/"1", nicht als JSON-Bool -
-siehe bool_as_string in der Entity-Beschreibung.
+"Gerät identifizieren" (device/identification/visual) ist als SCHALTER
+umgesetzt, nicht als Auto-Stopp-Button: Ein echter Hardware-Test hat
+gezeigt, dass das Blinken zwar von selbst aufhört, aber erst nach mehreren
+Minuten (nicht ~10 Sekunden, wie die allgemeine SSC-Doku für andere
+Sennheiser-Geräte vermuten ließ) - ein An/Aus-Schalter gibt die Kontrolle
+darüber zurück an den Nutzer.
+
+"Auto-Standby" (device/standby/enabled) ist bewusst KEIN Schalter mehr: Per
+zwei unabhängigen echten Hardware-Tests bestätigt nicht schreibbar (Fehler
+405 "method not allowed" bzw. 400 "message not understood" bei einem
+alternativen Pfad) - siehe binary_sensor.py für die nur lesende Variante.
 """
 
 from __future__ import annotations
@@ -28,12 +35,9 @@ from .const import (
     CONF_MODEL,
     DOMAIN,
     MODELS_WITH_SUBWOOFER_FEATURES,
-    PATH_OUT1_MUTE,
-    PATH_OUT2_MUTE,
+    PATH_IDENTIFY,
     PATH_OUTPUT_MUTE,
     PATH_OUTPUT_PHASE_INVERSION,
-    PATH_STANDBY_ENABLED,
-    PATH_UI_SUB_PHASE_INVERSION,
 )
 from .coordinator import NeumannKHCoordinator
 from .entity import NeumannKHEntity
@@ -42,18 +46,13 @@ from .ssc_client import SSCDeviceError
 
 @dataclass(frozen=True, kw_only=True)
 class NeumannKHSwitchDescription(SwitchEntityDescription):
-    """Beschreibung einer Switch-Entity inkl. SSC-Pfad.
-
-    bool_as_string: Manche SSC-Eigenschaften (z. B. subwoofer_phase_inversion)
-    liefern/erwarten einen booleschen Zustand als STRING "0"/"1" statt als
-    JSON-Bool true/false - siehe echter KH-750-Dump.
-    """
+    """Beschreibung einer Switch-Entity inkl. SSC-Pfad."""
 
     ssc_path: tuple[str, ...] = ()
-    bool_as_string: bool = False
 
 
-SWITCH_DESCRIPTIONS: tuple[NeumannKHSwitchDescription, ...] = (
+# Immer angelegt (modellunabhängig)
+COMMON_SWITCH_DESCRIPTIONS: tuple[NeumannKHSwitchDescription, ...] = (
     NeumannKHSwitchDescription(
         key="mute",
         translation_key="mute",
@@ -61,45 +60,19 @@ SWITCH_DESCRIPTIONS: tuple[NeumannKHSwitchDescription, ...] = (
         ssc_path=PATH_OUTPUT_MUTE,
     ),
     NeumannKHSwitchDescription(
-        key="phase_invert",
-        translation_key="phase_invert",
-        icon="mdi:sine-wave",
-        ssc_path=PATH_OUTPUT_PHASE_INVERSION,
-        entity_registry_enabled_default=False,
-    ),
-    NeumannKHSwitchDescription(
-        key="auto_standby",
-        translation_key="auto_standby",
-        icon="mdi:power-sleep",
-        ssc_path=PATH_STANDBY_ENABLED,
-        entity_registry_enabled_default=False,  # unverifiziertes Feature, siehe README
+        key="identify",
+        translation_key="identify",
+        icon="mdi:led-on",
+        ssc_path=PATH_IDENTIFY,
     ),
 )
 
-# Nur bei erkanntem Subwoofer (siehe MODELS_WITH_SUBWOOFER_FEATURES)
-SUBWOOFER_SWITCH_DESCRIPTIONS: tuple[NeumannKHSwitchDescription, ...] = (
-    NeumannKHSwitchDescription(
-        key="subwoofer_phase_inversion",
-        translation_key="subwoofer_phase_inversion",
-        icon="mdi:sine-wave",
-        ssc_path=PATH_UI_SUB_PHASE_INVERSION,
-        entity_registry_enabled_default=False,  # unverifiziert, siehe README
-        bool_as_string=True,
-    ),
-    NeumannKHSwitchDescription(
-        key="out1_mute",
-        translation_key="out1_mute",
-        icon="mdi:volume-mute",
-        ssc_path=PATH_OUT1_MUTE,
-        entity_registry_enabled_default=False,  # nur relevant, falls Out1 belegt ist
-    ),
-    NeumannKHSwitchDescription(
-        key="out2_mute",
-        translation_key="out2_mute",
-        icon="mdi:volume-mute",
-        ssc_path=PATH_OUT2_MUTE,
-        entity_registry_enabled_default=False,  # nur relevant, falls Out2 belegt ist
-    ),
+# Nur bei Nicht-Subwoofer-Modellen (existiert laut khtool-Metadaten nur dort)
+PHASE_INVERT_DESCRIPTION = NeumannKHSwitchDescription(
+    key="phase_invert",
+    translation_key="phase_invert",
+    icon="mdi:sine-wave",
+    ssc_path=PATH_OUTPUT_PHASE_INVERSION,
 )
 
 
@@ -109,9 +82,9 @@ async def async_setup_entry(
     """Legt die Switch-Entities für einen Lautsprecher an."""
     coordinator: NeumannKHCoordinator = hass.data[DOMAIN][entry.entry_id]
 
-    descriptions = list(SWITCH_DESCRIPTIONS)
-    if entry.data.get(CONF_MODEL) in MODELS_WITH_SUBWOOFER_FEATURES:
-        descriptions.extend(SUBWOOFER_SWITCH_DESCRIPTIONS)
+    descriptions = list(COMMON_SWITCH_DESCRIPTIONS)
+    if entry.data.get(CONF_MODEL) not in MODELS_WITH_SUBWOOFER_FEATURES:
+        descriptions.append(PHASE_INVERT_DESCRIPTION)
 
     async_add_entities(
         NeumannKHSwitch(coordinator, entry, description) for description in descriptions
@@ -119,7 +92,7 @@ async def async_setup_entry(
 
 
 class NeumannKHSwitch(NeumannKHEntity, SwitchEntity):
-    """Boolescher SSC-Wert als Switch (ggf. als String "0"/"1" übertragen)."""
+    """Boolescher SSC-Wert als Switch."""
 
     entity_description: NeumannKHSwitchDescription
 
@@ -138,15 +111,12 @@ class NeumannKHSwitch(NeumannKHEntity, SwitchEntity):
         value = self.coordinator.value(self.entity_description.ssc_path)
         if value is None:
             return None
-        if self.entity_description.bool_as_string:
-            return str(value) in ("1", "true", "True")
         return bool(value)
 
     async def _async_set(self, value: bool) -> None:
         """Setzt den Wert; wandelt eine Geräte-Ablehnung in eine klare HA-Fehlermeldung um."""
-        payload_value = ("1" if value else "0") if self.entity_description.bool_as_string else value
         try:
-            await self.coordinator.client.set(self.entity_description.ssc_path, payload_value)
+            await self.coordinator.client.set(self.entity_description.ssc_path, value)
         except SSCDeviceError as err:
             raise HomeAssistantError(
                 f"Der Lautsprecher hat diese Änderung abgelehnt (evtl. von diesem "

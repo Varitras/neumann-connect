@@ -1,24 +1,25 @@
 """Number-Entities: Level, Dimm, Delay, Logo-Helligkeit, Auto-Standby-Werte,
-Klangregler sowie (nur bei erkanntem Subwoofer) Subwoofer-Kalibrierung und
-die beiden zusätzlichen Bass-Management-Ausgänge out1/out2.
+Eingangsverstärkung (Nicht-Subwoofer) sowie (nur bei erkanntem Subwoofer)
+Subwoofer-Kalibrierung und die beiden zusätzlichen Bass-Management-Ausgänge
+out1/out2.
 
 Jede Number-Entity liest ihren aktuellen Wert aus dem Coordinator-Cache und
 schreibt bei Änderung direkt per SSC "set" auf den Lautsprecher. Danach wird
 ein sofortiger Refresh angestoßen, damit der neue Wert zeitnah in HA sichtbar
 ist, statt bis zum nächsten Poll-Zyklus zu warten.
 
+WICHTIG zu den Wertebereichen: Diese sind gegen khtools interne
+"khtool_commands.json"-Metadaten verifiziert (siehe const.py-Moduldocstring
+zur Zuverlässigkeit dieser Quelle) - deutlich genauer als die ursprünglichen
+Schätzwerte. Die KLANGREGLER (Bass/Mitten/Höhen) und die SUBWOOFER-PHASE
+wurden dabei als feste String-Enums (nicht als kontinuierlicher
+Zahlenbereich) identifiziert und deshalb nach select.py verschoben.
+
 Hinweis zu "Dimm": Per echtem Hardware-Test (khtool) auf einer KH 120 II
 (Firmware 1_7_3) bestätigt NICHT vorhanden - das Gerät lehnt sowohl das
 Lesen als auch das Setzen mit einem OSC-Fehler ab. Die Entity bleibt trotzdem
-bestehen (evtl. bei anderen Modellen wie der KH 750 vorhanden) und zeigt in
-diesem Fall "unknown" bzw. wirft beim Setzen einen klaren Fehler (siehe
-async_set_native_value).
-
-Hinweis zu den Klangreglern, Auto-Standby- UND Subwoofer-Kalibrierungswerten:
-Wertebereiche sind NICHT offiziell dokumentiert und NICHT gegen echte
-Hardware verifiziert - konservativ geschätzt. Lehnt das Gerät einen Wert ab,
-zeigt HA eine klare Fehlermeldung statt eines stillen Fehlschlags oder gar
-eines unerwarteten Verhaltens am Gerät.
+bestehen (evtl. bei anderen Modellen vorhanden) und zeigt in diesem Fall
+"unknown" bzw. wirft beim Setzen einen klaren Fehler.
 """
 
 from __future__ import annotations
@@ -40,15 +41,19 @@ from .const import (
     BRIGHTNESS_MAX,
     BRIGHTNESS_MIN,
     CONF_MODEL,
-    DELAY_MAX,
+    DELAY_MAX_DEFAULT,
+    DELAY_MAX_SUBWOOFER,
     DELAY_MIN,
     DIMM_MAX,
     DIMM_MIN,
     DOMAIN,
+    INPUT_GAIN_MAX,
+    INPUT_GAIN_MIN,
     LEVEL_MAX,
     LEVEL_MIN,
     MODELS_WITH_LOGO_AND_SAVE,
     MODELS_WITH_SUBWOOFER_FEATURES,
+    PATH_INPUT_GAIN,
     PATH_LOGO_BRIGHTNESS,
     PATH_OUT1_DELAY,
     PATH_OUT1_LEVEL,
@@ -59,24 +64,17 @@ from .const import (
     PATH_OUTPUT_LEVEL,
     PATH_STANDBY_AUTO_TIME,
     PATH_STANDBY_LEVEL,
-    PATH_UI_BASS_GAIN,
-    PATH_UI_MID_GAIN,
     PATH_UI_SUB_INPUT_GAIN,
     PATH_UI_SUB_LOW_CUT,
-    PATH_UI_SUB_PHASE,
-    PATH_UI_TREBLE_GAIN,
     STANDBY_AUTO_TIME_MAX,
     STANDBY_AUTO_TIME_MIN,
     STANDBY_LEVEL_MAX,
     STANDBY_LEVEL_MIN,
+    STANDBY_LEVEL_UNIT,
     SUB_INPUT_GAIN_MAX,
     SUB_INPUT_GAIN_MIN,
     SUB_LOW_CUT_MAX,
     SUB_LOW_CUT_MIN,
-    SUB_PHASE_MAX,
-    SUB_PHASE_MIN,
-    TONE_GAIN_MAX,
-    TONE_GAIN_MIN,
 )
 from .coordinator import NeumannKHCoordinator
 from .entity import NeumannKHEntity
@@ -87,21 +85,15 @@ from .ssc_client import SSCDeviceError
 class NeumannKHNumberDescription(NumberEntityDescription):
     """Beschreibung einer Number-Entity inkl. SSC-Pfad.
 
-    value_is_string: Manche SSC-Eigenschaften (z. B. die Klangregler, die
-    Subwoofer-Phase) liefern ihren Wert als JSON-STRING (z. B. "0") statt als
-    Zahl. Beim Lesen ist das unproblematisch (float("0") funktioniert), beim
-    SCHREIBEN muss der Wert aber als String zurückgeschickt werden.
-
     integer: Ob beim Schreiben nach int() statt float() konvertiert werden
     soll (z. B. Delay-Werte in Samples).
     """
 
     ssc_path: tuple[str, ...] = ()
-    value_is_string: bool = False
     integer: bool = False
 
 
-NUMBER_DESCRIPTIONS: tuple[NeumannKHNumberDescription, ...] = (
+COMMON_NUMBER_DESCRIPTIONS: tuple[NeumannKHNumberDescription, ...] = (
     NeumannKHNumberDescription(
         key="output_level",
         translation_key="output_level",
@@ -126,18 +118,6 @@ NUMBER_DESCRIPTIONS: tuple[NeumannKHNumberDescription, ...] = (
         ssc_path=PATH_OUTPUT_DIMM,
     ),
     NeumannKHNumberDescription(
-        key="output_delay",
-        translation_key="output_delay",
-        icon="mdi:timer-outline",
-        native_min_value=DELAY_MIN,
-        native_max_value=DELAY_MAX,
-        native_step=1,
-        native_unit_of_measurement="samples",  # 1/48000s pro Sample, siehe khtool --delay
-        mode=NumberMode.BOX,
-        ssc_path=PATH_OUTPUT_DELAY,
-        integer=True,
-    ),
-    NeumannKHNumberDescription(
         key="standby_auto_time",
         translation_key="standby_auto_time",
         icon="mdi:timer-sand",
@@ -146,7 +126,6 @@ NUMBER_DESCRIPTIONS: tuple[NeumannKHNumberDescription, ...] = (
         native_step=1,
         native_unit_of_measurement="min",
         mode=NumberMode.BOX,
-        entity_registry_enabled_default=False,  # Wertebereich unverifiziert, siehe README
         ssc_path=PATH_STANDBY_AUTO_TIME,
     ),
     NeumannKHNumberDescription(
@@ -156,49 +135,9 @@ NUMBER_DESCRIPTIONS: tuple[NeumannKHNumberDescription, ...] = (
         native_min_value=STANDBY_LEVEL_MIN,
         native_max_value=STANDBY_LEVEL_MAX,
         native_step=1,
-        native_unit_of_measurement="dB",
+        native_unit_of_measurement=STANDBY_LEVEL_UNIT,
         mode=NumberMode.BOX,
-        entity_registry_enabled_default=False,  # Wertebereich unverifiziert, siehe README
         ssc_path=PATH_STANDBY_LEVEL,
-    ),
-    NeumannKHNumberDescription(
-        key="bass_gain",
-        translation_key="bass_gain",
-        icon="mdi:sine-wave",
-        native_min_value=TONE_GAIN_MIN,
-        native_max_value=TONE_GAIN_MAX,
-        native_step=0.5,
-        native_unit_of_measurement="dB",
-        mode=NumberMode.SLIDER,
-        entity_registry_enabled_default=False,  # Wertebereich unverifiziert, siehe README
-        ssc_path=PATH_UI_BASS_GAIN,
-        value_is_string=True,
-    ),
-    NeumannKHNumberDescription(
-        key="mid_gain",
-        translation_key="mid_gain",
-        icon="mdi:sine-wave",
-        native_min_value=TONE_GAIN_MIN,
-        native_max_value=TONE_GAIN_MAX,
-        native_step=0.5,
-        native_unit_of_measurement="dB",
-        mode=NumberMode.SLIDER,
-        entity_registry_enabled_default=False,  # Wertebereich unverifiziert, siehe README
-        ssc_path=PATH_UI_MID_GAIN,
-        value_is_string=True,
-    ),
-    NeumannKHNumberDescription(
-        key="treble_gain",
-        translation_key="treble_gain",
-        icon="mdi:sine-wave",
-        native_min_value=TONE_GAIN_MIN,
-        native_max_value=TONE_GAIN_MAX,
-        native_step=0.5,
-        native_unit_of_measurement="dB",
-        mode=NumberMode.SLIDER,
-        entity_registry_enabled_default=False,  # Wertebereich unverifiziert, siehe README
-        ssc_path=PATH_UI_TREBLE_GAIN,
-        value_is_string=True,
     ),
 )
 
@@ -215,8 +154,20 @@ BRIGHTNESS_DESCRIPTION = NeumannKHNumberDescription(
     ssc_path=PATH_LOGO_BRIGHTNESS,
 )
 
-# Nur bei erkanntem Subwoofer (siehe MODELS_WITH_SUBWOOFER_FEATURES) - per
-# echtem KH-750-Dump bestätigte Pfade, Wertebereiche unverifiziert.
+# Nur bei Nicht-Subwoofer-Modellen (existiert laut khtool-Metadaten nur dort)
+INPUT_GAIN_DESCRIPTION = NeumannKHNumberDescription(
+    key="input_gain",
+    translation_key="input_gain",
+    icon="mdi:tune-vertical",
+    native_min_value=INPUT_GAIN_MIN,
+    native_max_value=INPUT_GAIN_MAX,
+    native_step=0.5,
+    native_unit_of_measurement="dB",
+    mode=NumberMode.SLIDER,
+    ssc_path=PATH_INPUT_GAIN,
+)
+
+# Nur bei erkanntem Subwoofer (siehe MODELS_WITH_SUBWOOFER_FEATURES)
 SUBWOOFER_NUMBER_DESCRIPTIONS: tuple[NeumannKHNumberDescription, ...] = (
     NeumannKHNumberDescription(
         key="subwoofer_input_gain",
@@ -227,7 +178,6 @@ SUBWOOFER_NUMBER_DESCRIPTIONS: tuple[NeumannKHNumberDescription, ...] = (
         native_step=0.5,
         native_unit_of_measurement="dB",
         mode=NumberMode.SLIDER,
-        entity_registry_enabled_default=False,  # Wertebereich unverifiziert, siehe README
         ssc_path=PATH_UI_SUB_INPUT_GAIN,
     ),
     NeumannKHNumberDescription(
@@ -236,24 +186,10 @@ SUBWOOFER_NUMBER_DESCRIPTIONS: tuple[NeumannKHNumberDescription, ...] = (
         icon="mdi:sine-wave",
         native_min_value=SUB_LOW_CUT_MIN,
         native_max_value=SUB_LOW_CUT_MAX,
-        native_step=0.1,
+        native_step=0.5,
         native_unit_of_measurement="dB",
         mode=NumberMode.BOX,
-        entity_registry_enabled_default=False,  # Wertebereich unverifiziert, siehe README
         ssc_path=PATH_UI_SUB_LOW_CUT,
-    ),
-    NeumannKHNumberDescription(
-        key="subwoofer_phase",
-        translation_key="subwoofer_phase",
-        icon="mdi:rotate-360",
-        native_min_value=SUB_PHASE_MIN,
-        native_max_value=SUB_PHASE_MAX,
-        native_step=1,
-        native_unit_of_measurement="°",
-        mode=NumberMode.SLIDER,
-        entity_registry_enabled_default=False,  # Wertebereich unverifiziert, siehe README
-        ssc_path=PATH_UI_SUB_PHASE,
-        value_is_string=True,
     ),
     NeumannKHNumberDescription(
         key="out1_level",
@@ -272,7 +208,7 @@ SUBWOOFER_NUMBER_DESCRIPTIONS: tuple[NeumannKHNumberDescription, ...] = (
         translation_key="out1_delay",
         icon="mdi:timer-outline",
         native_min_value=DELAY_MIN,
-        native_max_value=DELAY_MAX,
+        native_max_value=DELAY_MAX_SUBWOOFER,
         native_step=1,
         native_unit_of_measurement="samples",
         mode=NumberMode.BOX,
@@ -297,7 +233,7 @@ SUBWOOFER_NUMBER_DESCRIPTIONS: tuple[NeumannKHNumberDescription, ...] = (
         translation_key="out2_delay",
         icon="mdi:timer-outline",
         native_min_value=DELAY_MIN,
-        native_max_value=DELAY_MAX,
+        native_max_value=DELAY_MAX_SUBWOOFER,
         native_step=1,
         native_unit_of_measurement="samples",
         mode=NumberMode.BOX,
@@ -308,18 +244,44 @@ SUBWOOFER_NUMBER_DESCRIPTIONS: tuple[NeumannKHNumberDescription, ...] = (
 )
 
 
+def _build_output_delay_description(is_subwoofer: bool) -> NeumannKHNumberDescription:
+    """Baut die Delay-Beschreibung des Hauptausgangs mit modellabhängigem Max-Wert.
+
+    KH 120 II (und andere Nicht-Subwoofer-Modelle): 0-5760 Samples.
+    KH 750: 0-1000 Samples (Hauptausgang, ebenso wie out1/out2).
+    """
+    return NeumannKHNumberDescription(
+        key="output_delay",
+        translation_key="output_delay",
+        icon="mdi:timer-outline",
+        native_min_value=DELAY_MIN,
+        native_max_value=DELAY_MAX_SUBWOOFER if is_subwoofer else DELAY_MAX_DEFAULT,
+        native_step=1,
+        native_unit_of_measurement="samples",  # 1/48000s pro Sample
+        mode=NumberMode.BOX,
+        ssc_path=PATH_OUTPUT_DELAY,
+        integer=True,
+    )
+
+
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Legt die Number-Entities für einen Lautsprecher an."""
     coordinator: NeumannKHCoordinator = hass.data[DOMAIN][entry.entry_id]
     model = entry.data.get(CONF_MODEL)
+    is_subwoofer = model in MODELS_WITH_SUBWOOFER_FEATURES
 
-    descriptions = list(NUMBER_DESCRIPTIONS)
+    descriptions = list(COMMON_NUMBER_DESCRIPTIONS)
+    descriptions.append(_build_output_delay_description(is_subwoofer))
+
     if model in MODELS_WITH_LOGO_AND_SAVE:
         descriptions.append(BRIGHTNESS_DESCRIPTION)
-    if model in MODELS_WITH_SUBWOOFER_FEATURES:
+
+    if is_subwoofer:
         descriptions.extend(SUBWOOFER_NUMBER_DESCRIPTIONS)
+    else:
+        descriptions.append(INPUT_GAIN_DESCRIPTION)
 
     async_add_entities(
         NeumannKHNumber(coordinator, entry, description) for description in descriptions
@@ -350,13 +312,7 @@ class NeumannKHNumber(NeumannKHEntity, NumberEntity):
 
     async def async_set_native_value(self, value: float) -> None:
         """Schreibt den neuen Wert per SSC "set" und aktualisiert danach den Cache."""
-        payload_value: Any
-        if self.entity_description.value_is_string:
-            payload_value = str(value)
-        elif self.entity_description.integer:
-            payload_value = int(value)
-        else:
-            payload_value = float(value)
+        payload_value: Any = int(value) if self.entity_description.integer else float(value)
 
         try:
             await self.coordinator.client.set(self.entity_description.ssc_path, payload_value)
