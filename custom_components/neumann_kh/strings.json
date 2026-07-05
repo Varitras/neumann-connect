@@ -72,7 +72,7 @@
       "auto_standby": { "name": "Auto standby" },
       "out1_mute": { "name": "Output 1 mute" },
       "out2_mute": { "name": "Output 2 mute" },
-      "eq_band_enabled": { "name": "{container} band {band} enabled" }
+      "eq_enabled": { "name": "{container} enabled" }
     },
     "sensor": {
       "input_level_meter": { "name": "Input level (live)" },

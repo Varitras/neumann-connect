@@ -278,17 +278,21 @@ Die Auswahlliste beim automatischen Scan enthält außerdem einen Eintrag
 
 Eine vollständige 1:1-Abbildung aller EQ-Parameter (Typ/Frequenz/Gain/Boost/
 Q/Enabled je Band) wäre bei der KH 750 ca. 800 Entities - nicht mehr
-überschaubar. Stattdessen bewusst reduziert auf zwei Entity-Typen:
+überschaubar. Stattdessen bewusst auf Container-Ebene reduziert:
 
-- **Ein Ein/Aus-Schalter pro Band** (`switch`, Default: deaktiviert,
-  Diagnose-Kategorie "Konfiguration"): schaltet genau ein Band eines
-  EQ-Containers - die übrigen Bänder bleiben unverändert (SSC-Arrays lassen
-  sich teilweise schreiben, nicht angegebene Indizes bleiben unangetastet).
+- **Ein Ein/Aus-Schalter pro EQ-Container** (`switch`, Kategorie
+  "Konfiguration", standardmäßig aktiviert): schaltet **alle Bänder dieses
+  Containers gemeinsam** (schreibt denselben Wert in das komplette
+  `enabled`-Array). Zeigt "an", sobald mindestens ein Band aktiv ist.
 - **Ein "Auf neutral zurücksetzen"-Button pro EQ-Container** (`button`,
-  Default: deaktiviert): setzt Gain **und** Boost aller Bänder dieses
-  Containers auf 0 dB. Frequenz/Q/Typ/Enabled bleiben unverändert - eine
-  echte Werks-Rücksetzung ist nicht möglich, da keine dokumentierten
-  Standardfrequenzen pro Band vorliegen.
+  Kategorie "Konfiguration", standardmäßig aktiviert): setzt Gain **und**
+  Boost aller Bänder dieses Containers auf 0 dB. Frequenz/Q/Typ/Enabled
+  bleiben unverändert - eine echte Werks-Rücksetzung ist nicht möglich, da
+  keine dokumentierten Standardfrequenzen pro Band vorliegen.
+
+Alle Container-Namen beginnen bewusst mit "EQ" (z. B. "EQ2 Hauptausgang",
+"EQ Crossover Ausgang 1"), damit sie in der Konfiguration-Sektion
+alphabetisch zusammen gruppiert erscheinen.
 
 **Abgedeckte Container:**
 
@@ -301,6 +305,6 @@ Q/Enabled je Band) wäre bei der KH 750 ca. 800 Entities - nicht mehr
 | KH 750 (out1/out2 je) | `eq2` | 10 |
 | KH 750 (out1/out2 je) | `eq3` | 10 |
 
-Macht in Summe **32 Entities** (KH 120 II) bzw. **61 Entities** (KH 750) -
-alle standardmäßig deaktiviert, da sie den Klang direkt beeinflussen.
+Macht in Summe **4 Entities** (KH 120 II: 2 Container × Schalter+Button)
+bzw. **14 Entities** (KH 750: 7 Container × Schalter+Button).
 

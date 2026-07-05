@@ -72,7 +72,7 @@
       "auto_standby": { "name": "Auto-Standby" },
       "out1_mute": { "name": "Ausgang 1 Stumm" },
       "out2_mute": { "name": "Ausgang 2 Stumm" },
-      "eq_band_enabled": { "name": "{container} Band {band} aktiv" }
+      "eq_enabled": { "name": "{container} aktiv" }
     },
     "sensor": {
       "input_level_meter": { "name": "Eingangspegel (live)" },

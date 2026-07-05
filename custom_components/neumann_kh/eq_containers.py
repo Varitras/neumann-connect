@@ -23,20 +23,21 @@ class EQContainer:
 
 # Nicht-Subwoofer-Modelle (KH 120 II etc.)
 NON_SUBWOOFER_EQ_CONTAINERS: tuple[EQContainer, ...] = (
-    EQContainer(path=("audio", "out", "eq2"), band_count=10, label="EQ2"),
-    EQContainer(path=("audio", "out", "eq3"), band_count=20, label="EQ3"),
+    EQContainer(path=("audio", "out", "eq2"), band_count=10, label="EQ2 Hauptausgang"),
+    EQContainer(path=("audio", "out", "eq3"), band_count=20, label="EQ3 Hauptausgang"),
 )
 
 # Subwoofer (KH 750): Hauptausgang + out1/out2, je mit Crossover (eq1, nur
-# out1/out2) sowie eq2/eq3.
+# out1/out2) sowie eq2/eq3. Alle Labels beginnen bewusst mit "EQ", damit sie
+# in der Konfiguration-Sektion alphabetisch zusammen gruppiert erscheinen.
 SUBWOOFER_EQ_CONTAINERS: tuple[EQContainer, ...] = (
-    EQContainer(path=("audio", "out", "eq2"), band_count=10, label="Subwoofer EQ2"),
-    EQContainer(path=("audio", "out1", "eq1"), band_count=2, label="Ausgang 1 Crossover"),
-    EQContainer(path=("audio", "out1", "eq2"), band_count=10, label="Ausgang 1 EQ2"),
-    EQContainer(path=("audio", "out1", "eq3"), band_count=10, label="Ausgang 1 EQ3"),
-    EQContainer(path=("audio", "out2", "eq1"), band_count=2, label="Ausgang 2 Crossover"),
-    EQContainer(path=("audio", "out2", "eq2"), band_count=10, label="Ausgang 2 EQ2"),
-    EQContainer(path=("audio", "out2", "eq3"), band_count=10, label="Ausgang 2 EQ3"),
+    EQContainer(path=("audio", "out", "eq2"), band_count=10, label="EQ2 Subwoofer-Hauptausgang"),
+    EQContainer(path=("audio", "out1", "eq1"), band_count=2, label="EQ Crossover Ausgang 1"),
+    EQContainer(path=("audio", "out1", "eq2"), band_count=10, label="EQ2 Ausgang 1"),
+    EQContainer(path=("audio", "out1", "eq3"), band_count=10, label="EQ3 Ausgang 1"),
+    EQContainer(path=("audio", "out2", "eq1"), band_count=2, label="EQ Crossover Ausgang 2"),
+    EQContainer(path=("audio", "out2", "eq2"), band_count=10, label="EQ2 Ausgang 2"),
+    EQContainer(path=("audio", "out2", "eq3"), band_count=10, label="EQ3 Ausgang 2"),
 )
 
 

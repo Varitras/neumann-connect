@@ -31,7 +31,7 @@ from .const import (
 )
 from .coordinator import NeumannKHCoordinator
 from .entity import NeumannKHEntity
-from .eq import NeumannKHEQBandSwitch, build_eq_switch_descriptions
+from .eq import build_eq_switches
 from .ssc_client import SSCDeviceError
 
 
@@ -108,10 +108,7 @@ async def async_setup_entry(
     entities = [
         NeumannKHSwitch(coordinator, entry, description) for description in descriptions
     ]
-    entities += [
-        NeumannKHEQBandSwitch(coordinator, entry, description)
-        for description in build_eq_switch_descriptions(entry.data.get(CONF_MODEL))
-    ]
+    entities += build_eq_switches(coordinator, entry, entry.data.get(CONF_MODEL))
     async_add_entities(entities)
 
 

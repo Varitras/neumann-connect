@@ -3,6 +3,20 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
+## [1.11.1] – EQ-Schalter auf Container-Ebene statt pro Band
+
+### Geändert
+- EQ-Ein/Aus-Schalter schalten jetzt **alle Bänder eines Containers
+  gemeinsam** (ein SSC-Schreibvorgang mit identischem Wert für das komplette
+  `enabled`-Array), statt einen Schalter pro einzelnem Band anzulegen -
+  deutlich weniger Entities (4 statt 32 bei der KH 120 II, 14 statt 61 bei
+  der KH 750)
+- Alle EQ-Container-Namen beginnen jetzt einheitlich mit "EQ" (z. B.
+  "EQ2 Hauptausgang", "EQ Crossover Ausgang 1"), damit sie in der
+  "Konfiguration"-Sektion alphabetisch zusammen gruppiert erscheinen
+- EQ-Schalter und Reset-Buttons sind jetzt standardmäßig aktiviert
+  (vorher deaktiviert), bleiben aber in der Kategorie "Konfiguration"
+
 ## [1.11.0] – EQ-Unterstützung, Discovery-Anonymisierung, kein Auto-Trigger mehr
 
 ### Hinzugefügt

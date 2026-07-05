@@ -1,20 +1,17 @@
-"""EQ-Entities: pro Band ein Ein/Aus-Schalter, pro EQ-Container ein
-"Auf Standard zurücksetzen"-Button (setzt Gain und Boost aller Bänder auf
-0 dB, lässt Frequenz/Q/Typ/Enabled unverändert).
+"""EQ-Entities: ein Ein/Aus-Schalter pro EQ-Container (alle Bänder gemeinsam)
+sowie ein "Auf neutral zurücksetzen"-Button pro Container (Gain/Boost aller
+Bänder auf 0 dB, Frequenz/Q/Typ bleiben unverändert). Beide standardmäßig
+aktiviert, mit `entity_category: config` in der Konfiguration-Sektion.
 
-Eine volle 1:1-Abbildung aller EQ-Parameter (Typ/Frequenz/Gain/Boost/Q/
-Enabled je Band) wäre bei der KH 750 (Hauptausgang + out1 + out2, je bis zu
-drei EQ-Container) ca. 800 Entities - nicht mehr überschaubar. Deshalb
-bewusst reduziert auf die zwei praktisch wichtigsten Aktionen.
-
-SSC-Arrays lassen sich teilweise schreiben: nicht gewünschte Indizes werden
-als `null` übergeben und bleiben unverändert, nur der Ziel-Index ändert sich.
+Eine vollständige 1:1-Abbildung aller EQ-Parameter je Band wäre bei der
+KH 750 ca. 800 Entities - nicht mehr überschaubar. Deshalb bewusst auf
+Container-Ebene reduziert: ein Schalter schreibt "enabled" für ALLE Bänder
+des Containers gleichzeitig, statt jedes Band einzeln. Alle Container-Namen
+beginnen bewusst mit "EQ", damit sie in der Konfiguration-Sektion
+alphabetisch zusammen gruppiert erscheinen.
 """
 
 from __future__ import annotations
-
-from dataclasses import dataclass
-from typing import Any
 
 from homeassistant.components.button import ButtonEntity, ButtonEntityDescription
 from homeassistant.components.switch import SwitchEntity, SwitchEntityDescription
@@ -27,68 +24,56 @@ from .entity import NeumannKHEntity
 from .eq_containers import EQContainer, eq_containers_for_model
 from .ssc_client import SSCDeviceError
 
-# --- Band-Ein/Aus-Schalter --------------------------------------------------
+# --- Container-Ein/Aus-Schalter ----------------------------------------------
 
 
-@dataclass(frozen=True, kw_only=True)
-class NeumannKHEQBandSwitchDescription(SwitchEntityDescription):
-    container: EQContainer | None = None
-    band_index: int = 0
+def build_eq_switches(
+    coordinator: NeumannKHCoordinator, entry: ConfigEntry, model: str | None
+) -> list["NeumannKHEQContainerSwitch"]:
+    """Baut einen Ein/Aus-Schalter pro passendem EQ-Container."""
+    return [
+        NeumannKHEQContainerSwitch(coordinator, entry, container)
+        for container in eq_containers_for_model(model)
+    ]
 
 
-def build_eq_switch_descriptions(model: str | None) -> list[NeumannKHEQBandSwitchDescription]:
-    """Baut eine Switch-Beschreibung pro Band aller passenden EQ-Container."""
-    descriptions = []
-    for container in eq_containers_for_model(model):
-        path_key = "_".join(container.path)
-        for band_index in range(container.band_count):
-            descriptions.append(
-                NeumannKHEQBandSwitchDescription(
-                    key=f"{path_key}_band{band_index}_enabled",
-                    translation_key="eq_band_enabled",
-                    icon="mdi:equalizer",
-                    entity_category=EntityCategory.CONFIG,
-                    entity_registry_enabled_default=False,  # kann den Klang direkt beeinflussen
-                    container=container,
-                    band_index=band_index,
-                )
-            )
-    return descriptions
+class NeumannKHEQContainerSwitch(NeumannKHEntity, SwitchEntity):
+    """Schaltet alle Bänder eines EQ-Containers gemeinsam ein/aus.
 
-
-class NeumannKHEQBandSwitch(NeumannKHEntity, SwitchEntity):
-    """Schaltet ein einzelnes Band eines EQ-Containers ein/aus (Array-Teilschreiben)."""
-
-    entity_description: NeumannKHEQBandSwitchDescription
+    is_on ist True, sobald mindestens ein Band aktiv ist (Ausgangszustand
+    kann pro Band unterschiedlich sein, z. B. nach externer Änderung über
+    MA1) - der Schalter selbst setzt beim Betätigen immer ALLE Bänder auf
+    denselben Wert.
+    """
 
     def __init__(
-        self,
-        coordinator: NeumannKHCoordinator,
-        entry: ConfigEntry,
-        description: NeumannKHEQBandSwitchDescription,
+        self, coordinator: NeumannKHCoordinator, entry: ConfigEntry, container: EQContainer
     ) -> None:
         super().__init__(coordinator, entry)
-        self.entity_description = description
-        self._attr_unique_id = f"{self._unique_id_base}_{description.key}"
-        self._path = description.container.path + ("enabled",)
+        self._container = container
+        path_key = "_".join(container.path)
+        self.entity_description = SwitchEntityDescription(
+            key=f"{path_key}_enabled",
+            translation_key="eq_enabled",
+            icon="mdi:equalizer",
+            entity_category=EntityCategory.CONFIG,
+        )
+        self._attr_unique_id = f"{self._unique_id_base}_{path_key}_enabled"
+        self._path = container.path + ("enabled",)
 
     @property
     def translation_placeholders(self) -> dict[str, str]:
-        return {
-            "container": self.entity_description.container.label,
-            "band": str(self.entity_description.band_index + 1),
-        }
+        return {"container": self._container.label}
 
     @property
     def is_on(self) -> bool | None:
         values = self.coordinator.value(self._path)
-        if not isinstance(values, list) or self.entity_description.band_index >= len(values):
+        if not isinstance(values, list) or not values:
             return None
-        return bool(values[self.entity_description.band_index])
+        return any(bool(v) for v in values)
 
     async def _async_set(self, value: bool) -> None:
-        array: list[Any] = [None] * self.entity_description.container.band_count
-        array[self.entity_description.band_index] = value
+        array = [value] * self._container.band_count
         try:
             confirmed = await self.coordinator.client.set(self._path, array)
         except SSCDeviceError as err:
@@ -104,7 +89,7 @@ class NeumannKHEQBandSwitch(NeumannKHEntity, SwitchEntity):
         await self._async_set(False)
 
 
-# --- Reset-auf-Standard-Button ----------------------------------------------
+# --- Reset-auf-neutral-Button ------------------------------------------------
 
 
 def build_eq_reset_buttons(
@@ -131,7 +116,6 @@ class NeumannKHEQResetButton(NeumannKHEntity, ButtonEntity):
             translation_key="eq_reset",
             icon="mdi:equalizer-outline",
             entity_category=EntityCategory.CONFIG,
-            entity_registry_enabled_default=False,  # verändert den Klang direkt
         )
         self._attr_unique_id = f"{self._unique_id_base}_{path_key}_reset"
 
