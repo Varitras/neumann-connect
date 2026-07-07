@@ -94,8 +94,8 @@ PATH_UI_BASS_GAIN = ("ui", "bass_gain")  # nur lesbar (KH 120 II)
 PATH_UI_MID_GAIN = ("ui", "mid_gain")  # nur lesbar
 PATH_UI_TREBLE_GAIN = ("ui", "treble_gain")  # nur lesbar
 
-# Eingangsauswahl/-Interface: Schreibbarkeit unverifiziert, standardmäßig
-# deaktiviert (input_interface) bzw. nur lesbar (input_select).
+# input_interface: bestätigt schreibbar (KH 120 II + KH 750 DSP), standardmäßig
+# aktiviert. input_select dagegen nur lesbar.
 PATH_INPUT_SELECT = ("ui", "input_select")  # nur lesbar
 PATH_INPUT_INTERFACE_TYPE = ("audio", "in", "interface")
 INPUT_INTERFACE_OPTIONS = ("ANALOG ONLY", "DIGITAL ONLY", "DIGITAL DISCARDS ANALOG")
@@ -155,14 +155,13 @@ PATH_OUT2_LOUDSPEAKER = ("audio", "out2", "loudspeaker")
 
 # Pfade, die der Coordinator bei jedem Poll-Zyklus einzeln abfragt (siehe
 # coordinator.py: Sammelnachrichten/Container-Abfragen werden abgelehnt).
+# Enthält alle Werte, die sich zur Laufzeit tatsächlich ändern können.
 POLL_PATHS = (
-    PATH_INPUT_GAIN,
     PATH_OUTPUT_LEVEL,
     PATH_OUTPUT_DIMM,
     PATH_OUTPUT_DELAY,
     PATH_OUTPUT_MUTE,
     PATH_OUTPUT_PHASE_INVERSION,
-    PATH_UI_OUTPUT_LEVEL,
     PATH_METER_INPUT_LEVEL,
     PATH_METER_CLIP,
     PATH_STANDBY_ENABLED,
@@ -170,26 +169,53 @@ POLL_PATHS = (
     PATH_STANDBY_LEVEL,
     PATH_STANDBY_COUNTDOWN,
     PATH_IDENTIFY,
+    PATH_UI_CONTROL_MODE,
+    PATH_WARNINGS,
+)
+
+# Selten/nie ändernde Werte (Identität, statische Konfiguration, feste
+# Rückseiten-Schalter, Gerätename): nur alle SLOW_POLL_EVERY_N_CYCLES
+# abgefragt, um den Poll-Umfang zu senken. Nutzeraktionen an schreibbaren
+# Feldern hierunter (z. B. Gerätename) spielen den bestätigten Wert ohnehin
+# sofort selbst ein - der langsame Poll ist nur die Absicherung dagegen, dass
+# ein extern (per MA1) geänderter Wert irgendwann nachgezogen wird.
+SLOW_POLL_PATHS = (
+    PATH_INPUT_GAIN,
+    PATH_UI_OUTPUT_LEVEL,
     PATH_UI_BASS_GAIN,
     PATH_UI_MID_GAIN,
     PATH_UI_TREBLE_GAIN,
     PATH_INPUT_SELECT,
-    PATH_UI_CONTROL_MODE,
     PATH_DEVICE_NAME,
     PATH_RESTORE,
     PATH_IDENTITY_HW_VERSION,
     PATH_INPUT_CURRENT,
     PATH_INPUT_INTERFACE_TYPE,
-    PATH_WARNINGS,
 )
 
-# Zusätzliche Pfade, nur für Modelle mit Subwoofer-Funktionen.
+# Wie oft (in Poll-Zyklen) die SLOW_POLL_PATHS mit abgefragt werden.
+# 10 × 30s = alle 5 Minuten.
+SLOW_POLL_EVERY_N_CYCLES = 10
+
+# Zusätzliche Pfade, nur für Modelle mit Subwoofer-Funktionen. Die
+# Live-Messwerte (Metering, Clip) und veränderlichen Ausgangswerte bleiben im
+# schnellen Poll; statische Diagnose-/Label-Werte gehen in den langsamen.
 SUBWOOFER_POLL_PATHS = (
-    PATH_DIGITAL_BYPASS,
-    PATH_OUTPUT_LABEL,
-    PATH_DEVICE_TEMPERATURE,
     PATH_METER_OUTPUT_LEVEL,
     PATH_METER_OUTPUT_CLIP,
+    PATH_DEVICE_TEMPERATURE,
+    PATH_OUT1_LEVEL,
+    PATH_OUT1_DELAY,
+    PATH_OUT1_MUTE,
+    PATH_OUT2_LEVEL,
+    PATH_OUT2_DELAY,
+    PATH_OUT2_MUTE,
+)
+
+# Selten ändernde Subwoofer-Werte (nur alle SLOW_POLL_EVERY_N_CYCLES).
+SUBWOOFER_SLOW_POLL_PATHS = (
+    PATH_DIGITAL_BYPASS,
+    PATH_OUTPUT_LABEL,
     PATH_UI_BASS_MANAGEMENT,
     PATH_UI_CHANNEL_B_INPUT_MODE,
     PATH_UI_SUB_INPUT_GAIN,
@@ -197,14 +223,8 @@ SUBWOOFER_POLL_PATHS = (
     PATH_UI_SUB_OUTPUT_LEVEL,
     PATH_UI_SUB_PHASE,
     PATH_UI_SUB_PHASE_INVERSION,
-    PATH_OUT1_LEVEL,
-    PATH_OUT1_DELAY,
-    PATH_OUT1_MUTE,
     PATH_OUT1_LABEL,
     PATH_OUT1_LOUDSPEAKER,
-    PATH_OUT2_LEVEL,
-    PATH_OUT2_DELAY,
-    PATH_OUT2_MUTE,
     PATH_OUT2_LABEL,
     PATH_OUT2_LOUDSPEAKER,
 )

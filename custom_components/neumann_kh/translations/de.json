@@ -37,6 +37,7 @@
       "cannot_connect": "Verbindung zum Lautsprecher fehlgeschlagen. IP-Adresse und Interface prüfen.",
       "timeout": "Zeitüberschreitung - keine Antwort vom Lautsprecher erhalten.",
       "interface_required_for_link_local": "Bei einer fe80::-Adresse muss das Netzwerk-Interface angegeben werden.",
+      "invalid_ipv6": "Keine gültige IPv6-Adresse. Neumann-KH-Lautsprecher unterstützen nur IPv6 (z. B. fe80::...), kein IPv4.",
       "no_devices_found": "Keine SSC-Lautsprecher im Netzwerk gefunden. Erneut absenden für einen neuen Versuch, oder zurückgehen und 'Manuell eingeben' wählen.",
       "discovery_expired": "Die Geräteliste ist abgelaufen, bitte Suche erneut starten.",
       "name_required": "Bitte einen Namen für das Gerät eingeben.",

@@ -14,6 +14,7 @@ Für jeden Lautsprecher wird ein eigener Config Entry angelegt.
 
 from __future__ import annotations
 
+import ipaddress
 import logging
 from typing import Any
 
@@ -158,33 +159,39 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             if not name:
                 errors["base"] = "name_required"
-            elif host.lower().startswith("fe80") and not interface:
-                errors["base"] = "interface_required_for_link_local"
             else:
-                product, serial, version, error_key = await _async_test_connection(
-                    host, port, interface
-                )
-                if error_key:
-                    errors["base"] = error_key
+                try:
+                    ipaddress.IPv6Address(host)
+                except ValueError:
+                    errors["base"] = "invalid_ipv6"
                 else:
-                    unique_id = serial or f"{host}_{port}"
-                    await self.async_set_unique_id(str(unique_id))
-                    self._abort_if_unique_id_configured()
-                    if serial:
-                        await storage.async_remember_name(self.hass, serial, name)
+                    if host.lower().startswith("fe80") and not interface:
+                        errors["base"] = "interface_required_for_link_local"
+                    else:
+                        product, serial, version, error_key = await _async_test_connection(
+                            host, port, interface
+                        )
+                        if error_key:
+                            errors["base"] = error_key
+                        else:
+                            unique_id = serial or f"{host}_{port}"
+                            await self.async_set_unique_id(str(unique_id))
+                            self._abort_if_unique_id_configured()
+                            if serial:
+                                await storage.async_remember_name(self.hass, serial, name)
 
-                    return self.async_create_entry(
-                        title=name,
-                        data={
-                            CONF_NAME: name,
-                            CONF_HOST: host,
-                            CONF_INTERFACE: interface or "",
-                            CONF_PORT: port,
-                            CONF_MODEL: product or "KH DSP",
-                            CONF_SERIAL: serial or "",
-                            CONF_FIRMWARE_VERSION: version or "",
-                        },
-                    )
+                            return self.async_create_entry(
+                                title=name,
+                                data={
+                                    CONF_NAME: name,
+                                    CONF_HOST: host,
+                                    CONF_INTERFACE: interface or "",
+                                    CONF_PORT: port,
+                                    CONF_MODEL: product or "KH DSP",
+                                    CONF_SERIAL: serial or "",
+                                    CONF_FIRMWARE_VERSION: version or "",
+                                },
+                            )
 
         interface_options = await _async_get_interface_options(self.hass)
         schema = _build_manual_schema(interface_options)

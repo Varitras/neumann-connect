@@ -37,6 +37,7 @@
       "cannot_connect": "Failed to connect to the speaker. Check IP address and interface.",
       "timeout": "Timeout - no response received from the speaker.",
       "interface_required_for_link_local": "A fe80:: address requires the network interface to be set.",
+      "invalid_ipv6": "Not a valid IPv6 address. Neumann KH speakers only support IPv6 (e.g. fe80::...), not IPv4.",
       "no_devices_found": "No SSC speakers found on the network. Submit again to retry, or go back and choose manual setup.",
       "discovery_expired": "The device list has expired, please search again.",
       "name_required": "Please enter a name for the device.",

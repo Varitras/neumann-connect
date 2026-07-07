@@ -3,8 +3,26 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
-<<<<<<< Updated upstream
-=======
+## [1.14.0] – Effizienz & Robustheit
+
+### Geändert
+- Poll-Zyklus in schnelle und langsame Pfade aufgeteilt: veränderliche Werte
+  werden weiterhin alle 30 s abgefragt, selten ändernde Werte (Geräte-
+  Identität, statische Konfiguration, Ausgangs-Bezeichnungen, EQ-Status) nur
+  noch alle 5 Minuten. Reduziert die Anzahl der Netzwerkabfragen pro Zyklus
+  deutlich (KH 750 DSP: 47 → 23 pro schnellem Zyklus) und schafft mehr Abstand
+  zum Zyklus-Zeitlimit. Zwischenzeitlich nicht neu abgefragte Werte bleiben
+  über einen Cache erhalten (keine kurzzeitig "unbekannten" Entities)
+- Eingangs-Interface (`audio/in/interface`) ist jetzt auch auf der KH 750 DSP
+  standardmäßig aktiviert (bestätigt schreibbar auf KH 120 II und KH 750 DSP)
+
+### Behoben / Abgehärtet
+- Backup- und Discovery-Button sind gegen versehentliches Mehrfach-Auslösen
+  abgesichert (ein bereits laufender Vorgang wird nicht erneut gestartet)
+- Der Best-effort-Discovery-Durchlauf (`osc/schema`) hat jetzt ein
+  Gesamt-Zeitlimit von 30 s und verwendet bei Überschreitung das bis dahin
+  gesammelte Teilergebnis, statt unbegrenzt weiterzulaufen
+
 ## [1.13.1] – Doku-Korrektur
 
 ### Geändert
@@ -13,7 +31,6 @@ Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
   nötig). Nur das SSC-Protokoll selbst kommt ohne jede
   Drittanbieter-Bibliothek aus (eigener asyncio-Client)
 
->>>>>>> Stashed changes
 ## [1.13.0] – Bugfix Verbindungsabbruch, erweiterte Modell-Erkennung, Aufräumen
 
 ### Behoben

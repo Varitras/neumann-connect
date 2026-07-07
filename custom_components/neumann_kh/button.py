@@ -181,31 +181,38 @@ class NeumannKHBackupButton(NeumannKHEntity, ButtonEntity):
     def __init__(self, coordinator: NeumannKHCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry)
         self._attr_unique_id = f"{self._unique_id_base}_create_backup"
+        self._running = False
 
     async def async_press(self) -> None:
-        serial = self._entry.data.get(CONF_SERIAL) or self._entry.entry_id
-        model = self._entry.data.get(CONF_MODEL)
-
+        if self._running:
+            raise HomeAssistantError("Ein Backup läuft bereits, bitte warten.")
+        self._running = True
         try:
-            values = await async_build_backup(self.coordinator.client, model)
-        except Exception as err:  # noqa: BLE001 - Backup/Discovery sind best-effort
-            raise HomeAssistantError(f"Backup fehlgeschlagen: {err}") from err
+            serial = self._entry.data.get(CONF_SERIAL) or self._entry.entry_id
+            model = self._entry.data.get(CONF_MODEL)
 
-        timestamp = datetime.now(timezone.utc).isoformat()
-        backup = {"timestamp": timestamp, "model": model, "serial": serial, "values": values}
+            try:
+                values = await async_build_backup(self.coordinator.client, model)
+            except Exception as err:  # noqa: BLE001 - Backup/Discovery sind best-effort
+                raise HomeAssistantError(f"Backup fehlgeschlagen: {err}") from err
 
-        await storage.async_save_backup(self.hass, serial, backup)
-        filename = f"neumann_kh_backup_{serial}.json"
-        url = await self.hass.async_add_executor_job(
-            _write_export_file, self.hass, filename, backup
-        )
+            timestamp = datetime.now(timezone.utc).isoformat()
+            backup = {"timestamp": timestamp, "model": model, "serial": serial, "values": values}
 
-        async_create_notification(
-            self.hass,
-            f"Backup für **{self._entry.title}** gespeichert. Download: {url}",
-            title="Neumann Connect: Backup erstellt",
-            notification_id=f"{self._unique_id_base}_backup_done",
-        )
+            await storage.async_save_backup(self.hass, serial, backup)
+            filename = f"neumann_kh_backup_{serial}.json"
+            url = await self.hass.async_add_executor_job(
+                _write_export_file, self.hass, filename, backup
+            )
+
+            async_create_notification(
+                self.hass,
+                f"Backup für **{self._entry.title}** gespeichert. Download: {url}",
+                title="Neumann Connect: Backup erstellt",
+                notification_id=f"{self._unique_id_base}_backup_done",
+            )
+        finally:
+            self._running = False
 
 
 class NeumannKHDiscoveryButton(NeumannKHEntity, ButtonEntity):
@@ -216,35 +223,42 @@ class NeumannKHDiscoveryButton(NeumannKHEntity, ButtonEntity):
     def __init__(self, coordinator: NeumannKHCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry)
         self._attr_unique_id = f"{self._unique_id_base}_run_discovery"
+        self._running = False
 
     async def async_press(self) -> None:
-        serial = self._entry.data.get(CONF_SERIAL) or self._entry.entry_id
-
+        if self._running:
+            raise HomeAssistantError("Eine Discovery läuft bereits, bitte warten.")
+        self._running = True
         try:
-            discovery = await async_discover_all_values(self.coordinator.client)
-        except Exception as err:  # noqa: BLE001 - Backup/Discovery sind best-effort
-            raise HomeAssistantError(f"Discovery fehlgeschlagen: {err}") from err
+            serial = self._entry.data.get(CONF_SERIAL) or self._entry.entry_id
 
-        masked_serial = _mask_serial(serial)
-        timestamp = datetime.now(timezone.utc).isoformat()
-        record = {
-            "timestamp": timestamp,
-            "model": self._entry.data.get(CONF_MODEL),
-            "serial": masked_serial,
-            **discovery,
-        }
+            try:
+                discovery = await async_discover_all_values(self.coordinator.client)
+            except Exception as err:  # noqa: BLE001 - Backup/Discovery sind best-effort
+                raise HomeAssistantError(f"Discovery fehlgeschlagen: {err}") from err
 
-        # Speicherung intern über die echte Seriennummer (Zuordnung/Abruf),
-        # der Inhalt (und die Datei) enthält aber nur die zensierte Variante.
-        await storage.async_save_discovery(self.hass, serial, record)
-        filename = f"neumann_kh_discovery_{masked_serial}.json"
-        url = await self.hass.async_add_executor_job(
-            _write_export_file, self.hass, filename, record
-        )
+            masked_serial = _mask_serial(serial)
+            timestamp = datetime.now(timezone.utc).isoformat()
+            record = {
+                "timestamp": timestamp,
+                "model": self._entry.data.get(CONF_MODEL),
+                "serial": masked_serial,
+                **discovery,
+            }
 
-        async_create_notification(
-            self.hass,
-            f"Discovery für **{self._entry.title}** gespeichert. Download: {url}",
-            title="Neumann Connect: Discovery abgeschlossen",
-            notification_id=f"{self._unique_id_base}_discovery_done",
-        )
+            # Speicherung intern über die echte Seriennummer (Zuordnung/Abruf),
+            # der Inhalt (und die Datei) enthält aber nur die zensierte Variante.
+            await storage.async_save_discovery(self.hass, serial, record)
+            filename = f"neumann_kh_discovery_{masked_serial}.json"
+            url = await self.hass.async_add_executor_job(
+                _write_export_file, self.hass, filename, record
+            )
+
+            async_create_notification(
+                self.hass,
+                f"Discovery für **{self._entry.title}** gespeichert. Download: {url}",
+                title="Neumann Connect: Discovery abgeschlossen",
+                notification_id=f"{self._unique_id_base}_discovery_done",
+            )
+        finally:
+            self._running = False
