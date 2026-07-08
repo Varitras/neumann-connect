@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from datetime import datetime, timezone
 
@@ -45,7 +46,7 @@ from .coordinator import NeumannKHCoordinator
 from .discovery_export import async_discover_all_values
 from .entity import NeumannKHEntity
 from .eq import build_eq_reset_buttons
-from .ssc_client import SSCDeviceError
+from .ssc_client import SSCConnectionError, SSCDeviceError, SSCTimeoutError
 
 # Zeitfenster, innerhalb dessen ein zweiter Druck auf "Werksreset" den
 # Reset tatsächlich auslöst. Nach Ablauf muss erneut "bewaffnet" werden.
@@ -104,6 +105,16 @@ def _mask_serial(serial: str) -> str:
     return "x" * (len(serial) - 3) + serial[-3:]
 
 
+def _sanitize_filename_part(value: str) -> str:
+    """Bereinigt gerätegelieferte Werte für Dateinamen (nur [A-Za-z0-9_-]).
+
+    Schutz gegen Pfad-Bestandteile (z. B. "../") aus einer fehlerhaften oder
+    manipulierten Geräteantwort - Exportdateien dürfen /config/www/ nie
+    verlassen.
+    """
+    return re.sub(r"[^A-Za-z0-9_-]", "_", value) or "unbekannt"
+
+
 def _write_export_file(hass: HomeAssistant, filename: str, data: dict) -> str:
     """Schreibt ein JSON-Export unter /config/www/ und liefert die lokale URL."""
     www_dir = hass.config.path("www")
@@ -130,6 +141,8 @@ class NeumannKHSaveSettingsButton(NeumannKHEntity, ButtonEntity):
             raise HomeAssistantError(
                 f"Der Lautsprecher hat 'Einstellungen speichern' abgelehnt: {err}"
             ) from err
+        except (SSCConnectionError, SSCTimeoutError) as err:
+            raise HomeAssistantError(f"Der Lautsprecher ist nicht erreichbar: {err}") from err
 
 
 class NeumannKHRestoreButton(NeumannKHEntity, ButtonEntity):
@@ -155,6 +168,10 @@ class NeumannKHRestoreButton(NeumannKHEntity, ButtonEntity):
             except SSCDeviceError as err:
                 raise HomeAssistantError(
                     f"Der Lautsprecher hat den Werksreset abgelehnt: {err}"
+                ) from err
+            except (SSCConnectionError, SSCTimeoutError) as err:
+                raise HomeAssistantError(
+                    f"Der Lautsprecher ist nicht erreichbar: {err}"
                 ) from err
             return
 
@@ -196,11 +213,21 @@ class NeumannKHBackupButton(NeumannKHEntity, ButtonEntity):
             except Exception as err:  # noqa: BLE001 - Backup/Discovery sind best-effort
                 raise HomeAssistantError(f"Backup fehlgeschlagen: {err}") from err
 
+            # Datei-Inhalt und Dateiname nur mit zensierter Seriennummer:
+            # /config/www/ wird von HA OHNE Anmeldung ausgeliefert (/local/).
+            # Die Speicherung im HA-Store läuft weiter über die echte
+            # Seriennummer (Zuordnung/Abruf).
+            masked_serial = _mask_serial(serial)
             timestamp = datetime.now(timezone.utc).isoformat()
-            backup = {"timestamp": timestamp, "model": model, "serial": serial, "values": values}
+            backup = {
+                "timestamp": timestamp,
+                "model": model,
+                "serial": masked_serial,
+                "values": values,
+            }
 
             await storage.async_save_backup(self.hass, serial, backup)
-            filename = f"neumann_kh_backup_{serial}.json"
+            filename = f"neumann_kh_backup_{_sanitize_filename_part(masked_serial)}.json"
             url = await self.hass.async_add_executor_job(
                 _write_export_file, self.hass, filename, backup
             )
@@ -249,7 +276,7 @@ class NeumannKHDiscoveryButton(NeumannKHEntity, ButtonEntity):
             # Speicherung intern über die echte Seriennummer (Zuordnung/Abruf),
             # der Inhalt (und die Datei) enthält aber nur die zensierte Variante.
             await storage.async_save_discovery(self.hass, serial, record)
-            filename = f"neumann_kh_discovery_{masked_serial}.json"
+            filename = f"neumann_kh_discovery_{_sanitize_filename_part(masked_serial)}.json"
             url = await self.hass.async_add_executor_job(
                 _write_export_file, self.hass, filename, record
             )

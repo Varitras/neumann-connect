@@ -42,7 +42,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     coordinator = NeumannKHCoordinator(
         hass, client, entry.title, model=entry.data.get(CONF_MODEL)
     )
-    await coordinator.async_config_entry_first_refresh()
+    try:
+        await coordinator.async_config_entry_first_refresh()
+    except Exception:
+        # Setup schlägt fehl (z. B. ConfigEntryNotReady bei ausgeschaltetem
+        # Gerät): offenen Socket schließen. HA wiederholt das Setup später
+        # mit einem neuen Client - ohne close() würden sich bis dahin
+        # halboffene Verbindungen ansammeln.
+        await client.close()
+        raise
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
 

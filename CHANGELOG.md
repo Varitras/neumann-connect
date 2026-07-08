@@ -3,6 +3,37 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
+## [1.15.0] – Robustheit & Datenschutz
+
+### Behoben / Abgehärtet
+- Wird ein Poll-Zyklus durch das Zeitlimit abgebrochen, wird die
+  Verbindung nun sauber verworfen. Verhindert, dass eine verspätet
+  eintreffende Antwort einer späteren Abfrage zugeordnet wird und dort zu
+  falschen Werten oder einem fälschlich übersprungenen Pfad führt
+- Schreibaktionen (Pegel, Schalter, Auswahllisten, Gerätename, EQ,
+  Werksreset u. a.) melden einen nicht erreichbaren Lautsprecher jetzt als
+  klare Fehlermeldung, statt einen unbehandelten Fehler ins Protokoll zu
+  schreiben
+- Schlägt die erste Verbindung direkt nach dem Einrichten fehl (z. B. Gerät
+  ausgeschaltet), wird die offene Netzwerkverbindung geschlossen, bevor
+  Home Assistant den Einrichtungsversuch wiederholt
+- Nach einem fehlgeschlagenen Abruf der selten abgefragten Werte werden
+  diese beim nächsten erfolgreichen Zyklus sofort nachgeholt, statt bis zum
+  regulären Intervall (5 min) auf zwischengespeicherte Werte zu warten
+
+### Datenschutz
+- Das Einstellungs-Backup enthält die Seriennummer nur noch zensiert – in
+  der heruntergeladenen Datei und im Dateinamen (bislang nur bei der
+  Geräte-Diagnose so). Die interne Zuordnung bleibt unverändert
+- Dateinamen der Export-Dateien werden zusätzlich bereinigt, sodass sie den
+  Export-Ordner unter keinen Umständen verlassen können
+
+### Geändert
+- Manuelle Einrichtung: Die IPv6-Adresse darf jetzt die Interface-Angabe
+  direkt enthalten (z. B. `fe80::1%eth0`); ein separat gewähltes Interface
+  hat weiterhin Vorrang. Zusätzlich wird der Port auf einen gültigen
+  Bereich (1–65535) geprüft
+
 ## [1.14.0] – Effizienz & Robustheit
 
 ### Geändert

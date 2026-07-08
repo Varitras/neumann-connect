@@ -77,11 +77,23 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # schnellen Zyklen wieder eingemischt, damit die zugehörigen Entities
         # nicht zwischendurch auf "unbekannt" fallen.
         self._slow_data: dict[str, Any] = {}
+        # True, solange ein fälliger langsamer Poll noch nicht ERFOLGREICH
+        # durchgelaufen ist. Scheitert genau der Slow-Zyklus (z. B. Gerät
+        # kurz offline), holt der nächste erfolgreiche Zyklus die langsamen
+        # Pfade sofort nach, statt bis zu 5 Minuten auf dem alten Cache zu
+        # laufen.
+        self._slow_poll_pending = False
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fragt jeden Pfad einzeln ab; ein abgelehnter/fehlerhafter Einzelpfad wird übersprungen."""
-        include_slow = self._cycle_count % SLOW_POLL_EVERY_N_CYCLES == 0
+        include_slow = (
+            self._slow_poll_pending
+            or self._cycle_count % SLOW_POLL_EVERY_N_CYCLES == 0
+        )
         self._cycle_count += 1
+        if include_slow:
+            # Bleibt gesetzt, bis der Slow-Poll erfolgreich war (siehe unten).
+            self._slow_poll_pending = True
 
         paths = list(self._poll_paths)
         if include_slow:
@@ -98,8 +110,9 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             ) from err
 
         if include_slow:
-            # Langsame Werte frisch gepollt - Cache für die nächsten schnellen
-            # Zyklen auffrischen.
+            # Langsame Werte frisch und erfolgreich gepollt - Cache für die
+            # nächsten schnellen Zyklen auffrischen, Nachhol-Flag löschen.
+            self._slow_poll_pending = False
             self._slow_data = {}
             for path in self._slow_poll_paths:
                 value = SSCClient.extract(merged, path)

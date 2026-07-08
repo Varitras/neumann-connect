@@ -88,7 +88,9 @@ def _build_manual_schema(interface_options: list[selector.SelectOptionDict]) -> 
                     custom_value=True,  # erlaubt manuelle Eingabe, falls Interface nicht gelistet ist
                 )
             ),
-            vol.Optional(CONF_PORT, default=DEFAULT_PORT): int,
+            vol.Optional(CONF_PORT, default=DEFAULT_PORT): vol.All(
+                vol.Coerce(int), vol.Range(min=1, max=65535)
+            ),
         }
     )
 
@@ -156,6 +158,16 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             interface = user_input.get(CONF_INTERFACE, "").strip() or None
             port = user_input.get(CONF_PORT, DEFAULT_PORT)
             name = user_input[CONF_NAME].strip()
+
+            # Eingaben wie "fe80::1%eth0" akzeptieren: Scope-ID abtrennen
+            # (ipaddress.IPv6Address kennt keine Scope-ID) und - falls das
+            # Interface-Feld leer ist - als Interface übernehmen. Ein explizit
+            # gewähltes Interface im Dropdown hat Vorrang.
+            if "%" in host:
+                host, _, host_scope = host.partition("%")
+                host = host.strip()
+                if not interface:
+                    interface = host_scope.strip() or None
 
             if not name:
                 errors["base"] = "name_required"

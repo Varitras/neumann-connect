@@ -11,7 +11,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import DEVICE_NAME_MAX_LENGTH, DOMAIN, PATH_DEVICE_NAME
 from .coordinator import NeumannKHCoordinator
 from .entity import NeumannKHEntity
-from .ssc_client import SSCDeviceError
+from .ssc_client import SSCConnectionError, SSCDeviceError, SSCTimeoutError
 
 DEVICE_NAME_DESCRIPTION = TextEntityDescription(
     key="device_name",
@@ -54,4 +54,6 @@ class NeumannKHDeviceNameText(NeumannKHEntity, TextEntity):
             raise HomeAssistantError(
                 f"Der Lautsprecher hat den neuen Namen abgelehnt: {err}"
             ) from err
+        except (SSCConnectionError, SSCTimeoutError) as err:
+            raise HomeAssistantError(f"Der Lautsprecher ist nicht erreichbar: {err}") from err
         await self._apply_confirmed_value(PATH_DEVICE_NAME, confirmed)

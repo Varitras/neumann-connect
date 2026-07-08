@@ -22,7 +22,7 @@ from homeassistant.exceptions import HomeAssistantError
 from .coordinator import NeumannKHCoordinator
 from .entity import NeumannKHEntity
 from .eq_containers import EQContainer, eq_containers_for_model
-from .ssc_client import SSCDeviceError
+from .ssc_client import SSCConnectionError, SSCDeviceError, SSCTimeoutError
 
 # --- Container-Ein/Aus-Schalter ----------------------------------------------
 
@@ -80,6 +80,8 @@ class NeumannKHEQContainerSwitch(NeumannKHEntity, SwitchEntity):
             raise HomeAssistantError(
                 f"Der Lautsprecher hat diese Änderung abgelehnt: {err}"
             ) from err
+        except (SSCConnectionError, SSCTimeoutError) as err:
+            raise HomeAssistantError(f"Der Lautsprecher ist nicht erreichbar: {err}") from err
         await self._apply_confirmed_value(self._path, confirmed)
 
     async def async_turn_on(self, **kwargs) -> None:
@@ -132,4 +134,6 @@ class NeumannKHEQResetButton(NeumannKHEntity, ButtonEntity):
             raise HomeAssistantError(
                 f"Der Lautsprecher hat den EQ-Reset abgelehnt: {err}"
             ) from err
+        except (SSCConnectionError, SSCTimeoutError) as err:
+            raise HomeAssistantError(f"Der Lautsprecher ist nicht erreichbar: {err}") from err
         await self.coordinator.async_request_refresh()

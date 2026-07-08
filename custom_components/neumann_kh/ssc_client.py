@@ -23,9 +23,10 @@ _LOGGER = logging.getLogger(__name__)
 # Trennzeichen lt. SSC-Spezifikation: CR+LF oder LF alleine sind erlaubt.
 _MESSAGE_TERMINATOR = b"\n"
 
-# Schutz gegen übermäßig große/nie terminierte Antworten (siehe
-# SSCConnectionError-Handling in _read_lines_until_settled). Deutlich über
-# jeder realistischen SSC-Antwort (auch der volle -q-Dump ist <<1 MB).
+# Schutz gegen übermäßig große/nie terminierte Antworten: wird als explizites
+# StreamReader-Limit gesetzt (readuntil wirft oberhalb LimitOverrunError, siehe
+# _read_lines_until_settled). Deutlich über jeder realistischen SSC-Antwort
+# (auch der volle -q-Dump ist <<1 MB).
 _MAX_LINE_BYTES = 1_048_576  # 1 MiB
 
 
@@ -91,13 +92,22 @@ class SSCClient:
             return
         try:
             self._reader, self._writer = await asyncio.wait_for(
-                asyncio.open_connection(host=self._connect_host, port=self._port),
+                asyncio.open_connection(
+                    host=self._connect_host, port=self._port, limit=_MAX_LINE_BYTES
+                ),
                 timeout=self._timeout,
             )
         except (OSError, asyncio.TimeoutError) as err:
             raise SSCConnectionError(
                 f"Verbindung zu {self._connect_host}:{self._port} fehlgeschlagen: {err}"
             ) from err
+
+    def _drop_connection(self) -> None:
+        """Verwirft die aktuelle Verbindung; der nächste Zugriff verbindet neu."""
+        if self._writer is not None:
+            self._writer.close()
+        self._writer = None
+        self._reader = None
 
     async def close(self) -> None:
         """Schließt die Verbindung (z. B. beim Entladen der Integration)."""
@@ -182,10 +192,14 @@ class SSCClient:
                 lines = await self._read_lines_until_settled()
             except (SSCConnectionError, SSCTimeoutError):
                 # Verbindung verwerfen, damit beim nächsten Versuch neu verbunden wird
-                if self._writer is not None:
-                    self._writer.close()
-                self._writer = None
-                self._reader = None
+                self._drop_connection()
+                raise
+            except asyncio.CancelledError:
+                # Abbruch von außen (z. B. Zyklus-Zeitlimit im Coordinator): auf
+                # dem Socket kann eine unbeantwortete Anfrage liegen. Verbindung
+                # verwerfen, damit deren verspätete Antwort nicht der nächsten
+                # Anfrage zugeordnet wird (falsche Werte/Fehler-Zuordnung).
+                self._drop_connection()
                 raise
 
             merged: dict[str, Any] = {}
