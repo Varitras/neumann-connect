@@ -19,3 +19,6 @@ Thumbs.db
 # Home Assistant (falls Repo mal versehentlich neben einer echten HA-Config liegt)
 .storage/
 *.log
+
+# Interne Entwickler-Statusdatei - nicht ins oeffentliche Repo
+RUNBOOK.md

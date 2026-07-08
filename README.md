@@ -2,7 +2,9 @@
 
 Steuert Neumann KH DSP Lautsprecher (KH 80, KH 120 II, KH 150, KH 750 DSP)
 über das Sennheiser Sound Control Protocol (SSC), TCP Port 45. Kein
-Fremdpaket nötig – ein schlanker eigener asyncio-Client ist enthalten.
+zusätzliches pip-Paket zu installieren nötig – für das SSC-Protokoll selbst
+ist ein schlanker eigener asyncio-Client enthalten, die Geräte-Suche nutzt
+Home Assistants eingebaute Zeroconf-Komponente.
 
 Änderungshistorie: siehe [CHANGELOG.md](./CHANGELOG.md).
 
@@ -14,6 +16,20 @@ siehe [HA Developer Blog](https://developers.home-assistant.io/blog/2026/02/24/b
 
 Basiert auf den SSC-Adresspfaden, die im
 [khtool-Projekt](https://github.com/schwinn/khtool) dokumentiert sind.
+
+## Disclaimer
+
+**Das ist ein privates Hobby-/Testprojekt, entwickelt für mein eigenes
+Setup und "as-is" geteilt.** Es ist keine offizielle Integration, es gibt
+keine Garantie und keinen zugesicherten Support oder Wartung. Nutzung auf
+eigenes Risiko – besonders bei schreibbaren Einstellungen, die direkt die
+echte Lautsprecher-Hardware verändern (EQ, Pegel, Delay, Werksreset).
+Änderungen immer zusätzlich in Neumanns eigener MA1/Neumann.Control-Software
+oder direkt am Gerät überprüfen.
+
+Entwickelt mit KI-Unterstützung (Claude), wobei sämtliches Testen,
+Entscheidungen und Validierung von mir selbst gegen meine eigene Installation
+(KH 120 II, KH 750 DSP) erfolgt sind.
 
 ## Unterstützte Modelle
 

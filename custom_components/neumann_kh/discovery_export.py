@@ -11,6 +11,7 @@ Zwei kombinierte Methoden:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -24,6 +25,9 @@ _LOGGER = logging.getLogger(__name__)
 # Gerät osc/schema doch unterstützt.
 _MAX_SCHEMA_NODES = 500
 _MAX_SCHEMA_DEPTH = 10
+# Gesamt-Zeitlimit für den Best-effort-Schema-Teil (osc/schema + osc/limits).
+# Bei bis zu 500 Knoten × einzelner Anfrage könnte das sonst sehr lange laufen.
+_SCHEMA_DISCOVERY_TIMEOUT = 30.0
 
 
 async def async_discover_all_values(client: SSCClient) -> dict[str, Any]:
@@ -108,7 +112,12 @@ async def _async_discover_via_schema(client: SSCClient) -> dict[str, Any]:
                     deep_merge(result, build_nested(child_path, limits))
 
     try:
-        await _walk((), 0)
+        await asyncio.wait_for(_walk((), 0), timeout=_SCHEMA_DISCOVERY_TIMEOUT)
+    except asyncio.TimeoutError:
+        _LOGGER.debug(
+            "osc/schema-Discovery nach %.0fs abgebrochen (Teilergebnis wird verwendet)",
+            _SCHEMA_DISCOVERY_TIMEOUT,
+        )
     except (SSCConnectionError, SSCTimeoutError):
         raise
     except Exception:  # noqa: BLE001 - Best-effort, darf die Discovery nie zum Absturz bringen

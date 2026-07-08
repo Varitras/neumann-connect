@@ -32,7 +32,7 @@ from .const import (
 from .coordinator import NeumannKHCoordinator
 from .entity import NeumannKHEntity
 from .eq import build_eq_switches
-from .ssc_client import SSCDeviceError
+from .ssc_client import SSCConnectionError, SSCDeviceError, SSCTimeoutError
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -143,6 +143,8 @@ class NeumannKHSwitch(NeumannKHEntity, SwitchEntity):
                 f"Der Lautsprecher hat diese Änderung abgelehnt (evtl. von diesem "
                 f"Modell/dieser Firmware nicht unterstützt): {err}"
             ) from err
+        except (SSCConnectionError, SSCTimeoutError) as err:
+            raise HomeAssistantError(f"Der Lautsprecher ist nicht erreichbar: {err}") from err
         await self._apply_confirmed_value(self.entity_description.ssc_path, confirmed)
 
     async def async_turn_on(self, **kwargs) -> None:

@@ -14,6 +14,7 @@ Für jeden Lautsprecher wird ein eigener Config Entry angelegt.
 
 from __future__ import annotations
 
+import ipaddress
 import logging
 from typing import Any
 
@@ -87,7 +88,9 @@ def _build_manual_schema(interface_options: list[selector.SelectOptionDict]) -> 
                     custom_value=True,  # erlaubt manuelle Eingabe, falls Interface nicht gelistet ist
                 )
             ),
-            vol.Optional(CONF_PORT, default=DEFAULT_PORT): int,
+            vol.Optional(CONF_PORT, default=DEFAULT_PORT): vol.All(
+                vol.Coerce(int), vol.Range(min=1, max=65535)
+            ),
         }
     )
 
@@ -156,35 +159,51 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             port = user_input.get(CONF_PORT, DEFAULT_PORT)
             name = user_input[CONF_NAME].strip()
 
+            # Eingaben wie "fe80::1%eth0" akzeptieren: Scope-ID abtrennen
+            # (ipaddress.IPv6Address kennt keine Scope-ID) und - falls das
+            # Interface-Feld leer ist - als Interface übernehmen. Ein explizit
+            # gewähltes Interface im Dropdown hat Vorrang.
+            if "%" in host:
+                host, _, host_scope = host.partition("%")
+                host = host.strip()
+                if not interface:
+                    interface = host_scope.strip() or None
+
             if not name:
                 errors["base"] = "name_required"
-            elif host.lower().startswith("fe80") and not interface:
-                errors["base"] = "interface_required_for_link_local"
             else:
-                product, serial, version, error_key = await _async_test_connection(
-                    host, port, interface
-                )
-                if error_key:
-                    errors["base"] = error_key
+                try:
+                    ipaddress.IPv6Address(host)
+                except ValueError:
+                    errors["base"] = "invalid_ipv6"
                 else:
-                    unique_id = serial or f"{host}_{port}"
-                    await self.async_set_unique_id(str(unique_id))
-                    self._abort_if_unique_id_configured()
-                    if serial:
-                        await storage.async_remember_name(self.hass, serial, name)
+                    if host.lower().startswith("fe80") and not interface:
+                        errors["base"] = "interface_required_for_link_local"
+                    else:
+                        product, serial, version, error_key = await _async_test_connection(
+                            host, port, interface
+                        )
+                        if error_key:
+                            errors["base"] = error_key
+                        else:
+                            unique_id = serial or f"{host}_{port}"
+                            await self.async_set_unique_id(str(unique_id))
+                            self._abort_if_unique_id_configured()
+                            if serial:
+                                await storage.async_remember_name(self.hass, serial, name)
 
-                    return self.async_create_entry(
-                        title=name,
-                        data={
-                            CONF_NAME: name,
-                            CONF_HOST: host,
-                            CONF_INTERFACE: interface or "",
-                            CONF_PORT: port,
-                            CONF_MODEL: product or "KH DSP",
-                            CONF_SERIAL: serial or "",
-                            CONF_FIRMWARE_VERSION: version or "",
-                        },
-                    )
+                            return self.async_create_entry(
+                                title=name,
+                                data={
+                                    CONF_NAME: name,
+                                    CONF_HOST: host,
+                                    CONF_INTERFACE: interface or "",
+                                    CONF_PORT: port,
+                                    CONF_MODEL: product or "KH DSP",
+                                    CONF_SERIAL: serial or "",
+                                    CONF_FIRMWARE_VERSION: version or "",
+                                },
+                            )
 
         interface_options = await _async_get_interface_options(self.hass)
         schema = _build_manual_schema(interface_options)

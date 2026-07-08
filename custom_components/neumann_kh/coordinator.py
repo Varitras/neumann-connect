@@ -28,7 +28,10 @@ from .const import (
     PATH_LOGO_BRIGHTNESS,
     POLL_CYCLE_TIMEOUT_SECONDS,
     POLL_PATHS,
+    SLOW_POLL_EVERY_N_CYCLES,
+    SLOW_POLL_PATHS,
     SUBWOOFER_POLL_PATHS,
+    SUBWOOFER_SLOW_POLL_PATHS,
     UPDATE_INTERVAL_SECONDS,
 )
 from .eq_containers import eq_containers_for_model
@@ -51,22 +54,54 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         self.client = client
         self.model = model
+        # Schnelle Pfade: jeder Zyklus. Langsame Pfade: nur alle N Zyklen.
         self._poll_paths = list(POLL_PATHS)
-        # Logo-Helligkeit nur bei passenden Modellen (nicht KH 750).
+        self._slow_poll_paths = list(SLOW_POLL_PATHS)
+        # Logo-Helligkeit nur bei passenden Modellen (nicht KH 750 DSP).
         if model in MODELS_WITH_LOGO_AND_SAVE:
             self._poll_paths.append(PATH_LOGO_BRIGHTNESS)
         # Subwoofer-spezifische Pfade nur bei erkanntem Subwoofer.
         if model in MODELS_WITH_SUBWOOFER_FEATURES:
             self._poll_paths.extend(SUBWOOFER_POLL_PATHS)
-        # EQ-"enabled"-Arrays für die Band-Ein/Aus-Schalter (siehe eq.py).
+            self._slow_poll_paths.extend(SUBWOOFER_SLOW_POLL_PATHS)
+        # EQ-"enabled"-Arrays für die Container-Ein/Aus-Schalter (siehe eq.py).
+        # Ändern sich nur durch Nutzeraktion (die den Wert sofort bestätigt
+        # einspielt) - daher in den langsamen Poll.
         for container in eq_containers_for_model(model):
-            self._poll_paths.append(container.path + ("enabled",))
+            self._slow_poll_paths.append(container.path + ("enabled",))
+        # Zählt die Poll-Zyklen, um die langsamen Pfade nur alle N-te Runde
+        # mitzunehmen. Startet bei 0, sodass die langsamen Pfade beim allerersten
+        # Zyklus direkt mit abgefragt werden (Werte sofort vorhanden).
+        self._cycle_count = 0
+        # Zwischenspeicher der zuletzt gepollten langsamen Werte - wird in den
+        # schnellen Zyklen wieder eingemischt, damit die zugehörigen Entities
+        # nicht zwischendurch auf "unbekannt" fallen.
+        self._slow_data: dict[str, Any] = {}
+        # True, solange ein fälliger langsamer Poll noch nicht ERFOLGREICH
+        # durchgelaufen ist. Scheitert genau der Slow-Zyklus (z. B. Gerät
+        # kurz offline), holt der nächste erfolgreiche Zyklus die langsamen
+        # Pfade sofort nach, statt bis zu 5 Minuten auf dem alten Cache zu
+        # laufen.
+        self._slow_poll_pending = False
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fragt jeden Pfad einzeln ab; ein abgelehnter/fehlerhafter Einzelpfad wird übersprungen."""
+        include_slow = (
+            self._slow_poll_pending
+            or self._cycle_count % SLOW_POLL_EVERY_N_CYCLES == 0
+        )
+        self._cycle_count += 1
+        if include_slow:
+            # Bleibt gesetzt, bis der Slow-Poll erfolgreich war (siehe unten).
+            self._slow_poll_pending = True
+
+        paths = list(self._poll_paths)
+        if include_slow:
+            paths.extend(self._slow_poll_paths)
+
         try:
-            return await asyncio.wait_for(
-                self._poll_all_paths(), timeout=POLL_CYCLE_TIMEOUT_SECONDS
+            merged = await asyncio.wait_for(
+                self._poll_all_paths(paths), timeout=POLL_CYCLE_TIMEOUT_SECONDS
             )
         except asyncio.TimeoutError as err:
             raise UpdateFailed(
@@ -74,11 +109,26 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 f"{POLL_CYCLE_TIMEOUT_SECONDS}s"
             ) from err
 
-    async def _poll_all_paths(self) -> dict[str, Any]:
+        if include_slow:
+            # Langsame Werte frisch und erfolgreich gepollt - Cache für die
+            # nächsten schnellen Zyklen auffrischen, Nachhol-Flag löschen.
+            self._slow_poll_pending = False
+            self._slow_data = {}
+            for path in self._slow_poll_paths:
+                value = SSCClient.extract(merged, path)
+                if value is not None:
+                    deep_merge(self._slow_data, build_nested(path, value))
+        else:
+            # Schneller Zyklus: zuletzt bekannte langsame Werte wieder einmischen.
+            deep_merge(merged, self._slow_data)
+
+        return merged
+
+    async def _poll_all_paths(self, paths: list[tuple[str, ...]]) -> dict[str, Any]:
         merged: dict[str, Any] = {}
         reachable = False
         try:
-            for path in self._poll_paths:
+            for path in paths:
                 # Priority-Pfad: wartende Nutzeraktion kurz vorlassen.
                 if self.client.priority_waiting.is_set():
                     await asyncio.sleep(0.05)
