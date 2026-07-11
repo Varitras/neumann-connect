@@ -18,6 +18,11 @@ Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
   Fehler-Ursachenkette, vereinfachtes Schließen der Verbindung) – kein
   geändertes Verhalten
 
+### Behoben
+- Fehlende Abhängigkeitsdeklaration der `network`-Komponente im Manifest
+  ergänzt (wird für die Interface-Auswahl bei der manuellen Einrichtung
+  genutzt; funktionierte bisher nur indirekt über `zeroconf`)
+
 ## [1.15.1] – Bugfix
 
 ### Behoben
