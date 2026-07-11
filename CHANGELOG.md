@@ -3,6 +3,21 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
+## [1.15.2] – Qualitätssicherung
+
+### Hinzugefügt
+- Automatisierte Testsuite (33 Tests): Protokoll-Client gegen einen lokalen
+  Testserver (u. a. Zeitüberschreitungen, Verbindungsabbrüche, Abbruch-
+  Härtung aus 1.15.0), Poll-Koordination inkl. Regressionstests für den in
+  1.15.1 behobenen Fehler, Hilfsfunktionen und Export-Bereinigung
+- Kontinuierliche Integration über GitHub Actions: Home-Assistant- und
+  HACS-Validierung, Linter und Testlauf bei jedem Push und Pull Request
+
+### Geändert
+- Zwei stilistische Korrekturen im SSC-Client (durchgängige
+  Fehler-Ursachenkette, vereinfachtes Schließen der Verbindung) – kein
+  geändertes Verhalten
+
 ## [1.15.1] – Bugfix
 
 ### Behoben

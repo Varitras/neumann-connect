@@ -1,0 +1,4 @@
+# Testabhängigkeiten - das Plugin pinnt pytest, pytest-asyncio und die
+# passende Home-Assistant-Version selbst.
+pytest-homeassistant-custom-component==0.13.205
+ruff

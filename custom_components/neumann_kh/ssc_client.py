@@ -11,6 +11,7 @@ wird automatisch angehängt, falls nötig.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 from typing import Any
@@ -114,10 +115,8 @@ class SSCClient:
         async with self._lock:
             if self._writer is not None:
                 self._writer.close()
-                try:
+                with contextlib.suppress(OSError):
                     await self._writer.wait_closed()
-                except OSError:
-                    pass
                 self._writer = None
                 self._reader = None
 
@@ -142,11 +141,11 @@ class SSCClient:
                     self._reader.readuntil(_MESSAGE_TERMINATOR),
                     timeout=self._settle_time if results else self._timeout,
                 )
-            except asyncio.TimeoutError:
+            except asyncio.TimeoutError as err:
                 if not results:
                     raise SSCTimeoutError(
                         f"Keine Antwort von {self._host} innerhalb {self._timeout}s"
-                    )
+                    ) from err
                 break
             except asyncio.IncompleteReadError as err:
                 if err.partial:
