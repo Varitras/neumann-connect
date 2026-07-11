@@ -14,7 +14,6 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from ._util import build_nested, deep_merge
 from .const import CONF_FIRMWARE_VERSION, CONF_MODEL, CONF_SERIAL, DOMAIN
 from .coordinator import NeumannKHCoordinator
 
@@ -40,17 +39,13 @@ class NeumannKHEntity(CoordinatorEntity[NeumannKHCoordinator]):
     async def _apply_confirmed_value(self, path: tuple[str, ...], confirmed_value: Any) -> None:
         """Übernimmt einen vom Gerät bestätigten Wert direkt, ohne neue Netzwerk-Anfrage.
 
-        Nutzt `async_set_updated_data()` (auf einer Kopie der Daten) statt
-        `coordinator.data` direkt zu mutieren - HA-idiomatisch, benachrichtigt
-        alle gebundenen Entities konsistent. Liefert das Gerät keinen
-        eindeutigen Wert (None), wird stattdessen ein normaler Refresh angestoßen.
+        Delegiert an coordinator.apply_confirmed_value(), das neben den
+        Coordinator-Daten auch den Slow-Poll-Cache pflegt (sonst würde der
+        nächste schnelle Zyklus den Wert wieder überschreiben). Liefert das
+        Gerät keinen eindeutigen Wert (None), wird stattdessen ein normaler
+        Refresh angestoßen.
         """
         if confirmed_value is None:
             await self.coordinator.async_request_refresh()
             return
-
-        new_data: dict[str, Any] = {}
-        if self.coordinator.data:
-            deep_merge(new_data, self.coordinator.data)
-        deep_merge(new_data, build_nested(path, confirmed_value))
-        self.coordinator.async_set_updated_data(new_data)
+        self.coordinator.apply_confirmed_value(path, confirmed_value)

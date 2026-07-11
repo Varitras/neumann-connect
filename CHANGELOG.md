@@ -3,6 +3,18 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
+## [1.15.1] – Bugfix
+
+### Behoben
+- Geänderte Werte sprangen in der Oberfläche kurz nach der Änderung auf den
+  alten Stand zurück und blieben bis zu 5 Minuten falsch, obwohl der
+  Lautsprecher den neuen Wert längst übernommen hatte. Betroffen waren die
+  seltener abgefragten Einstellungen (u. a. Eingangsverstärkung,
+  Ausgangspegel, Bass/Mitten/Höhen, Eingangswahl, Gerätename, beim
+  Subwoofer zusätzlich Bass-Management, Kanal-B-Modus, Sub-Eingangspegel,
+  Low Cut, Digital Bypass sowie die EQ-Ein/Aus-Schalter). Bestand seit der
+  Poll-Aufteilung in 1.14.0
+
 ## [1.15.0] – Robustheit & Datenschutz
 
 ### Behoben / Abgehärtet

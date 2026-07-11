@@ -83,6 +83,9 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Pfade sofort nach, statt bis zu 5 Minuten auf dem alten Cache zu
         # laufen.
         self._slow_poll_pending = False
+        # Set über alle langsamen Pfade für den Membership-Test in
+        # apply_confirmed_value() (Liste ist zu dem Zeitpunkt vollständig).
+        self._slow_path_set: set[tuple[str, ...]] = set(self._slow_poll_paths)
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fragt jeden Pfad einzeln ab; ein abgelehnter/fehlerhafter Einzelpfad wird übersprungen."""
@@ -163,6 +166,25 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             raise UpdateFailed("Neumann KH: keine der abgefragten Eigenschaften war erreichbar")
 
         return merged
+
+    def apply_confirmed_value(self, path: tuple[str, ...], value: Any) -> None:
+        """Übernimmt einen vom Gerät bestätigten Wert direkt in die Daten.
+
+        Liegt der Pfad im langsamen Poll, wird zusätzlich der
+        _slow_data-Cache aktualisiert. Ohne das würde der nächste SCHNELLE
+        Zyklus den bestätigten Wert wieder mit dem veralteten Cache-Stand
+        überschreiben - der Wert "springt zurück" und bliebe bis zum
+        nächsten Slow-Poll (bis zu 5 min) falsch. Nur Slow-Pfade in den
+        Cache mergen: pauschal würde umgekehrt ein veralteter Fast-Wert
+        aus dem Cache frische Poll-Werte überschreiben.
+        """
+        new_data: dict[str, Any] = {}
+        if self.data:
+            deep_merge(new_data, self.data)
+        deep_merge(new_data, build_nested(path, value))
+        if path in self._slow_path_set:
+            deep_merge(self._slow_data, build_nested(path, value))
+        self.async_set_updated_data(new_data)
 
     def value(self, path: tuple[str, ...]) -> Any:
         """Bequemer Zugriff auf einen Wert aus den zuletzt gepollten Daten."""
