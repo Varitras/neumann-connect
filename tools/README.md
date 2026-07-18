@@ -63,8 +63,13 @@ Point the Home Assistant instance at a running simulator: add the integration,
 choose manual setup, and enter host `::1` with the simulator's port. Leave the
 interface field empty — it is only needed for link-local addresses.
 
-When Home Assistant runs under WSL2, **start the simulator inside WSL as well**.
-WSL2 has its own network namespace, so its `::1` is not the Windows loopback and
-a simulator started on the Windows side would be unreachable. The simulator only
-uses the standard library, so the distribution's `python3` is enough — the
-project's Windows virtualenv cannot be used from WSL.
+Where to start the simulator when Home Assistant runs under WSL2 depends on the
+WSL networking mode:
+
+- With the default `NAT` mode WSL has its own network namespace, so its `::1` is
+  not the Windows loopback. Start the simulator **inside** WSL.
+- With `mirrored` mode WSL shares the host interfaces and loopback, so either
+  side works. Link-local addresses to real devices are reachable from WSL too.
+
+The simulator only uses the standard library, so the distribution's `python3` is
+enough; a Windows virtualenv cannot be used from WSL either way.
