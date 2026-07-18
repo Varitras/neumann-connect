@@ -5,7 +5,7 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
-## [1.17.2b1] – Buchführung beim Zurückspielen
+## [1.17.2] – Buchführung beim Zurückspielen
 
 ### Behoben
 - Ein zurückgespielter Wert, den das Gerät nicht bestätigt hat, wurde als

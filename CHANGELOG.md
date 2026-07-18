@@ -5,7 +5,7 @@
 All notable changes to this integration are documented here.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [1.17.2b1] – Restore bookkeeping
+## [1.17.2] – Restore bookkeeping
 
 ### Fixed
 - A restored value the device did not confirm was counted as "adjusted" and
