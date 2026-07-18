@@ -5,7 +5,7 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
-## [1.17.0b1] – Sicherheit, Robustheit und Neukonfiguration (Vorabversion)
+## [1.17.0b2] – Sicherheit, Robustheit und Neukonfiguration (Vorabversion)
 
 Vorabversion zum Testen. Alles Folgende ist von der automatisierten Testsuite
 abgedeckt; die Hardware-Messungen wurden lesend gegen eine KH 120 II und eine

@@ -194,12 +194,22 @@ async def test_endless_talker_does_not_hold_the_read_open(socket_enabled, monkey
             while True:
                 writer.write(json.dumps({"other": {"value": 1}}).encode() + b"\r\n")
                 await writer.drain()
+                # Yield between lines instead of spinning: drain() returns
+                # immediately while the buffer stays below the high-water mark.
+                # Still far faster than the line cap needs.
+                await asyncio.sleep(0.001)
         except (ConnectionResetError, BrokenPipeError, asyncio.CancelledError):
             pass
 
     raw_server = await asyncio.start_server(_handle, "127.0.0.1", 0)
     port = raw_server.sockets[0].getsockname()[1]
-    client = _client(port)
+    # Generous initial timeout on purpose. This test is about the line cap
+    # ending the read, not about how fast the first line arrives; with the
+    # suite-wide 0.3 s it failed once on a CI runner because that first line
+    # was late. The failure was never reproducible locally, not even pinned to
+    # a single core, so this removes the irrelevant deadline rather than
+    # claiming a root cause.
+    client = SSCClient(host="127.0.0.1", port=port, timeout=5.0, settle_time=_SETTLE)
     try:
         assert await client.get(("device", "name")) is None
     finally:

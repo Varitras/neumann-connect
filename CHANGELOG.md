@@ -5,7 +5,7 @@
 All notable changes to this integration are documented here.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [1.17.0b1] – Security, robustness and reconfigure (pre-release)
+## [1.17.0b2] – Security, robustness and reconfigure (pre-release)
 
 Pre-release for testing. Everything below is covered by the automated test
 suite; the hardware measurements were taken read-only against a KH 120 II and
