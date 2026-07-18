@@ -5,138 +5,58 @@
 All notable changes to this integration are documented here.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [1.17.0b6] – Restore hardening and a protocol desync fix (pre-release)
-
-### Security
-- A restore now writes only paths on an explicit allowlist of settings.
-  Previously it replayed every leaf of the backup, which includes command
-  paths — among them `device/restore`, the factory reset. Relying on the
-  device to reject what it should not accept is no safeguard, because the
-  dangerous paths are exactly the writable ones
-- `ui/control_mode` is written last. Its values are NETWORK and LOCAL, so a
-  backup taken in LOCAL can cut network control off mid-restore; writing it
-  last means everything else has already landed
-- `device/identification/visual` is no longer restored — a captured "on" would
-  leave the speaker blinking
-
-### Fixed
-- A read returns as soon as the requested path arrives, so extra lines of that
-  answer stayed on the socket. The next request for the same path read one of
-  them and returned the previous answer. Leftovers are now discarded before
-  each request
-- A cancelled priority request could leave the lock-contention flag set
-  forever, after which the poll loop paused before every single path
-- The restore reported clamped or normalised values as restored; it now counts
-  them separately and says so
-- Losing the connection mid-restore reported only "unreachable"; it now says
-  how many values had already been written, since those stay on the device
-- A restore applied whatever backup existed at the second press, not the one
-  shown in the confirmation
-- The restore pushed one coordinator update per value — about 3,500 entity
-  state changes, and as many recorder rows, for a single press on a KH 750.
-  Now one update
-- Exports of two speakers whose masked serials collide overwrote each other
-- Exports are written atomically, so an interrupted write no longer leaves a
-  truncated file
-- `device/restore` is no longer stored in the backup at all
-
-### Changed
-- The `button.py` module docstring described a signed HTTP download and an
-  authenticated view that no longer exist, and claimed nothing is written to
-  disk — the opposite of the current behaviour
-- Config flow steps are annotated with `ConfigFlowResult`
-- The German README was missing the restore button
-
-## [1.17.0b5] – Restore now reaches the UI (pre-release)
-
-### Fixed
-- A restored value that is only polled every fifth minute - the device name
-  among them - reached the device but not the interface: the next fast poll
-  cycle re-merged the cached pre-restore value, so the entity kept showing the
-  old one for up to five minutes and the restore looked like it had failed.
-  Restore now feeds every confirmed value back the same way the entities do
-- `device/restore` and `device/save_settings` are no longer written back
-  during a restore. They are commands rather than settings; both test devices
-  report an empty string for the former, so writing it back is harmless today,
-  but a firmware that reports something else must not be able to wipe a device
-  through a restore
-
-## [1.17.0b4] – Restore, plain exports and audit fixes (pre-release)
-
-### Added
-- **Restore backup**: writes a stored backup back to the device. Disabled by
-  default and confirmed with two presses, like the factory reset, because it
-  overwrites settings. It refuses a backup from another model or another
-  serial number, and refreshes the entities afterwards instead of leaving the
-  pre-restore values on screen
-
-### Changed
-- Exports are plain JSON again, written to `<config>/neumann_kh/`. That folder
-  is not served over HTTP, which is what made `/config/www/` unsafe; the
-  authenticated endpoint, the signed links and the password encryption that
-  stood in between are all gone
-- Backup and discovery now also cover the logo brightness, which the
-  coordinator polls but the export left out
-
-### Fixed
-- The reconfigure flow could attach an entry to a different speaker when the
-  device at the new address reported no serial number at all
-- A config entry update listener next to `async_update_reload_and_abort()`
-  caused double reloads and would have become an error in Home Assistant
-  2026.12
-- A failure in the optional `osc/schema` part could abort a whole discovery
-  and discard the values already collected, despite being documented as
-  best-effort
-- Hitting an SSC safety limit left unread lines on the socket, which the next
-  request could then read as its own answer
-- A write to a closed socket surfaced as an unrelated error instead of a
-  connection error
-
-## [1.17.0b3] – Security, robustness and reconfigure (pre-release)
-
-Pre-release for testing. Everything below is covered by the automated test
-suite; the hardware measurements were taken read-only against a KH 120 II and
-a KH 750.
+## [1.17.0] – Reconfigure, backup restore and a security fix
 
 ### Security
 - Backup and discovery exports are no longer written to `/config/www/`, which
-  Home Assistant serves under `/local/` without any authentication. They are
-  served from the existing store through an authenticated endpoint instead,
-  linked from the notification via a signed URL that is valid for one hour.
-  Nothing is written to disk any more
+  Home Assistant serves under `/local/` **without any authentication**. They go
+  to `<config>/neumann_kh/` instead, a folder that is never served over HTTP
+- Restoring a backup writes only paths on an explicit allowlist of settings.
+  Command paths – among them `device/restore`, the factory reset – are never
+  replayed. `ui/control_mode` is written last, because a backup taken in LOCAL
+  can cut network control off while the restore is still running
 
 ### Added
-- **Reconfigure**: address, interface and port of an existing speaker can be
+- **Reconfigure**: address, interface and port of a configured speaker can be
   changed in place, keeping entity IDs, history and automations. A speaker
   whose serial number does not match the entry is refused
-- Devices that do not identify as Neumann are flagged during setup (the device
-  is still usable – SSC is not exclusive to Neumann)
-- The reported manufacturer is stored and shown in the device info
+- **Restore backup**: writes a stored backup back to the device. Disabled by
+  default and confirmed with two presses, like the factory reset. It refuses a
+  backup from another model or serial, reports values the device adjusted, and
+  says how far it got if the connection drops
+- Devices that do not identify as Neumann are flagged during setup. They stay
+  usable – SSC is not exclusive to Neumann – and the reported manufacturer is
+  shown in the device info
 
 ### Changed
-- Backup and discovery now cover the rarely polled settings and the full EQ of
-  every container (gain, boost, frequency, Q and filter type per band).
-  Previously only the fast poll paths were exported, so the README's promise of
-  "all known values" did not hold
+- Backup and discovery now cover the rarely polled settings, the logo
+  brightness and the full EQ of every container (gain, boost, frequency, Q and
+  filter type per band). Previously only the fast poll paths were exported
 - A read returns as soon as the requested path has arrived instead of always
   waiting out the settle window. Measured on a KH 750, a full slow poll cycle
   went from 19.2 s to 1.6 s
-- Minimum Home Assistant version raised to 2024.11.0, which is the release that
-  first carried the reconfigure helpers this integration uses
+- Minimum Home Assistant version raised to 2024.11.0
 
 ### Fixed
-- The download link in the backup and discovery notification did nothing: a
-  relative link is handed to the frontend router, matches no view and drops
-  the user on the dashboard without ever requesting the file. The link is
-  absolute now
+- Answers could bleed between requests: extra lines of one answer stayed on the
+  socket, and the next request for the same path returned the previous value
 - A failing platform setup left the connection and coordinator behind, so the
   next attempt stacked another one on top
-- Discovery could pick an IPv4 address from an mDNS record, which then failed
-  during setup as "not a valid IPv6 address"
-- A device that never stopped sending could hold a read - and the client lock -
+- Device discovery could pick an IPv4 address out of an mDNS record, which then
+  failed setup as "not a valid IPv6 address"
+- A device that never stopped sending could hold a read – and the client lock –
   open indefinitely
 - The link-local check accepted only addresses starting with `fe80` instead of
   the full `fe80::/10` range
+- A cancelled priority request could leave the poll loop pausing before every
+  single path
+- A restored value on a slow-poll path – the device name among them – reached
+  the device but not the interface for up to five minutes
+- A restore applied whatever backup existed at the second press rather than the
+  one shown in the confirmation, and pushed one coordinator update per value
+  instead of one for the whole run
+- Exports of two speakers with colliding masked serials overwrote each other,
+  and are now written atomically
 - The README claimed every value is polled every 30 seconds; the rarely
   changing ones are polled every 5 minutes
 

@@ -5,145 +5,64 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
-## [1.17.0b6] – Härtung des Zurückspielens und ein Protokoll-Desync (Vorabversion)
-
-### Sicherheit
-- Das Zurückspielen schreibt nur noch Pfade einer ausdrücklichen Positivliste
-  von Einstellungen. Zuvor wurde jedes Blatt des Backups zurückgeschrieben,
-  darunter Befehlspfade — unter anderem `device/restore`, der Werksreset. Sich
-  darauf zu verlassen, dass das Gerät Unpassendes ablehnt, ist keine
-  Absicherung: die gefährlichen Pfade sind gerade die schreibbaren
-- `ui/control_mode` wird zuletzt geschrieben. Seine Werte sind NETWORK und
-  LOCAL, ein in LOCAL gezogenes Backup kann die Netzwerksteuerung also mitten
-  im Vorgang abschneiden; zuletzt geschrieben ist alles andere bereits
-  angekommen
-- `device/identification/visual` wird nicht mehr zurückgespielt — ein
-  gesichertes „an“ würde den Lautsprecher blinken lassen
-
-### Behoben
-- Ein Lesevorgang kehrt zurück, sobald der angefragte Pfad eintrifft; weitere
-  Zeilen derselben Antwort blieben auf dem Socket liegen. Die nächste Anfrage
-  auf denselben Pfad las eine davon und lieferte die vorige Antwort. Reste
-  werden jetzt vor jeder Anfrage verworfen
-- Eine abgebrochene priorisierte Anfrage konnte die Sperrmarkierung dauerhaft
-  gesetzt lassen; danach pausierte die Abfrageschleife vor jedem einzelnen Pfad
-- Vom Gerät begrenzte oder normalisierte Werte galten als zurückgespielt; sie
-  werden jetzt getrennt gezählt und ausgewiesen
-- Ein Verbindungsabbruch mitten im Zurückspielen meldete nur „nicht
-  erreichbar“; jetzt wird genannt, wie viele Werte bereits geschrieben waren —
-  die bleiben auf dem Gerät
-- Zurückgespielt wurde das beim zweiten Druck vorhandene Backup, nicht das in
-  der Bestätigung gezeigte
-- Das Zurückspielen löste ein Coordinator-Update je Wert aus — rund 3.500
-  Zustandsänderungen und ebenso viele Recorder-Einträge für einen Tastendruck
-  an einer KH 750. Jetzt eines
-- Exporte zweier Lautsprecher mit gleicher maskierter Seriennummer
-  überschrieben sich gegenseitig
-- Exporte werden atomar geschrieben; ein abgebrochener Schreibvorgang
-  hinterlässt keine abgeschnittene Datei mehr
-- `device/restore` steht gar nicht mehr im Backup
-
-### Geändert
-- Der Modul-Docstring von `button.py` beschrieb einen signierten HTTP-Download
-  und eine authentifizierte View, die es nicht mehr gibt, und behauptete, es
-  werde nichts auf die Platte geschrieben — das Gegenteil des Verhaltens
-- Config-Flow-Schritte sind mit `ConfigFlowResult` annotiert
-- Im deutschen README fehlte der Restore-Button
-
-## [1.17.0b5] – Zurückspielen erreicht jetzt die Oberfläche (Vorabversion)
-
-### Behoben
-- Ein zurückgespielter Wert, der nur alle fünf Minuten abgefragt wird — darunter
-  der Gerätename — kam zwar am Gerät an, aber nicht in der Oberfläche: Der
-  nächste schnelle Poll-Zyklus mischte den zwischengespeicherten Wert von vor
-  dem Zurückspielen wieder ein, sodass die Entität bis zu fünf Minuten den alten
-  Wert zeigte und das Zurückspielen fehlgeschlagen wirkte. Es reicht bestätigte
-  Werte jetzt genauso zurück wie die Entitäten selbst
-- `device/restore` und `device/save_settings` werden beim Zurückspielen nicht
-  mehr geschrieben. Das sind Befehle, keine Einstellungen; beide Testgeräte
-  melden für Ersteres eine leere Zeichenkette, ein Rückschreiben ist heute also
-  harmlos — aber eine Firmware, die etwas anderes meldet, darf ein Gerät nicht
-  über ein Zurückspielen löschen können
-
-## [1.17.0b4] – Zurückspielen, einfache Exporte und Audit-Korrekturen (Vorabversion)
-
-### Hinzugefügt
-- **Backup zurückspielen**: schreibt ein gespeichertes Backup zurück aufs
-  Gerät. Standardmäßig deaktiviert und mit zwei Klicks zu bestätigen wie der
-  Werksreset, weil es Einstellungen überschreibt. Ein Backup eines anderen
-  Modells oder einer anderen Seriennummer wird abgelehnt; danach werden die
-  Entitäten aktualisiert, statt die alten Werte stehen zu lassen
-
-### Geändert
-- Exporte sind wieder einfaches JSON und landen in `<config>/neumann_kh/`.
-  Dieser Ordner wird nicht über HTTP ausgeliefert – genau das machte
-  `/config/www/` unsicher. Der authentifizierte Endpunkt, die signierten Links
-  und die zwischenzeitliche Passwortverschlüsselung entfallen damit alle
-- Backup und Discovery erfassen jetzt auch die Logo-Helligkeit, die der
-  Coordinator abfragt, der Export aber ausgelassen hat
-
-### Behoben
-- Der Reconfigure-Flow konnte einen Eintrag mit einem anderen Lautsprecher
-  verbinden, wenn das Gerät an der neuen Adresse gar keine Seriennummer meldet
-- Ein Update-Listener neben `async_update_reload_and_abort()` führte zu
-  doppelten Reloads und wäre ab Home Assistant 2026.12 ein Fehler geworden
-- Ein Fehler im optionalen `osc/schema`-Teil konnte eine komplette Discovery
-  abbrechen und die bereits gelesenen Werte verwerfen, obwohl er als
-  Best-effort dokumentiert ist
-- Beim Erreichen einer SSC-Sicherheitsgrenze blieben ungelesene Zeilen auf dem
-  Socket, die die nächste Anfrage als ihre eigene Antwort lesen konnte
-- Ein Schreibfehler auf einem geschlossenen Socket erschien als
-  fachfremder Fehler statt als Verbindungsfehler
-
-## [1.17.0b3] – Sicherheit, Robustheit und Neukonfiguration (Vorabversion)
-
-Vorabversion zum Testen. Alles Folgende ist von der automatisierten Testsuite
-abgedeckt; die Hardware-Messungen wurden lesend gegen eine KH 120 II und eine
-KH 750 erhoben.
+## [1.17.0] – Neu konfigurieren, Backup zurückspielen und ein Sicherheitsfix
 
 ### Sicherheit
 - Backup- und Discovery-Exporte werden nicht mehr nach `/config/www/`
   geschrieben, das Home Assistant unter `/local/` **ohne jede
-  Authentifizierung** ausliefert. Sie kommen stattdessen aus dem vorhandenen
-  Speicher über einen authentifizierten Endpunkt, aus der Benachrichtigung
-  verlinkt über eine signierte, eine Stunde gültige URL. Es wird nichts mehr
-  auf die Platte geschrieben
+  Authentifizierung** ausliefert. Sie landen stattdessen in
+  `<config>/neumann_kh/`, einem Ordner, der nie über HTTP ausgeliefert wird
+- Das Zurückspielen eines Backups schreibt nur Pfade einer ausdrücklichen
+  Positivliste von Einstellungen. Befehlspfade – darunter `device/restore`,
+  der Werksreset – werden nie zurückgeschrieben. `ui/control_mode` kommt
+  zuletzt, weil ein in LOCAL gezogenes Backup die Netzwerksteuerung mitten im
+  Vorgang abschneiden kann
 
 ### Hinzugefügt
-- **Neu konfigurieren**: Adresse, Schnittstelle und Port eines vorhandenen
+- **Neu konfigurieren**: Adresse, Schnittstelle und Port eines eingerichteten
   Lautsprechers lassen sich ändern, ohne den Eintrag zu verlieren – Entity-IDs,
   Verlauf und Automationen bleiben erhalten. Ein Lautsprecher mit abweichender
   Seriennummer wird abgelehnt
+- **Backup zurückspielen**: schreibt ein gespeichertes Backup zurück aufs
+  Gerät. Standardmäßig deaktiviert und mit zwei Klicks zu bestätigen wie der
+  Werksreset. Ein Backup eines anderen Modells oder einer anderen Seriennummer
+  wird abgelehnt; vom Gerät angepasste Werte werden ausgewiesen, und bei einem
+  Verbindungsabbruch wird genannt, wie weit es kam
 - Geräte, die sich nicht als Neumann ausweisen, werden bei der Einrichtung
-  gekennzeichnet (nutzbar bleiben sie – SSC ist kein Neumann-Exklusivprotokoll)
-- Der gemeldete Hersteller wird gespeichert und in den Geräteinformationen
-  angezeigt
+  gekennzeichnet. Nutzbar bleiben sie – SSC ist kein Neumann-Exklusivprotokoll
+  – und der gemeldete Hersteller wird in den Geräteinformationen angezeigt
 
 ### Geändert
 - Backup und Discovery erfassen jetzt auch die selten abgefragten
-  Einstellungen und den vollständigen EQ jedes Containers (Gain, Boost,
-  Frequenz, Q und Filtertyp je Band). Zuvor wurden nur die schnellen
-  Poll-Pfade exportiert, das Versprechen „alle bekannten Werte" im README traf
-  also nicht zu
+  Einstellungen, die Logo-Helligkeit und den vollständigen EQ jedes Containers
+  (Gain, Boost, Frequenz, Q und Filtertyp je Band). Zuvor wurden nur die
+  schnellen Poll-Pfade exportiert
 - Ein Lesevorgang kehrt zurück, sobald der angefragte Pfad eingetroffen ist,
   statt immer das Settle-Fenster abzuwarten. An einer KH 750 gemessen sank ein
   vollständiger langsamer Poll-Zyklus von 19,2 s auf 1,6 s
-- Mindestversion von Home Assistant auf 2024.11.0 angehoben – das ist das
-  Release, das die hier genutzten Reconfigure-Helfer erstmals mitbrachte
+- Mindestversion von Home Assistant auf 2024.11.0 angehoben
 
 ### Behoben
-- Der Download-Link in der Backup- und Discovery-Benachrichtigung tat nichts:
-  Einen relativen Link reicht das Frontend an seinen Router weiter, der findet
-  keine passende Seite und wirft den Nutzer aufs Dashboard, ohne die Datei je
-  anzufordern. Der Link ist jetzt absolut
+- Antworten konnten ineinanderlaufen: weitere Zeilen einer Antwort blieben auf
+  dem Socket liegen, und die nächste Anfrage auf denselben Pfad lieferte den
+  vorigen Wert
 - Scheiterte das Setup einer Plattform, blieben Verbindung und Coordinator
   zurück, und der nächste Versuch stapelte den nächsten obendrauf
-- Die Suche konnte aus einem mDNS-Eintrag eine IPv4-Adresse wählen, die dann
-  bei der Einrichtung an „keine gültige IPv6-Adresse" scheiterte
-- Ein Gerät, das nicht aufhörte zu senden, konnte einen Lesevorgang – und
-  damit die Client-Sperre – dauerhaft belegen
+- Die Gerätesuche konnte aus einem mDNS-Eintrag eine IPv4-Adresse wählen, die
+  dann bei der Einrichtung an „keine gültige IPv6-Adresse" scheiterte
+- Ein Gerät, das nicht aufhörte zu senden, konnte einen Lesevorgang – und damit
+  die Client-Sperre – dauerhaft belegen
 - Die Link-Local-Prüfung akzeptierte nur Adressen, die mit `fe80` beginnen,
   statt des vollen Bereichs `fe80::/10`
+- Eine abgebrochene priorisierte Anfrage konnte dazu führen, dass die
+  Abfrageschleife vor jedem einzelnen Pfad pausiert
+- Ein zurückgespielter Wert auf einem Slow-Poll-Pfad – darunter der Gerätename
+  – kam zwar am Gerät an, aber bis zu fünf Minuten lang nicht in der Oberfläche
+- Zurückgespielt wurde das beim zweiten Druck vorhandene Backup statt des in
+  der Bestätigung gezeigten, und es gab ein Coordinator-Update je Wert statt
+  eines für den ganzen Vorgang
+- Exporte zweier Lautsprecher mit kollidierender maskierter Seriennummer
+  überschrieben sich gegenseitig; geschrieben wird jetzt atomar
 - Das README behauptete, alle Werte würden alle 30 Sekunden abgefragt; die
   selten wechselnden werden alle 5 Minuten geholt
 
