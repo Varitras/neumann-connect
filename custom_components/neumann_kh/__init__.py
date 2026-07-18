@@ -54,7 +54,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
 
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    try:
+        await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    except Exception:
+        # A platform failing to set up leaves async_unload_entry unreached, so
+        # nothing else would close the socket or drop the coordinator - the
+        # next setup attempt would stack another one on top.
+        hass.data[DOMAIN].pop(entry.entry_id, None)
+        await client.close()
+        raise
+
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     return True
 

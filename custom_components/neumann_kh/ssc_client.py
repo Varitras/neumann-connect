@@ -30,6 +30,13 @@ _MESSAGE_TERMINATOR = b"\n"
 # full -q dump is <<1 MB).
 _MAX_LINE_BYTES = 1_048_576  # 1 MiB
 
+# Upper bounds for a single response. Every incoming line refreshes the settle
+# window, so a device that keeps talking would otherwise hold the read open
+# forever and grow the merged dict without limit. A real answer is one line;
+# these bounds only ever fire on a misbehaving device.
+_MAX_RESPONSE_LINES = 256
+_MAX_READ_SECONDS = 10.0
+
 
 class SSCConnectionError(Exception):
     """Raised when no connection to the speaker can be established."""
@@ -148,11 +155,22 @@ class SSCClient:
             raise SSCConnectionError(f"No active connection to {self._host}")
         merged: dict[str, Any] = {}
         received = False
+        lines = 0
+        deadline = asyncio.get_running_loop().time() + _MAX_READ_SECONDS
         while True:
+            wait = self._settle_time if received else self._timeout
+            remaining = deadline - asyncio.get_running_loop().time()
+            if remaining <= 0:
+                _LOGGER.warning(
+                    "Device %s kept sending for %.0fs, using what arrived so far",
+                    self._host,
+                    _MAX_READ_SECONDS,
+                )
+                break
             try:
                 raw_line = await asyncio.wait_for(
                     self._reader.readuntil(_MESSAGE_TERMINATOR),
-                    timeout=self._settle_time if received else self._timeout,
+                    timeout=min(wait, remaining),
                 )
             except asyncio.TimeoutError as err:
                 if not received:
@@ -195,6 +213,15 @@ class SSCClient:
             if extract(merged, ("osc", "error")) is not None:
                 break
             if expect_path is not None and extract(merged, expect_path) is not None:
+                break
+
+            lines += 1
+            if lines >= _MAX_RESPONSE_LINES:
+                _LOGGER.warning(
+                    "Device %s sent more than %d response lines, stopping the read",
+                    self._host,
+                    _MAX_RESPONSE_LINES,
+                )
                 break
         return merged
 

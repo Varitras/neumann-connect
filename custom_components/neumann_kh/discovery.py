@@ -8,6 +8,7 @@ Home Assistant's running Zeroconf instance for a time-limited active scan
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import logging
 from dataclasses import dataclass
 
@@ -30,6 +31,32 @@ class DiscoveredSpeaker:
     mdns_name: str  # full mDNS service name, e.g. "Right._ssc._tcp.local."
     host: str  # IP address; for link-local incl. "%<scope_id>"
     port: int
+
+
+def _pick_host(addresses: list[str]) -> str | None:
+    """Choose the address to connect to from an mDNS record.
+
+    SSC on these speakers is IPv6-only and the config flow rejects IPv4, so an
+    IPv4 record must not be picked - it would fail later with a confusing
+    "not a valid IPv6 address". A global IPv6 address is preferred over a
+    link-local one because it needs no scope ID. Returns None if the record
+    holds no IPv6 address at all.
+    """
+    link_local: str | None = None
+    for address in addresses:
+        # parsed_scoped_addresses() appends "%<scope_id>" to link-local entries.
+        bare, _, _ = address.partition("%")
+        try:
+            parsed = ipaddress.ip_address(bare)
+        except ValueError:
+            continue
+        if parsed.version != 6:
+            continue
+        if not parsed.is_link_local:
+            return address
+        if link_local is None:
+            link_local = address
+    return link_local
 
 
 async def async_scan_for_speakers(
@@ -69,13 +96,10 @@ async def async_scan_for_speakers(
         if not resolved or info.port is None:
             continue
 
-        addresses = info.parsed_scoped_addresses()
-        if not addresses:
+        host = _pick_host(info.parsed_scoped_addresses())
+        if host is None:
+            _LOGGER.debug("mDNS service %s announced no IPv6 address", mdns_name)
             continue
-
-        # Prefer a fixed (non-link-local) address if available - otherwise the
-        # first link-local address (already incl. "%scope_id").
-        host = next((addr for addr in addresses if "%" not in addr), addresses[0])
 
         speakers.append(DiscoveredSpeaker(mdns_name=mdns_name, host=host, port=info.port))
 

@@ -13,6 +13,7 @@ import json
 
 import pytest
 
+from custom_components.neumann_kh import ssc_client
 from custom_components.neumann_kh.ssc_client import (
     SSCClient,
     SSCConnectionError,
@@ -173,6 +174,34 @@ async def test_invalid_json_line_is_ignored(socket_enabled):
     client = _client(port)
     try:
         assert await client.get(("device", "name")) == "ok"
+    finally:
+        await client.close()
+        raw_server.close()
+        with contextlib.suppress(asyncio.TimeoutError):
+            await asyncio.wait_for(raw_server.wait_closed(), timeout=1)
+
+
+async def test_endless_talker_does_not_hold_the_read_open(socket_enabled, monkeypatch):
+    # Every incoming line refreshes the settle window, so a device that never
+    # stops talking would keep the read - and the client lock - busy forever.
+    # The server below streams without pause and never sends the requested
+    # path, so only the line cap can end this. Without it the test hangs.
+    monkeypatch.setattr(ssc_client, "_MAX_RESPONSE_LINES", 20)
+
+    async def _handle(reader, writer):
+        await reader.readline()
+        try:
+            while True:
+                writer.write(json.dumps({"other": {"value": 1}}).encode() + b"\r\n")
+                await writer.drain()
+        except (ConnectionResetError, BrokenPipeError, asyncio.CancelledError):
+            pass
+
+    raw_server = await asyncio.start_server(_handle, "127.0.0.1", 0)
+    port = raw_server.sockets[0].getsockname()[1]
+    client = _client(port)
+    try:
+        assert await client.get(("device", "name")) is None
     finally:
         await client.close()
         raw_server.close()
