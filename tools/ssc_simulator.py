@@ -262,6 +262,19 @@ def _build_nested(path: tuple[str, ...], value: Any) -> dict[str, Any]:
     return result
 
 
+def _limits_type(value: Any) -> str:
+    """Map a stored value to the type name osc/limits reports."""
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, int):
+        return "integer"
+    if isinstance(value, float):
+        return "number"
+    if isinstance(value, list):
+        return "array"
+    return "string"
+
+
 def _error(code: int) -> dict[str, Any]:
     """Build an SSC error response in the format real devices return."""
     return {"osc": {"error": [code, {"desc": _ERR_DESCRIPTIONS[code]}]}}
@@ -291,11 +304,65 @@ class SSCSimulator:
             node = node[key]
         node[path[-1]] = value
 
+    def _schema_level(self, node: dict[str, Any]) -> dict[str, Any]:
+        """One level of the address tree as osc/schema reports it.
+
+        Containers are announced as an empty dict, leaves as null. Consumers
+        walk the tree by requesting each container path in turn.
+        """
+        return {key: {} if isinstance(value, dict) else None for key, value in node.items()}
+
+    def _osc_schema(self, value: Any) -> dict[str, Any]:
+        if value is None:
+            return {"osc": {"schema": self._schema_level(self.state)}}
+
+        entries = value if isinstance(value, list) else [value]
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            leaves = _collect_leaves(entry)
+            if len(leaves) != 1:
+                return _error(_ERR_BAD_REQUEST)
+            path, _ = leaves[0]
+            found, node = self._resolve(path)
+            if not found:
+                return _error(_ERR_NOT_FOUND)
+            if not isinstance(node, dict):
+                # A leaf has no sub-tree of its own.
+                return {"osc": {"schema": [_build_nested(path, None)]}}
+            return {"osc": {"schema": [_build_nested(path, self._schema_level(node))]}}
+        return _error(_ERR_BAD_REQUEST)
+
+    def _osc_limits(self, value: Any) -> dict[str, Any]:
+        entries = value if isinstance(value, list) else [value]
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            leaves = _collect_leaves(entry)
+            if len(leaves) != 1:
+                return _error(_ERR_BAD_REQUEST)
+            path, _ = leaves[0]
+            found, node = self._resolve(path)
+            if not found or isinstance(node, dict):
+                return _error(_ERR_NOT_FOUND)
+            limits = {"type": _limits_type(node), "writeable": path not in self.read_only}
+            return {"osc": {"limits": [_build_nested(path, limits)]}}
+        return _error(_ERR_BAD_REQUEST)
+
     def handle(self, request: dict[str, Any]) -> dict[str, Any]:
         """Answer a single decoded SSC request."""
         # osc/schema and osc/limits are optional per the specification and are
-        # rejected by the tested firmware.
-        if "osc" in request and not self.enable_schema:
+        # rejected by the tested firmware, so they are off unless enabled.
+        if "osc" in request:
+            if not self.enable_schema:
+                return _error(_ERR_BAD_REQUEST)
+            osc = request["osc"]
+            if not isinstance(osc, dict):
+                return _error(_ERR_BAD_REQUEST)
+            if "schema" in osc:
+                return self._osc_schema(osc["schema"])
+            if "limits" in osc:
+                return self._osc_limits(osc["limits"])
             return _error(_ERR_BAD_REQUEST)
 
         leaves = _collect_leaves(request)

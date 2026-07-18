@@ -15,6 +15,7 @@ import contextlib
 
 import pytest
 
+from custom_components.neumann_kh.discovery_export import async_discover_all_values
 from custom_components.neumann_kh.ssc_client import SSCClient, SSCDeviceError
 from tools.ssc_simulator import (
     MODEL_KH_120_II,
@@ -34,8 +35,8 @@ _TIMEOUT = 0.3
 class SimulatorServer:
     """Runs an SSCSimulator on a loopback port for the duration of a test."""
 
-    def __init__(self, model: str) -> None:
-        self.simulator = SSCSimulator(model)
+    def __init__(self, model: str, enable_schema: bool = False) -> None:
+        self.simulator = SSCSimulator(model, enable_schema=enable_schema)
         self.server: asyncio.Server | None = None
         self.port: int = 0
 
@@ -130,6 +131,36 @@ async def test_schema_discovery_is_rejected(kh120):
             await client.request({"osc": {"schema": None}})
     finally:
         await client.close()
+
+
+async def test_schema_discovery_works_when_enabled(socket_enabled):
+    """With --enable-schema the optional osc methods actually answer.
+
+    This is the only way to exercise the best-effort schema branch in
+    discovery_export.py: real firmware rejects osc/schema, so without the
+    simulator that code path is never executed anywhere.
+    """
+    srv = SimulatorServer(MODEL_KH_120_II, enable_schema=True)
+    await srv.start()
+    # The walk issues one request per node; the default settle time would add
+    # seconds to the fast suite for no extra coverage.
+    client = SSCClient(host="127.0.0.1", port=srv.port, timeout=_TIMEOUT, settle_time=0.005)
+    try:
+        schema = await client.request({"osc": {"schema": None}})
+        level = schema["osc"]["schema"]
+        # Containers are announced as {}, leaves as null.
+        assert level["audio"] == {}
+        assert level["warnings"] is None
+
+        result = await async_discover_all_values(client)
+        limits = result["schema_limits"]
+        assert limits, "the schema walk produced nothing"
+        # Writability must mirror the verified hardware behaviour.
+        assert limits["audio"]["out"]["level"]["writeable"] is True
+        assert limits["ui"]["input_gain"]["writeable"] is False
+    finally:
+        await client.close()
+        await srv.stop()
 
 
 async def test_subwoofer_model_reports_kh_750(kh750):

@@ -12,7 +12,9 @@ import asyncio
 import contextlib
 
 import pytest
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import CONF_HOST, CONF_PORT
+from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.neumann_kh.const import (
@@ -96,9 +98,21 @@ async def test_integration_creates_entities(hass, socket_enabled, model, serial)
     async with _simulator(model) as port:
         entry = await _setup_entry(hass, model, port, serial)
 
-        assert entry.state is not None
-        states = hass.states.async_all()
-        assert states, "no entities were created"
+        # Scope every assertion to THIS config entry. Checking hass.states
+        # globally would pass on unrelated Home Assistant states and turn this
+        # into a test that cannot fail.
+        assert entry.state is ConfigEntryState.LOADED
+
+        registry = er.async_get(hass)
+        registered = er.async_entries_for_config_entry(registry, entry.entry_id)
+        assert registered, "the config entry registered no entities"
+
+        states = [
+            state
+            for state in (hass.states.get(e.entity_id) for e in registered)
+            if state is not None
+        ]
+        assert states, "entities were registered but none reached the state machine"
 
         # Values must come from the simulator, not be unknown across the board.
         known = [s for s in states if s.state not in ("unknown", "unavailable")]
@@ -111,13 +125,18 @@ async def test_integration_creates_entities(hass, socket_enabled, model, serial)
 async def test_writing_a_value_reaches_the_device(hass, socket_enabled):
     """A user action is written through and confirmed by the device."""
     async with _simulator(MODEL_KH_120_II) as port:
-        await _setup_entry(hass, MODEL_KH_120_II, port, "SIM0001234")
+        entry = await _setup_entry(hass, MODEL_KH_120_II, port, "SIM0001234")
 
+        registry = er.async_get(hass)
         mute = next(
-            (s.entity_id for s in hass.states.async_all() if s.entity_id.endswith("_mute")),
+            (
+                e.entity_id
+                for e in er.async_entries_for_config_entry(registry, entry.entry_id)
+                if e.entity_id.startswith("switch.") and e.entity_id.endswith("_mute")
+            ),
             None,
         )
-        assert mute, "mute switch entity not found"
+        assert mute, "mute switch entity not found for this config entry"
 
         await hass.services.async_call(
             "switch", "turn_on", {"entity_id": mute}, blocking=True
