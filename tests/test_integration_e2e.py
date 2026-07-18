@@ -160,6 +160,43 @@ async def test_export_download_requires_authentication(
         assert (await authenticated.get(async_export_path(entry, "passwd"))).status == 404
 
 
+async def test_backup_notification_links_an_absolute_working_url(
+    hass, socket_enabled, hass_client_no_auth
+):
+    """Pressing the backup button must produce a link that actually downloads.
+
+    A relative "/api/..." link is handed to the frontend router, matches no
+    view and drops the user on the dashboard without ever making a request -
+    so the link has to be absolute.
+    """
+    async with _simulator(MODEL_KH_120_II) as port:
+        entry = await _setup_entry(hass, MODEL_KH_120_II, port, "SIM0001234")
+
+        button = next(
+            e.entity_id
+            for e in er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id)
+            if e.entity_id.endswith("_create_backup")
+        )
+        await hass.services.async_call(
+            "button", "press", {"entity_id": button}, blocking=True
+        )
+        await hass.async_block_till_done()
+
+        notifications = hass.data["persistent_notification"]
+        message = next(
+            n["message"] for n in notifications.values() if "Download" in str(n["message"])
+        )
+
+        url = message.split("](", 1)[1].split(")", 1)[0]
+        assert url.startswith("http"), f"link must be absolute, got {url}"
+
+        # And it must really serve the backup, signature included.
+        client = await hass_client_no_auth()
+        response = await client.get(url[url.index("/api/") :])
+        assert response.status == 200
+        assert "values" in await response.json()
+
+
 async def test_writing_a_value_reaches_the_device(hass, socket_enabled):
     """A user action is written through and confirmed by the device."""
     async with _simulator(MODEL_KH_120_II) as port:

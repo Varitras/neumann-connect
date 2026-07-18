@@ -5,7 +5,7 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
-## [1.17.0b2] – Sicherheit, Robustheit und Neukonfiguration (Vorabversion)
+## [1.17.0b3] – Sicherheit, Robustheit und Neukonfiguration (Vorabversion)
 
 Vorabversion zum Testen. Alles Folgende ist von der automatisierten Testsuite
 abgedeckt; die Hardware-Messungen wurden lesend gegen eine KH 120 II und eine
@@ -42,6 +42,10 @@ KH 750 erhoben.
   Release, das die hier genutzten Reconfigure-Helfer erstmals mitbrachte
 
 ### Behoben
+- Der Download-Link in der Backup- und Discovery-Benachrichtigung tat nichts:
+  Einen relativen Link reicht das Frontend an seinen Router weiter, der findet
+  keine passende Seite und wirft den Nutzer aufs Dashboard, ohne die Datei je
+  anzufordern. Der Link ist jetzt absolut
 - Scheiterte das Setup einer Plattform, blieben Verbindung und Coordinator
   zurück, und der nächste Versuch stapelte den nächsten obendrauf
 - Die Suche konnte aus einem mDNS-Eintrag eine IPv4-Adresse wählen, die dann

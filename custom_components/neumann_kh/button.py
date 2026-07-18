@@ -15,6 +15,7 @@ nothing is written to disk.
 
 from __future__ import annotations
 
+import logging
 import time
 from datetime import datetime, timedelta, timezone
 
@@ -30,6 +31,7 @@ from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.network import NoURLAvailableError, get_url
 
 from . import storage
 from .backup_export import async_build_backup
@@ -48,6 +50,8 @@ from .entity import NeumannKHEntity
 from .export_view import EXPORT_KIND_BACKUP, EXPORT_KIND_DISCOVERY, async_export_path
 from .eq import build_eq_reset_buttons
 from .ssc_client import SSCConnectionError, SSCDeviceError, SSCTimeoutError
+
+_LOGGER = logging.getLogger(__name__)
 
 # Time window within which a second press of "factory reset" actually
 # triggers the reset. After it elapses, it must be "armed" again.
@@ -130,12 +134,24 @@ def _signed_export_url(hass: HomeAssistant, entry: ConfigEntry, kind: str) -> st
     which cannot send an Authorization header, without exposing the endpoint.
     The link expires; the data stays in the store, so pressing the button again
     produces a fresh link.
+
+    The URL is absolute on purpose. The frontend treats a relative link in a
+    notification as in-app navigation, so a "/api/..." path is handed to the
+    router, matches no view and silently drops the user on the dashboard -
+    no request is ever made. An absolute URL is opened as a real link instead.
     """
-    return async_sign_path(
+    signed = async_sign_path(
         hass,
         async_export_path(entry, kind),
         timedelta(seconds=EXPORT_LINK_VALID_SECONDS),
     )
+    try:
+        return f"{get_url(hass)}{signed}"
+    except NoURLAvailableError:
+        # No usable base URL configured - a relative link is still better than
+        # no link, and copying it by hand works.
+        _LOGGER.debug("No base URL available, falling back to a relative export link")
+        return signed
 
 
 class NeumannKHSaveSettingsButton(NeumannKHEntity, ButtonEntity):

@@ -5,7 +5,7 @@
 All notable changes to this integration are documented here.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [1.17.0b2] – Security, robustness and reconfigure (pre-release)
+## [1.17.0b3] – Security, robustness and reconfigure (pre-release)
 
 Pre-release for testing. Everything below is covered by the automated test
 suite; the hardware measurements were taken read-only against a KH 120 II and
@@ -38,6 +38,10 @@ a KH 750.
   first carried the reconfigure helpers this integration uses
 
 ### Fixed
+- The download link in the backup and discovery notification did nothing: a
+  relative link is handed to the frontend router, matches no view and drops
+  the user on the dashboard without ever requesting the file. The link is
+  absolute now
 - A failing platform setup left the connection and coordinator behind, so the
   next attempt stacked another one on top
 - Discovery could pick an IPv4 address from an mDNS record, which then failed
