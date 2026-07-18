@@ -8,19 +8,19 @@ KH 120 II per test, therefore disabled by default).
 arms it, a second press within 30s triggers the reset.
 
 'Create backup' and 'Run device discovery' store their result permanently
-(see storage.py, per serial number) and additionally as a JSON file for
-download under /config/www/.
+(see storage.py, per serial number). The notification links to it via a
+signed, time-limited URL served by the authenticated view in export_view.py -
+nothing is written to disk.
 """
 
 from __future__ import annotations
 
-import json
-import os
-import re
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+
 
 from homeassistant.components.button import ButtonEntity, ButtonEntityDescription
+from homeassistant.components.http.auth import async_sign_path
 from homeassistant.components.persistent_notification import (
     async_create as async_create_notification,
     async_dismiss as async_dismiss_notification,
@@ -45,12 +45,18 @@ from .const import (
 from .coordinator import NeumannKHCoordinator
 from .discovery_export import async_discover_all_values
 from .entity import NeumannKHEntity
+from .export_view import EXPORT_KIND_BACKUP, EXPORT_KIND_DISCOVERY, async_export_path
 from .eq import build_eq_reset_buttons
 from .ssc_client import SSCConnectionError, SSCDeviceError, SSCTimeoutError
 
 # Time window within which a second press of "factory reset" actually
 # triggers the reset. After it elapses, it must be "armed" again.
 _RESTORE_CONFIRM_WINDOW_SECONDS = 30
+
+# Lifetime of a signed export download link. Long enough to notice the
+# notification and click it, short enough that a stale link in an old
+# notification stops working.
+EXPORT_LINK_VALID_SECONDS = 3600
 
 
 def _localized(hass: HomeAssistant, de: str, en: str) -> str:
@@ -116,23 +122,20 @@ def _mask_serial(serial: str) -> str:
     return "x" * (len(serial) - 3) + serial[-3:]
 
 
-def _sanitize_filename_part(value: str) -> str:
-    """Sanitizes device-supplied values for filenames (only [A-Za-z0-9_-]).
+def _signed_export_url(hass: HomeAssistant, entry: ConfigEntry, kind: str) -> str:
+    """Build a time-limited, signed download URL for a stored export.
 
-    Guards against path components (e.g. "../") from a faulty or manipulated
-    device response - export files must never leave /config/www/.
+    The export is served by an authenticated view (see export_view.py). Signing
+    the path lets a click in a persistent notification work in the browser,
+    which cannot send an Authorization header, without exposing the endpoint.
+    The link expires; the data stays in the store, so pressing the button again
+    produces a fresh link.
     """
-    return re.sub(r"[^A-Za-z0-9_-]", "_", value) or "unknown"
-
-
-def _write_export_file(hass: HomeAssistant, filename: str, data: dict) -> str:
-    """Writes a JSON export under /config/www/ and returns the local URL."""
-    www_dir = hass.config.path("www")
-    os.makedirs(www_dir, exist_ok=True)
-    path = os.path.join(www_dir, filename)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-    return f"/local/{filename}"
+    return async_sign_path(
+        hass,
+        async_export_path(entry, kind),
+        timedelta(seconds=EXPORT_LINK_VALID_SECONDS),
+    )
 
 
 class NeumannKHSaveSettingsButton(NeumannKHEntity, ButtonEntity):
@@ -253,10 +256,8 @@ class NeumannKHBackupButton(NeumannKHEntity, ButtonEntity):
                     translation_placeholders={"error": str(err)},
                 ) from err
 
-            # File content and filename only with masked serial number:
-            # /config/www/ is served by HA WITHOUT authentication (/local/).
-            # Storage in the HA store still uses the real serial number
-            # (mapping/retrieval).
+            # The exported content carries a masked serial number only; the
+            # store is still keyed by the real one (mapping/retrieval).
             masked_serial = _mask_serial(serial)
             timestamp = datetime.now(timezone.utc).isoformat()
             backup = {
@@ -267,17 +268,16 @@ class NeumannKHBackupButton(NeumannKHEntity, ButtonEntity):
             }
 
             await storage.async_save_backup(self.hass, serial, backup)
-            filename = f"neumann_kh_backup_{_sanitize_filename_part(masked_serial)}.json"
-            url = await self.hass.async_add_executor_job(
-                _write_export_file, self.hass, filename, backup
-            )
+            url = _signed_export_url(self.hass, self._entry, EXPORT_KIND_BACKUP)
 
             async_create_notification(
                 self.hass,
                 _localized(
                     self.hass,
-                    f"Backup für **{self._entry.title}** gespeichert. Download: {url}",
-                    f"Backup for **{self._entry.title}** saved. Download: {url}",
+                    f"Backup für **{self._entry.title}** gespeichert. "
+                    f"[Download]({url}) – Link 1 Stunde gültig, danach Button erneut drücken.",
+                    f"Backup for **{self._entry.title}** saved. "
+                    f"[Download]({url}) – link valid for 1 hour, press the button again afterwards.",
                 ),
                 title=_localized(
                     self.hass,
@@ -329,19 +329,18 @@ class NeumannKHDiscoveryButton(NeumannKHEntity, ButtonEntity):
             }
 
             # Storage internally uses the real serial number (mapping/retrieval),
-            # but the content (and the file) contains only the masked variant.
+            # but the exported content contains only the masked variant.
             await storage.async_save_discovery(self.hass, serial, record)
-            filename = f"neumann_kh_discovery_{_sanitize_filename_part(masked_serial)}.json"
-            url = await self.hass.async_add_executor_job(
-                _write_export_file, self.hass, filename, record
-            )
+            url = _signed_export_url(self.hass, self._entry, EXPORT_KIND_DISCOVERY)
 
             async_create_notification(
                 self.hass,
                 _localized(
                     self.hass,
-                    f"Discovery für **{self._entry.title}** gespeichert. Download: {url}",
-                    f"Discovery for **{self._entry.title}** saved. Download: {url}",
+                    f"Discovery für **{self._entry.title}** gespeichert. "
+                    f"[Download]({url}) – Link 1 Stunde gültig, danach Button erneut drücken.",
+                    f"Discovery for **{self._entry.title}** saved. "
+                    f"[Download]({url}) – link valid for 1 hour, press the button again afterwards.",
                 ),
                 title=_localized(
                     self.hass,

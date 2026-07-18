@@ -10,18 +10,25 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+from datetime import timedelta
 
 import pytest
+from homeassistant.components.http.auth import async_sign_path
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.neumann_kh import storage
 from custom_components.neumann_kh.const import (
     CONF_INTERFACE,
     CONF_MODEL,
     CONF_SERIAL,
     DOMAIN,
+)
+from custom_components.neumann_kh.export_view import (
+    EXPORT_KIND_BACKUP,
+    async_export_path,
 )
 from tools.ssc_simulator import MODEL_KH_120_II, MODEL_KH_750, SSCSimulator, _handle_client
 
@@ -120,6 +127,37 @@ async def test_integration_creates_entities(hass, socket_enabled, model, serial)
 
         assert await hass.config_entries.async_unload(entry.entry_id)
         await hass.async_block_till_done()
+
+
+async def test_export_download_requires_authentication(
+    hass, socket_enabled, hass_client, hass_client_no_auth
+):
+    """The export endpoint must not be readable without authentication.
+
+    This replaces writing exports to /config/www/, which Home Assistant serves
+    under /local/ with no authentication at all.
+    """
+    async with _simulator(MODEL_KH_120_II) as port:
+        entry = await _setup_entry(hass, MODEL_KH_120_II, port, "SIM0001234")
+
+        await storage.async_save_backup(hass, "SIM0001234", {"values": {"probe": 1}})
+        path = async_export_path(entry, EXPORT_KIND_BACKUP)
+
+        anonymous = await hass_client_no_auth()
+        assert (await anonymous.get(path)).status == 401
+
+        authenticated = await hass_client()
+        response = await authenticated.get(path)
+        assert response.status == 200
+        assert (await response.json())["values"] == {"probe": 1}
+
+        # A signed link carries its own proof, so it works without a session -
+        # that is what makes the notification link clickable.
+        signed = async_sign_path(hass, path, timedelta(seconds=60))
+        assert (await anonymous.get(signed)).status == 200
+
+        # An unknown export kind must not leak anything.
+        assert (await authenticated.get(async_export_path(entry, "passwd"))).status == 404
 
 
 async def test_writing_a_value_reaches_the_device(hass, socket_enabled):

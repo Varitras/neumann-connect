@@ -278,8 +278,9 @@ Drei getrennte, dauerhafte Speicher (unabhängig von Config Entries,
   Einrichten über die automatische Suche wird das Namensfeld damit
   vorausgefüllt.
 - **`.storage/neumann_kh_backups`**: Ergebnis des `Backup erstellen`-Buttons
-  - alle bekannten Werte außer Live-Messwerten, zusätzlich als JSON-Datei
-  unter `/config/www/` zum Download.
+  - alle bekannten Werte außer Live-Messwerten. Die Benachrichtigung verlinkt
+  einen Download über einen authentifizierten Endpunkt; der Link ist signiert
+  und eine Stunde gültig. Es wird nichts auf die Platte geschrieben.
 - **`.storage/neumann_kh_discovery`**: Ergebnis des `Geräte-Discovery
   ausführen`-Buttons (Diagnose) - kombiniert unsere bekannten Pfade mit
   einem Best-effort-Versuch über `osc/schema` + `osc/limits` (optionale

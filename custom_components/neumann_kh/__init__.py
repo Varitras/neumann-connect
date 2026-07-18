@@ -17,6 +17,7 @@ from homeassistant.core import HomeAssistant
 
 from .const import CONF_INTERFACE, CONF_MODEL, DEFAULT_PORT, DEFAULT_TIMEOUT, DOMAIN
 from .coordinator import NeumannKHCoordinator
+from .export_view import async_register_export_view
 from .ssc_client import SSCClient
 
 PLATFORMS: list[Platform] = [
@@ -32,6 +33,9 @@ PLATFORMS: list[Platform] = [
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up a config entry (one speaker)."""
+    # Serves backup/discovery downloads for every entry; registered once.
+    async_register_export_view(hass)
+
     client = SSCClient(
         host=entry.data[CONF_HOST],
         port=entry.data.get(CONF_PORT, DEFAULT_PORT),
