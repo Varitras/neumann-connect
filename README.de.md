@@ -296,9 +296,9 @@ Drei getrennte, dauerhafte Speicher (unabhängig von Config Entries,
 - **`.storage/neumann_kh_backups`**: Ergebnis des `Backup erstellen`-Buttons
   - alle bekannten Werte außer Live-Messwerten, inklusive der selten
   abgefragten Einstellungen und des vollständigen EQ jedes Containers (Gain,
-  Boost, Frequenz, Q und Filtertyp je Band). Die Benachrichtigung verlinkt
-  einen Download über einen authentifizierten Endpunkt; der Link ist signiert
-  und eine Stunde gültig. Es wird nichts auf die Platte geschrieben.
+  Boost, Frequenz, Q und Filtertyp je Band). Zusätzlich als JSON-Datei unter
+  `<config>/neumann_kh/` – erreichbar über Dateimanager oder Freigabe, aber
+  nie über HTTP, anders als `/config/www/`.
 - **`.storage/neumann_kh_discovery`**: Ergebnis des `Geräte-Discovery
   ausführen`-Buttons (Diagnose) - kombiniert unsere bekannten Pfade mit
   einem Best-effort-Versuch über `osc/schema` + `osc/limits` (optionale

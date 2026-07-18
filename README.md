@@ -188,6 +188,7 @@ entities are enabled by default, **except** "Dimm" (does not exist there),
 | Save settings* (default: disabled, confirmed by testing to be non-functional) | `button` | – | `device/save_settings` |
 | Restore factory defaults (default: disabled, two-step confirmation) | `button` | – | `device/restore` |
 | Create backup (all known values except live measurements) | `button` | – | – |
+| Restore backup (writes the stored backup back, disabled by default) | `button` | – | – |
 | Run device discovery (diagnostic) | `button` | – | – |
 
 \* **Only** on the KH 80 / KH 150 / KH 120 II – according to the khtool
@@ -287,9 +288,9 @@ serial number:
 - **`.storage/neumann_kh_backups`**: the result of the `Create backup` button –
   all known values except live measurements, including the rarely polled
   settings and the full EQ of every container (gain, boost, frequency, Q and
-  filter type per band). The notification links to a
-  download served by an authenticated endpoint; the link is signed and valid
-  for one hour. Nothing is written to disk.
+  filter type per band). It is also written as a JSON file to
+  `<config>/neumann_kh/` – reachable through the file editor or a share, but
+  never over HTTP, unlike `/config/www/`.
 - **`.storage/neumann_kh_discovery`**: the result of the `Run device discovery`
   button (diagnostic) – combines our known paths with a best-effort attempt via
   `osc/schema` + `osc/limits` (optional SSC methods; not every firmware supports

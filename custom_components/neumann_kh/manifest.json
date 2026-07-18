@@ -3,11 +3,11 @@
   "name": "Neumann KH (SSC)",
   "codeowners": ["@Varitras"],
   "config_flow": true,
-  "dependencies": ["http", "network", "zeroconf"],
+  "dependencies": ["network", "zeroconf"],
   "documentation": "https://github.com/Varitras/Neumann-Connect",
   "integration_type": "device",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/Varitras/Neumann-Connect/issues",
   "requirements": [],
-  "version": "1.17.0b3"
+  "version": "1.17.0b4"
 }

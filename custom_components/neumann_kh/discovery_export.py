@@ -78,10 +78,12 @@ async def _async_discover_via_schema(client: SSCClient) -> dict[str, Any]:
         request = {"osc": {"schema": None}} if not path else {"osc": {"schema": [build_nested(path, None)]}}
         try:
             response = await client.request(request)
-        except SSCDeviceError:
+        except (SSCDeviceError, SSCConnectionError, SSCTimeoutError):
+            # Best-effort by contract: a device that does not support
+            # osc/schema, or drops the connection while walking it, must not
+            # cost us the known values already collected.
+            _LOGGER.debug("osc/schema for path %s failed", path, exc_info=True)
             return
-        except (SSCConnectionError, SSCTimeoutError):
-            raise
         except Exception:  # noqa: BLE001 - discovery is best-effort, never abort
             _LOGGER.debug("osc/schema for path %s failed", path, exc_info=True)
             return
@@ -122,9 +124,9 @@ async def _async_discover_via_schema(client: SSCClient) -> dict[str, Any]:
             "osc/schema discovery aborted after %.0fs (using partial result)",
             _SCHEMA_DISCOVERY_TIMEOUT,
         )
-    except (SSCConnectionError, SSCTimeoutError):
-        raise
     except Exception:  # noqa: BLE001 - best-effort, must never crash the discovery
+        # Includes connection loss: the guaranteed part has already been
+        # collected and is worth keeping.
         _LOGGER.debug("osc/schema discovery aborted", exc_info=True)
 
     return result
@@ -135,11 +137,7 @@ async def _async_query_limits(client: SSCClient, path: tuple[str, ...]) -> Any:
     request = {"osc": {"limits": [build_nested(path, None)]}}
     try:
         response = await client.request(request)
-    except SSCDeviceError:
-        return None
-    except (SSCConnectionError, SSCTimeoutError):
-        raise
-    except Exception:  # noqa: BLE001 - best-effort
+    except Exception:  # noqa: BLE001 - best-effort, incl. connection loss
         _LOGGER.debug("osc/limits for path %s failed", path, exc_info=True)
         return None
 

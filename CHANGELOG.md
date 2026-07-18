@@ -5,6 +5,37 @@
 All notable changes to this integration are documented here.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.17.0b4] – Restore, plain exports and audit fixes (pre-release)
+
+### Added
+- **Restore backup**: writes a stored backup back to the device. Disabled by
+  default and confirmed with two presses, like the factory reset, because it
+  overwrites settings. It refuses a backup from another model or another
+  serial number, and refreshes the entities afterwards instead of leaving the
+  pre-restore values on screen
+
+### Changed
+- Exports are plain JSON again, written to `<config>/neumann_kh/`. That folder
+  is not served over HTTP, which is what made `/config/www/` unsafe; the
+  authenticated endpoint, the signed links and the password encryption that
+  stood in between are all gone
+- Backup and discovery now also cover the logo brightness, which the
+  coordinator polls but the export left out
+
+### Fixed
+- The reconfigure flow could attach an entry to a different speaker when the
+  device at the new address reported no serial number at all
+- A config entry update listener next to `async_update_reload_and_abort()`
+  caused double reloads and would have become an error in Home Assistant
+  2026.12
+- A failure in the optional `osc/schema` part could abort a whole discovery
+  and discard the values already collected, despite being documented as
+  best-effort
+- Hitting an SSC safety limit left unread lines on the socket, which the next
+  request could then read as its own answer
+- A write to a closed socket surfaced as an unrelated error instead of a
+  connection error
+
 ## [1.17.0b3] – Security, robustness and reconfigure (pre-release)
 
 Pre-release for testing. Everything below is covered by the automated test

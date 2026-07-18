@@ -9,7 +9,9 @@ from typing import Any
 
 from ._util import build_nested, deep_merge
 from .const import (
+    MODELS_WITH_LOGO_AND_SAVE,
     MODELS_WITH_SUBWOOFER_FEATURES,
+    PATH_LOGO_BRIGHTNESS,
     PATH_METER_CLIP,
     PATH_METER_INPUT_LEVEL,
     PATH_METER_OUTPUT_CLIP,
@@ -43,6 +45,10 @@ def known_paths_for_model(model: str | None) -> list[tuple[str, ...]]:
     promised "all known values".
     """
     paths = list(POLL_PATHS) + list(SLOW_POLL_PATHS)
+    # Model-dependent extras the coordinator adds the same way - without this
+    # the logo brightness was missing from every export.
+    if model in MODELS_WITH_LOGO_AND_SAVE:
+        paths.append(PATH_LOGO_BRIGHTNESS)
     if model in MODELS_WITH_SUBWOOFER_FEATURES:
         paths += list(SUBWOOFER_POLL_PATHS) + list(SUBWOOFER_SLOW_POLL_PATHS)
     paths += list(eq_leaf_paths(model))

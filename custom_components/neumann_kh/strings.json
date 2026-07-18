@@ -65,85 +65,230 @@
   },
   "entity": {
     "number": {
-      "output_level": { "name": "Output level" },
-      "output_dimm": { "name": "Dimm" },
-      "output_delay": { "name": "Delay" },
-      "logo_brightness": { "name": "Logo brightness" },
-      "standby_auto_time": { "name": "Auto standby time" },
-      "standby_level": { "name": "Standby threshold level" },
-      "out1_level": { "name": "Output 1 level" },
-      "out1_delay": { "name": "Output 1 delay" },
-      "out2_level": { "name": "Output 2 level" },
-      "out2_delay": { "name": "Output 2 delay" }
+      "output_level": {
+        "name": "Output level"
+      },
+      "output_dimm": {
+        "name": "Dimm"
+      },
+      "output_delay": {
+        "name": "Delay"
+      },
+      "logo_brightness": {
+        "name": "Logo brightness"
+      },
+      "standby_auto_time": {
+        "name": "Auto standby time"
+      },
+      "standby_level": {
+        "name": "Standby threshold level"
+      },
+      "out1_level": {
+        "name": "Output 1 level"
+      },
+      "out1_delay": {
+        "name": "Output 1 delay"
+      },
+      "out2_level": {
+        "name": "Output 2 level"
+      },
+      "out2_delay": {
+        "name": "Output 2 delay"
+      }
     },
     "select": {
-      "control_mode": { "name": "Control mode" },
-      "input_interface": { "name": "Input interface" }
+      "control_mode": {
+        "name": "Control mode"
+      },
+      "input_interface": {
+        "name": "Input interface"
+      }
     },
     "switch": {
-      "mute": { "name": "Mute" },
-      "identify": { "name": "Identify" },
-      "phase_invert": { "name": "Phase invert" },
-      "auto_standby": { "name": "Auto standby" },
-      "out1_mute": { "name": "Output 1 mute" },
-      "out2_mute": { "name": "Output 2 mute" },
-      "eq_enabled": { "name": "{container} enabled" }
+      "mute": {
+        "name": "Mute"
+      },
+      "identify": {
+        "name": "Identify"
+      },
+      "phase_invert": {
+        "name": "Phase invert"
+      },
+      "auto_standby": {
+        "name": "Auto standby"
+      },
+      "out1_mute": {
+        "name": "Output 1 mute"
+      },
+      "out2_mute": {
+        "name": "Output 2 mute"
+      },
+      "eq_enabled": {
+        "name": "{container} enabled"
+      }
     },
     "sensor": {
-      "input_level_meter": { "name": "Input level (live)" },
-      "standby_countdown": { "name": "Standby countdown" },
-      "hw_version": { "name": "Hardware version" },
-      "input_current": { "name": "Current input" },
-      "device_temperature": { "name": "Device temperature" },
-      "output_level_meter": { "name": "Output level (live)" },
-      "out1_label": { "name": "Output 1 label" },
-      "out1_loudspeaker": { "name": "Output 1 loudspeaker" },
-      "out2_label": { "name": "Output 2 label" },
-      "out2_loudspeaker": { "name": "Output 2 loudspeaker" },
-      "output_label": { "name": "Output label" },
-      "input_gain": { "name": "Input gain" },
-      "input_select": { "name": "Input select" },
-      "bass_gain": { "name": "Bass gain" },
-      "mid_gain": { "name": "Mid gain" },
-      "treble_gain": { "name": "Treble gain" },
-      "output_level_select": { "name": "Output level (SPL)" },
-      "bass_management": { "name": "Bass management" },
-      "channel_b_input_mode": { "name": "Channel B input mode" },
-      "subwoofer_input_gain": { "name": "Subwoofer input gain" },
-      "subwoofer_low_cut": { "name": "Subwoofer low cut" },
-      "subwoofer_output_level": { "name": "Subwoofer output level" },
-      "subwoofer_phase": { "name": "Subwoofer phase" },
-      "subwoofer_phase_inversion": { "name": "Subwoofer phase inversion" }
+      "input_level_meter": {
+        "name": "Input level (live)"
+      },
+      "standby_countdown": {
+        "name": "Standby countdown"
+      },
+      "hw_version": {
+        "name": "Hardware version"
+      },
+      "input_current": {
+        "name": "Current input"
+      },
+      "device_temperature": {
+        "name": "Device temperature"
+      },
+      "output_level_meter": {
+        "name": "Output level (live)"
+      },
+      "out1_label": {
+        "name": "Output 1 label"
+      },
+      "out1_loudspeaker": {
+        "name": "Output 1 loudspeaker"
+      },
+      "out2_label": {
+        "name": "Output 2 label"
+      },
+      "out2_loudspeaker": {
+        "name": "Output 2 loudspeaker"
+      },
+      "output_label": {
+        "name": "Output label"
+      },
+      "input_gain": {
+        "name": "Input gain"
+      },
+      "input_select": {
+        "name": "Input select"
+      },
+      "bass_gain": {
+        "name": "Bass gain"
+      },
+      "mid_gain": {
+        "name": "Mid gain"
+      },
+      "treble_gain": {
+        "name": "Treble gain"
+      },
+      "output_level_select": {
+        "name": "Output level (SPL)"
+      },
+      "bass_management": {
+        "name": "Bass management"
+      },
+      "channel_b_input_mode": {
+        "name": "Channel B input mode"
+      },
+      "subwoofer_input_gain": {
+        "name": "Subwoofer input gain"
+      },
+      "subwoofer_low_cut": {
+        "name": "Subwoofer low cut"
+      },
+      "subwoofer_output_level": {
+        "name": "Subwoofer output level"
+      },
+      "subwoofer_phase": {
+        "name": "Subwoofer phase"
+      },
+      "subwoofer_phase_inversion": {
+        "name": "Subwoofer phase inversion"
+      }
     },
     "binary_sensor": {
-      "input_clip": { "name": "Input clipping" },
-      "warning": { "name": "Warning" },
-      "auto_standby": { "name": "Auto standby" },
-      "output_clip": { "name": "Output clipping" },
-      "digital_bypass": { "name": "Digital bypass" }
+      "input_clip": {
+        "name": "Input clipping"
+      },
+      "warning": {
+        "name": "Warning"
+      },
+      "auto_standby": {
+        "name": "Auto standby"
+      },
+      "output_clip": {
+        "name": "Output clipping"
+      },
+      "digital_bypass": {
+        "name": "Digital bypass"
+      }
     },
     "button": {
-      "save_settings": { "name": "Save settings" },
-      "restore_factory_defaults": { "name": "Restore factory defaults" },
-      "create_backup": { "name": "Create backup" },
-      "run_discovery": { "name": "Run device discovery" },
-      "eq_reset": { "name": "{container}: reset to flat" }
+      "save_settings": {
+        "name": "Save settings"
+      },
+      "restore_factory_defaults": {
+        "name": "Restore factory defaults"
+      },
+      "create_backup": {
+        "name": "Create backup"
+      },
+      "run_discovery": {
+        "name": "Run device discovery"
+      },
+      "eq_reset": {
+        "name": "{container}: reset to flat"
+      },
+      "restore_backup": {
+        "name": "Restore backup"
+      }
     },
     "text": {
-      "device_name": { "name": "Device name" }
+      "device_name": {
+        "name": "Device name"
+      }
     }
   },
   "exceptions": {
-    "device_unreachable": { "message": "The speaker is unreachable: {error}" },
-    "change_rejected": { "message": "The speaker rejected this change (possibly not supported by this model/firmware): {error}" },
-    "selection_rejected": { "message": "The speaker rejected this selection (possibly not supported by this model/firmware): {error}" },
-    "save_settings_rejected": { "message": "The speaker rejected 'Save settings': {error}" },
-    "factory_reset_rejected": { "message": "The speaker rejected the factory reset: {error}" },
-    "eq_reset_rejected": { "message": "The speaker rejected the EQ reset: {error}" },
-    "name_rejected": { "message": "The speaker rejected the new name: {error}" },
-    "backup_in_progress": { "message": "A backup is already running, please wait." },
-    "discovery_in_progress": { "message": "A discovery is already running, please wait." },
-    "backup_failed": { "message": "Backup failed: {error}" },
-    "discovery_failed": { "message": "Discovery failed: {error}" }
+    "device_unreachable": {
+      "message": "The speaker is unreachable: {error}"
+    },
+    "change_rejected": {
+      "message": "The speaker rejected this change (possibly not supported by this model/firmware): {error}"
+    },
+    "selection_rejected": {
+      "message": "The speaker rejected this selection (possibly not supported by this model/firmware): {error}"
+    },
+    "save_settings_rejected": {
+      "message": "The speaker rejected 'Save settings': {error}"
+    },
+    "factory_reset_rejected": {
+      "message": "The speaker rejected the factory reset: {error}"
+    },
+    "eq_reset_rejected": {
+      "message": "The speaker rejected the EQ reset: {error}"
+    },
+    "name_rejected": {
+      "message": "The speaker rejected the new name: {error}"
+    },
+    "backup_in_progress": {
+      "message": "A backup is already running, please wait."
+    },
+    "discovery_in_progress": {
+      "message": "A discovery is already running, please wait."
+    },
+    "backup_failed": {
+      "message": "Backup failed: {error}"
+    },
+    "discovery_failed": {
+      "message": "Discovery failed: {error}"
+    },
+    "restore_no_backup": {
+      "message": "No backup stored for this speaker yet. Press 'Create backup' first."
+    },
+    "restore_model_mismatch": {
+      "message": "This backup is from a {backup}, but the device is a {device}. Nothing was written."
+    },
+    "restore_serial_mismatch": {
+      "message": "The stored backup belongs to a different speaker. Nothing was written."
+    },
+    "restore_in_progress": {
+      "message": "A restore is already running, please wait."
+    }
   }
 }

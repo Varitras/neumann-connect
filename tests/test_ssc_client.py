@@ -287,6 +287,61 @@ async def test_oversized_line_raises_connection_error(socket_enabled):
             await asyncio.wait_for(raw_server.wait_closed(), timeout=1)
 
 
+async def test_connection_is_dropped_after_a_safety_limit(socket_enabled, monkeypatch):
+    """Hitting a limit must poison the connection, not just stop reading.
+
+    Lines already queued on the socket would otherwise be handed to the next
+    request, which would then read the previous request's answer.
+    """
+    monkeypatch.setattr(ssc_client, "_MAX_RESPONSE_LINES", 5)
+
+    async def _handle(reader, writer):
+        await reader.readline()
+        try:
+            while True:
+                writer.write(json.dumps({"other": {"value": 1}}).encode() + b"\r\n")
+                await writer.drain()
+                await asyncio.sleep(0.001)
+        except (ConnectionResetError, BrokenPipeError, asyncio.CancelledError):
+            pass
+
+    raw_server = await asyncio.start_server(_handle, "127.0.0.1", 0)
+    port = raw_server.sockets[0].getsockname()[1]
+    client = SSCClient(host="127.0.0.1", port=port, timeout=5.0, settle_time=_SETTLE)
+    try:
+        await client.get(("device", "name"))
+        assert client._writer is None, "the connection survived a safety limit"  # noqa: SLF001
+    finally:
+        await client.close()
+        raw_server.close()
+        with contextlib.suppress(asyncio.TimeoutError):
+            await asyncio.wait_for(raw_server.wait_closed(), timeout=1)
+
+
+async def test_write_failure_becomes_a_connection_error(server):
+    """A peer that vanishes between connect and write must not look like a timeout."""
+    client = _client(server.port)
+    try:
+        await client.get(("device", "name"))  # establishes the connection
+
+        class _DeadWriter:
+            def write(self, _data):
+                raise BrokenPipeError("peer went away")
+
+            def is_closing(self):
+                return False
+
+            def close(self):
+                pass
+
+        client._writer = _DeadWriter()  # noqa: SLF001
+        with pytest.raises(SSCConnectionError):
+            await client.get(("device", "name"))
+    finally:
+        client._writer = None  # noqa: SLF001
+        await client.close()
+
+
 def test_is_link_local():
     assert SSCClient._is_link_local("fe80::1")  # noqa: SLF001
     assert SSCClient._is_link_local("FE80::1")  # noqa: SLF001

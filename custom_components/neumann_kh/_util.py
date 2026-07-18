@@ -37,3 +37,12 @@ def extract(data: dict, path: tuple[str, ...]) -> Any:
             return None
         node = node[part]
     return node
+
+
+def localized(language: str | None, de: str, en: str) -> str:
+    """Pick the German or English text for a Home Assistant UI language.
+
+    For messages that have no translation_key mechanism (persistent
+    notifications, dynamic labels); see the localisation notes in the README.
+    """
+    return de if (language or "en").startswith("de") else en

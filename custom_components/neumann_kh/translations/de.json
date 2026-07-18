@@ -233,6 +233,9 @@
       },
       "eq_reset": {
         "name": "{container}: auf neutral zurücksetzen"
+      },
+      "restore_backup": {
+        "name": "Backup zurückspielen"
       }
     },
     "text": {
@@ -274,6 +277,18 @@
     },
     "discovery_failed": {
       "message": "Discovery fehlgeschlagen: {error}"
+    },
+    "restore_no_backup": {
+      "message": "Für diesen Lautsprecher ist noch kein Backup gespeichert. Erst „Backup erstellen“ drücken."
+    },
+    "restore_model_mismatch": {
+      "message": "Dieses Backup stammt von einer {backup}, das Gerät ist aber eine {device}. Es wurde nichts geschrieben."
+    },
+    "restore_serial_mismatch": {
+      "message": "Das gespeicherte Backup gehört zu einem anderen Lautsprecher. Es wurde nichts geschrieben."
+    },
+    "restore_in_progress": {
+      "message": "Es läuft bereits ein Zurückspielen, bitte warten."
     }
   }
 }

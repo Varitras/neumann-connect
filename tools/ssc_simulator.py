@@ -115,7 +115,13 @@ _READ_ONLY_KH_750 = frozenset(
 
 
 def _eq_state(containers: tuple[tuple[tuple[str, ...], int], ...]) -> dict[str, Any]:
-    """Build the EQ part of the state: enabled/gain/boost arrays per container."""
+    """Build the EQ part of the state: one array per leaf and container.
+
+    All six leaves a real container exposes, verified by reading them off a
+    KH 120 II (firmware 1_7_3). Omitting frequency, Q and filter type would
+    make a backup look complete in tests while missing what actually defines
+    the filters.
+    """
     state: dict[str, Any] = {}
     for path, band_count in containers:
         node = state
@@ -125,6 +131,9 @@ def _eq_state(containers: tuple[tuple[tuple[str, ...], int], ...]) -> dict[str, 
             "enabled": [False] * band_count,
             "gain": [0.0] * band_count,
             "boost": [0.0] * band_count,
+            "frequency": [100.0] * band_count,
+            "q": [0.7] * band_count,
+            "type": ["PARAMETRIC"] * band_count,
         }
     return state
 

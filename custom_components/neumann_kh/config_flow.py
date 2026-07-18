@@ -325,12 +325,12 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         # speaker: that would silently attach one device's
                         # history to another. Entries created without a serial
                         # (unique_id is host_port) cannot be checked this way.
+                        # A known serial must be matched. Accepting a device
+                        # that reports none would silently attach this entry -
+                        # its history and stored exports - to whatever answered
+                        # at the new address.
                         known_serial = entry.data.get(CONF_SERIAL)
-                        if (
-                            known_serial
-                            and identity.serial
-                            and identity.serial != known_serial
-                        ):
+                        if known_serial and identity.serial != known_serial:
                             return self.async_abort(reason="wrong_device")
 
                         return self.async_update_reload_and_abort(

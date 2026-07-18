@@ -15,13 +15,10 @@ nothing is written to disk.
 
 from __future__ import annotations
 
-import logging
 import time
-from datetime import datetime, timedelta, timezone
 
 
 from homeassistant.components.button import ButtonEntity, ButtonEntityDescription
-from homeassistant.components.http.auth import async_sign_path
 from homeassistant.components.persistent_notification import (
     async_create as async_create_notification,
     async_dismiss as async_dismiss_notification,
@@ -31,13 +28,9 @@ from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.network import NoURLAvailableError, get_url
 
-from . import storage
-from .backup_export import async_build_backup
 from .const import (
     CONF_MODEL,
-    CONF_SERIAL,
     DOMAIN,
     MODELS_WITH_LOGO_AND_SAVE,
     PATH_RESTORE,
@@ -45,22 +38,19 @@ from .const import (
     RESTORE_FACTORY_DEFAULTS_VALUE,
 )
 from .coordinator import NeumannKHCoordinator
-from .discovery_export import async_discover_all_values
 from .entity import NeumannKHEntity
-from .export_view import EXPORT_KIND_BACKUP, EXPORT_KIND_DISCOVERY, async_export_path
+from .export_actions import (
+    async_check_restorable,
+    async_run_backup,
+    async_run_discovery,
+    async_run_restore,
+)
 from .eq import build_eq_reset_buttons
 from .ssc_client import SSCConnectionError, SSCDeviceError, SSCTimeoutError
-
-_LOGGER = logging.getLogger(__name__)
 
 # Time window within which a second press of "factory reset" actually
 # triggers the reset. After it elapses, it must be "armed" again.
 _RESTORE_CONFIRM_WINDOW_SECONDS = 30
-
-# Lifetime of a signed export download link. Long enough to notice the
-# notification and click it, short enough that a stale link in an old
-# notification stops working.
-EXPORT_LINK_VALID_SECONDS = 3600
 
 
 def _localized(hass: HomeAssistant, de: str, en: str) -> str:
@@ -93,6 +83,13 @@ BACKUP_DESCRIPTION = ButtonEntityDescription(
     icon="mdi:content-save-cog-outline",
 )
 
+RESTORE_BACKUP_DESCRIPTION = ButtonEntityDescription(
+    key="restore_backup",
+    translation_key="restore_backup",
+    icon="mdi:backup-restore",
+    entity_registry_enabled_default=False,  # overwrites device settings, deliberately hidden
+)
+
 DISCOVERY_DESCRIPTION = ButtonEntityDescription(
     key="run_discovery",
     translation_key="run_discovery",
@@ -110,6 +107,7 @@ async def async_setup_entry(
     entities: list[ButtonEntity] = [
         NeumannKHRestoreButton(coordinator, entry),
         NeumannKHBackupButton(coordinator, entry),
+        NeumannKHRestoreBackupButton(coordinator, entry),
         NeumannKHDiscoveryButton(coordinator, entry),
     ]
     entities += build_eq_reset_buttons(coordinator, entry, entry.data.get(CONF_MODEL))
@@ -117,41 +115,6 @@ async def async_setup_entry(
         entities.append(NeumannKHSaveSettingsButton(coordinator, entry))
 
     async_add_entities(entities)
-
-
-def _mask_serial(serial: str) -> str:
-    """Masks a serial number, only the last 3 characters remain visible."""
-    if len(serial) <= 3:
-        return serial
-    return "x" * (len(serial) - 3) + serial[-3:]
-
-
-def _signed_export_url(hass: HomeAssistant, entry: ConfigEntry, kind: str) -> str:
-    """Build a time-limited, signed download URL for a stored export.
-
-    The export is served by an authenticated view (see export_view.py). Signing
-    the path lets a click in a persistent notification work in the browser,
-    which cannot send an Authorization header, without exposing the endpoint.
-    The link expires; the data stays in the store, so pressing the button again
-    produces a fresh link.
-
-    The URL is absolute on purpose. The frontend treats a relative link in a
-    notification as in-app navigation, so a "/api/..." path is handed to the
-    router, matches no view and silently drops the user on the dashboard -
-    no request is ever made. An absolute URL is opened as a real link instead.
-    """
-    signed = async_sign_path(
-        hass,
-        async_export_path(entry, kind),
-        timedelta(seconds=EXPORT_LINK_VALID_SECONDS),
-    )
-    try:
-        return f"{get_url(hass)}{signed}"
-    except NoURLAvailableError:
-        # No usable base URL configured - a relative link is still better than
-        # no link, and copying it by hand works.
-        _LOGGER.debug("No base URL available, falling back to a relative export link")
-        return signed
 
 
 class NeumannKHSaveSettingsButton(NeumannKHEntity, ButtonEntity):
@@ -260,48 +223,7 @@ class NeumannKHBackupButton(NeumannKHEntity, ButtonEntity):
             )
         self._running = True
         try:
-            serial = self._entry.data.get(CONF_SERIAL) or self._entry.entry_id
-            model = self._entry.data.get(CONF_MODEL)
-
-            try:
-                values = await async_build_backup(self.coordinator.client, model)
-            except Exception as err:  # noqa: BLE001 - backup/discovery are best-effort
-                raise HomeAssistantError(
-                    translation_domain=DOMAIN,
-                    translation_key="backup_failed",
-                    translation_placeholders={"error": str(err)},
-                ) from err
-
-            # The exported content carries a masked serial number only; the
-            # store is still keyed by the real one (mapping/retrieval).
-            masked_serial = _mask_serial(serial)
-            timestamp = datetime.now(timezone.utc).isoformat()
-            backup = {
-                "timestamp": timestamp,
-                "model": model,
-                "serial": masked_serial,
-                "values": values,
-            }
-
-            await storage.async_save_backup(self.hass, serial, backup)
-            url = _signed_export_url(self.hass, self._entry, EXPORT_KIND_BACKUP)
-
-            async_create_notification(
-                self.hass,
-                _localized(
-                    self.hass,
-                    f"Backup für **{self._entry.title}** gespeichert. "
-                    f"[Download]({url}) – Link 1 Stunde gültig, danach Button erneut drücken.",
-                    f"Backup for **{self._entry.title}** saved. "
-                    f"[Download]({url}) – link valid for 1 hour, press the button again afterwards.",
-                ),
-                title=_localized(
-                    self.hass,
-                    "Neumann Connect: Backup erstellt",
-                    "Neumann Connect: backup created",
-                ),
-                notification_id=f"{self._unique_id_base}_backup_done",
-            )
+            await async_run_backup(self.hass, self._entry, self.coordinator.client)
         finally:
             self._running = False
 
@@ -324,48 +246,67 @@ class NeumannKHDiscoveryButton(NeumannKHEntity, ButtonEntity):
             )
         self._running = True
         try:
-            serial = self._entry.data.get(CONF_SERIAL) or self._entry.entry_id
-
-            try:
-                discovery = await async_discover_all_values(
-                    self.coordinator.client, self._entry.data.get(CONF_MODEL)
-                )
-            except Exception as err:  # noqa: BLE001 - backup/discovery are best-effort
-                raise HomeAssistantError(
-                    translation_domain=DOMAIN,
-                    translation_key="discovery_failed",
-                    translation_placeholders={"error": str(err)},
-                ) from err
-
-            masked_serial = _mask_serial(serial)
-            timestamp = datetime.now(timezone.utc).isoformat()
-            record = {
-                "timestamp": timestamp,
-                "model": self._entry.data.get(CONF_MODEL),
-                "serial": masked_serial,
-                **discovery,
-            }
-
-            # Storage internally uses the real serial number (mapping/retrieval),
-            # but the exported content contains only the masked variant.
-            await storage.async_save_discovery(self.hass, serial, record)
-            url = _signed_export_url(self.hass, self._entry, EXPORT_KIND_DISCOVERY)
-
-            async_create_notification(
-                self.hass,
-                _localized(
-                    self.hass,
-                    f"Discovery für **{self._entry.title}** gespeichert. "
-                    f"[Download]({url}) – Link 1 Stunde gültig, danach Button erneut drücken.",
-                    f"Discovery for **{self._entry.title}** saved. "
-                    f"[Download]({url}) – link valid for 1 hour, press the button again afterwards.",
-                ),
-                title=_localized(
-                    self.hass,
-                    "Neumann Connect: Discovery abgeschlossen",
-                    "Neumann Connect: discovery finished",
-                ),
-                notification_id=f"{self._unique_id_base}_discovery_done",
-            )
+            await async_run_discovery(self.hass, self._entry, self.coordinator.client)
         finally:
             self._running = False
+
+
+class NeumannKHRestoreBackupButton(NeumannKHEntity, ButtonEntity):
+    """Writes the stored backup back to the device, with two-step confirmation.
+
+    Like the factory reset, this overwrites device settings and cannot be
+    undone, so the first press only arms it. Button entities cannot show a
+    modal dialog, hence the same two-click pattern.
+    """
+
+    entity_description = RESTORE_BACKUP_DESCRIPTION
+
+    def __init__(self, coordinator: NeumannKHCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{self._unique_id_base}_restore_backup"
+        self._armed_at: float | None = None
+        self._running = False
+        self._notification_id = f"{self._unique_id_base}_restore_backup_confirm"
+
+    async def async_press(self) -> None:
+        if self._running:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="restore_in_progress",
+            )
+
+        now = time.monotonic()
+        if self._armed_at is not None and (now - self._armed_at) <= _RESTORE_CONFIRM_WINDOW_SECONDS:
+            self._armed_at = None
+            async_dismiss_notification(self.hass, self._notification_id)
+            self._running = True
+            try:
+                await async_run_restore(self.hass, self._entry, self.coordinator)
+            finally:
+                self._running = False
+            return
+
+        # First press: validate before arming, so a mismatched or missing
+        # backup is reported now rather than after a confirmation the user
+        # cannot act on.
+        backup = await async_check_restorable(self.hass, self._entry)
+        self._armed_at = now
+        async_create_notification(
+            self.hass,
+            _localized(
+                self.hass,
+                f"Backup vom {backup.get('timestamp', '?')} für **{self._entry.title}** "
+                f"zurückspielen? Innerhalb von {_RESTORE_CONFIRM_WINDOW_SECONDS} Sekunden "
+                "erneut drücken. Die aktuellen Geräteeinstellungen werden überschrieben.",
+                f"Restore the backup from {backup.get('timestamp', '?')} to "
+                f"**{self._entry.title}**? Press again within "
+                f"{_RESTORE_CONFIRM_WINDOW_SECONDS} seconds. The device's current settings "
+                "will be overwritten.",
+            ),
+            title=_localized(
+                self.hass,
+                "Neumann Connect: Zurückspielen bestätigen",
+                "Neumann Connect: confirm restore",
+            ),
+            notification_id=self._notification_id,
+        )

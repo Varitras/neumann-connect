@@ -141,6 +141,22 @@ async def test_reconfigure_refuses_a_different_speaker(hass, _custom_integration
     assert entry.data[CONF_HOST] == "fe80::1"  # unchanged
 
 
+async def test_reconfigure_refuses_a_device_without_a_serial(hass, _custom_integration):
+    """A known serial must be matched, not merely "not contradicted".
+
+    Accepting a device that reports no serial would attach this entry - its
+    history and stored exports - to whatever happens to answer at the address.
+    """
+    entry = _entry(hass)
+    identity = DeviceIdentity(product="KH 120 II", serial=None, vendor="Georg Neumann GmbH")
+
+    result = await _run_reconfigure(hass, entry, identity)
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "wrong_device"
+    assert entry.data[CONF_HOST] == "fe80::1"  # unchanged
+
+
 async def test_reconfigure_rejects_link_local_without_interface(hass, _custom_integration):
     entry = _entry(hass)
     identity = DeviceIdentity(serial=_EXISTING_SERIAL, vendor="Georg Neumann GmbH")

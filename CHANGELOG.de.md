@@ -5,6 +5,36 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
+## [1.17.0b4] – Zurückspielen, einfache Exporte und Audit-Korrekturen (Vorabversion)
+
+### Hinzugefügt
+- **Backup zurückspielen**: schreibt ein gespeichertes Backup zurück aufs
+  Gerät. Standardmäßig deaktiviert und mit zwei Klicks zu bestätigen wie der
+  Werksreset, weil es Einstellungen überschreibt. Ein Backup eines anderen
+  Modells oder einer anderen Seriennummer wird abgelehnt; danach werden die
+  Entitäten aktualisiert, statt die alten Werte stehen zu lassen
+
+### Geändert
+- Exporte sind wieder einfaches JSON und landen in `<config>/neumann_kh/`.
+  Dieser Ordner wird nicht über HTTP ausgeliefert – genau das machte
+  `/config/www/` unsicher. Der authentifizierte Endpunkt, die signierten Links
+  und die zwischenzeitliche Passwortverschlüsselung entfallen damit alle
+- Backup und Discovery erfassen jetzt auch die Logo-Helligkeit, die der
+  Coordinator abfragt, der Export aber ausgelassen hat
+
+### Behoben
+- Der Reconfigure-Flow konnte einen Eintrag mit einem anderen Lautsprecher
+  verbinden, wenn das Gerät an der neuen Adresse gar keine Seriennummer meldet
+- Ein Update-Listener neben `async_update_reload_and_abort()` führte zu
+  doppelten Reloads und wäre ab Home Assistant 2026.12 ein Fehler geworden
+- Ein Fehler im optionalen `osc/schema`-Teil konnte eine komplette Discovery
+  abbrechen und die bereits gelesenen Werte verwerfen, obwohl er als
+  Best-effort dokumentiert ist
+- Beim Erreichen einer SSC-Sicherheitsgrenze blieben ungelesene Zeilen auf dem
+  Socket, die die nächste Anfrage als ihre eigene Antwort lesen konnte
+- Ein Schreibfehler auf einem geschlossenen Socket erschien als
+  fachfremder Fehler statt als Verbindungsfehler
+
 ## [1.17.0b3] – Sicherheit, Robustheit und Neukonfiguration (Vorabversion)
 
 Vorabversion zum Testen. Alles Folgende ist von der automatisierten Testsuite

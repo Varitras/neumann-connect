@@ -10,12 +10,12 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-from datetime import timedelta
+import json
 
 import pytest
-from homeassistant.components.http.auth import async_sign_path
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import CONF_HOST, CONF_PORT
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -26,10 +26,7 @@ from custom_components.neumann_kh.const import (
     CONF_SERIAL,
     DOMAIN,
 )
-from custom_components.neumann_kh.export_view import (
-    EXPORT_KIND_BACKUP,
-    async_export_path,
-)
+from custom_components.neumann_kh.export_file import EXPORT_DIR_NAME
 from tools.ssc_simulator import MODEL_KH_120_II, MODEL_KH_750, SSCSimulator, _handle_client
 
 # Deselected by default (see pytest.ini) because each test boots a full Home
@@ -96,6 +93,38 @@ async def _setup_entry(hass, model: str, port: int, serial: str) -> MockConfigEn
     return entry
 
 
+async def _enable(hass, entry, suffix: str) -> None:
+    """Enable an entity that is disabled by default, and reload for it.
+
+    The destructive buttons (factory reset, restore) are hidden by default.
+    Pressing a disabled entity silently does nothing, so this has to happen
+    once up front - and only once, because the reload builds new entity
+    instances and would discard a pending two-click confirmation.
+    """
+    registry = er.async_get(hass)
+    entity = next(
+        e
+        for e in er.async_entries_for_config_entry(registry, entry.entry_id)
+        if e.entity_id.endswith(suffix)
+    )
+    registry.async_update_entity(entity.entity_id, disabled_by=None)
+    await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+
+
+async def _press(hass, entry, suffix: str) -> None:
+    """Press the button of this entry whose unique id ends with `suffix`."""
+    entity_id = next(
+        e.entity_id
+        for e in er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id)
+        if e.entity_id.endswith(suffix)
+    )
+    await hass.services.async_call(
+        "button", "press", {"entity_id": entity_id}, blocking=True
+    )
+    await hass.async_block_till_done()
+
+
 @pytest.mark.parametrize(
     ("model", "serial"),
     [(MODEL_KH_120_II, "SIM0001234"), (MODEL_KH_750, "SIM0007500")],
@@ -129,72 +158,91 @@ async def test_integration_creates_entities(hass, socket_enabled, model, serial)
         await hass.async_block_till_done()
 
 
-async def test_export_download_requires_authentication(
-    hass, socket_enabled, hass_client, hass_client_no_auth
-):
-    """The export endpoint must not be readable without authentication.
+async def test_no_update_listener_is_registered(hass, socket_enabled):
+    """An update listener next to async_update_reload_and_abort() is deprecated.
 
-    This replaces writing exports to /config/www/, which Home Assistant serves
-    under /local/ with no authentication at all.
+    Home Assistant reports the combination since 2026.6 and turns it into an
+    error in 2026.12; it also causes double reloads today. The reconfigure flow
+    reloads by itself, so no listener may come back.
     """
     async with _simulator(MODEL_KH_120_II) as port:
         entry = await _setup_entry(hass, MODEL_KH_120_II, port, "SIM0001234")
-
-        await storage.async_save_backup(hass, "SIM0001234", {"values": {"probe": 1}})
-        path = async_export_path(entry, EXPORT_KIND_BACKUP)
-
-        anonymous = await hass_client_no_auth()
-        assert (await anonymous.get(path)).status == 401
-
-        authenticated = await hass_client()
-        response = await authenticated.get(path)
-        assert response.status == 200
-        assert (await response.json())["values"] == {"probe": 1}
-
-        # A signed link carries its own proof, so it works without a session -
-        # that is what makes the notification link clickable.
-        signed = async_sign_path(hass, path, timedelta(seconds=60))
-        assert (await anonymous.get(signed)).status == 200
-
-        # An unknown export kind must not leak anything.
-        assert (await authenticated.get(async_export_path(entry, "passwd"))).status == 404
+        assert not entry.update_listeners
 
 
-async def test_backup_notification_links_an_absolute_working_url(
-    hass, socket_enabled, hass_client_no_auth
-):
-    """Pressing the backup button must produce a link that actually downloads.
+async def test_backup_button_writes_a_file_outside_www(hass, socket_enabled, tmp_path):
+    """The user path: press the button, get a file in the non-public folder."""
+    hass.config.config_dir = str(tmp_path)
 
-    A relative "/api/..." link is handed to the frontend router, matches no
-    view and drops the user on the dashboard without ever making a request -
-    so the link has to be absolute.
-    """
     async with _simulator(MODEL_KH_120_II) as port:
         entry = await _setup_entry(hass, MODEL_KH_120_II, port, "SIM0001234")
+        await _press(hass, entry, "_create_backup")
 
-        button = next(
+        written = list((tmp_path / EXPORT_DIR_NAME).glob("*.json"))
+        assert written, "no export file was written"
+        # Never in www/: Home Assistant serves that folder unauthenticated.
+        assert not (tmp_path / "www").exists()
+
+        payload = json.loads(written[0].read_text(encoding="utf-8"))
+        assert payload["values"], "the export carries no values"
+        assert payload["serial"] == "xxxxxxx234", "the real serial must not be exported"
+        # The full EQ has to be in there, not just the switchable part.
+        eq = payload["values"]["audio"]["out"]["eq2"]
+        assert set(eq) >= {"enabled", "gain", "boost", "frequency", "q", "type"}
+
+
+async def test_restore_needs_two_presses_and_writes_back(hass, socket_enabled, tmp_path):
+    """Restore is destructive, so the first press only arms it."""
+    hass.config.config_dir = str(tmp_path)
+
+    async with _simulator(MODEL_KH_120_II) as port:
+        entry = await _setup_entry(hass, MODEL_KH_120_II, port, "SIM0001234")
+        await _press(hass, entry, "_create_backup")
+
+        # Change something so a restore has visible work to do.
+        mute = next(
             e.entity_id
             for e in er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id)
-            if e.entity_id.endswith("_create_backup")
+            if e.entity_id.startswith("switch.") and e.entity_id.endswith("_mute")
         )
         await hass.services.async_call(
-            "button", "press", {"entity_id": button}, blocking=True
+            "switch", "turn_on", {"entity_id": mute}, blocking=True
         )
         await hass.async_block_till_done()
+        assert hass.states.get(mute).state == "on"
 
-        notifications = hass.data["persistent_notification"]
-        message = next(
-            n["message"] for n in notifications.values() if "Download" in str(n["message"])
-        )
+        await _enable(hass, entry, "_restore_backup")
+        await _press(hass, entry, "_restore_backup")  # arms only
+        assert hass.states.get(mute).state == "on", "first press must not write"
 
-        url = message.split("](", 1)[1].split(")", 1)[0]
-        assert url.startswith("http"), f"link must be absolute, got {url}"
+        await _press(hass, entry, "_restore_backup")  # confirms
+        await hass.async_block_till_done()
+        assert hass.states.get(mute).state == "off", "restore did not write the backup back"
 
-        # And it must really serve the backup, signature included.
-        client = await hass_client_no_auth()
-        response = await client.get(url[url.index("/api/") :])
-        assert response.status == 200
-        assert "values" in await response.json()
+
+async def test_restore_without_a_backup_refuses(hass, socket_enabled, tmp_path):
+    hass.config.config_dir = str(tmp_path)
+    async with _simulator(MODEL_KH_120_II) as port:
+        entry = await _setup_entry(hass, MODEL_KH_120_II, port, "SIM0001234")
+        await _enable(hass, entry, "_restore_backup")
+        with pytest.raises(HomeAssistantError, match="backup"):
+            await _press(hass, entry, "_restore_backup")
+
+
+async def test_restore_refuses_a_backup_from_another_model(hass, socket_enabled, tmp_path):
+    """Writing a KH 750's settings into a KH 120 II must not happen."""
+    hass.config.config_dir = str(tmp_path)
+    async with _simulator(MODEL_KH_120_II) as port:
+        entry = await _setup_entry(hass, MODEL_KH_120_II, port, "SIM0001234")
+        await _press(hass, entry, "_create_backup")
+
+        stored = await storage.async_get_backup(hass, "SIM0001234")
+        stored["model"] = MODEL_KH_750
+        await storage.async_save_backup(hass, "SIM0001234", stored)
+
+        await _enable(hass, entry, "_restore_backup")
+        with pytest.raises(HomeAssistantError, match="KH 750"):
+            await _press(hass, entry, "_restore_backup")
 
 
 async def test_writing_a_value_reaches_the_device(hass, socket_enabled):

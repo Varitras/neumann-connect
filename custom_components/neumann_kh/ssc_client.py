@@ -134,8 +134,15 @@ class SSCClient:
             # optimized away depending on Python startup options (-O).
             raise SSCConnectionError(f"No active connection to {self._host}")
         message = json.dumps(payload).encode("utf-8") + b"\r\n"
-        self._writer.write(message)
-        await self._writer.drain()
+        try:
+            self._writer.write(message)
+            await self._writer.drain()
+        except OSError as err:
+            # BrokenPipeError/ConnectionResetError: the peer went away between
+            # connecting and writing. Surface it as a connection error so the
+            # caller drops the socket instead of waiting for a reply that can
+            # never arrive.
+            raise SSCConnectionError(f"Writing to {self._host} failed: {err}") from err
 
     async def _read_lines_until_settled(
         self, expect_path: tuple[str, ...] | None = None
@@ -155,6 +162,7 @@ class SSCClient:
             raise SSCConnectionError(f"No active connection to {self._host}")
         merged: dict[str, Any] = {}
         received = False
+        limit_hit = False
         lines = 0
         deadline = asyncio.get_running_loop().time() + _MAX_READ_SECONDS
         while True:
@@ -162,10 +170,11 @@ class SSCClient:
             remaining = deadline - asyncio.get_running_loop().time()
             if remaining <= 0:
                 _LOGGER.warning(
-                    "Device %s kept sending for %.0fs, using what arrived so far",
+                    "Device %s kept sending for %.0fs, dropping the connection",
                     self._host,
                     _MAX_READ_SECONDS,
                 )
+                limit_hit = True
                 break
             try:
                 raw_line = await asyncio.wait_for(
@@ -218,11 +227,18 @@ class SSCClient:
             lines += 1
             if lines >= _MAX_RESPONSE_LINES:
                 _LOGGER.warning(
-                    "Device %s sent more than %d response lines, stopping the read",
+                    "Device %s sent more than %d response lines, dropping the connection",
                     self._host,
                     _MAX_RESPONSE_LINES,
                 )
+                limit_hit = True
                 break
+
+        if limit_hit:
+            # Unread lines are still queued on the socket. Keeping it would
+            # hand them to the next request, which would then read another
+            # request's answer. Reconnecting is the only safe option.
+            self._drop_connection()
         return merged
 
     async def request(
