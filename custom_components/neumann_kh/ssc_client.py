@@ -304,9 +304,13 @@ class SSCClient:
         self, payload: dict, expect_path: tuple[str, ...] | None
     ) -> dict:
         """Send one message and read its answer. Caller holds the lock."""
-        await self._ensure_connected()
-        await self._discard_stale_lines()
         try:
+            # Connecting and draining are inside the try on purpose: both
+            # await, so both can be cancelled. Left outside, a cancellation
+            # hitting that window would keep a connection the caller believes
+            # was dropped - the invariant the v1.15.0 hardening relies on.
+            await self._ensure_connected()
+            await self._discard_stale_lines()
             await self._send_raw(payload)
             merged = await self._read_lines_until_settled(expect_path)
         except (SSCConnectionError, SSCTimeoutError):

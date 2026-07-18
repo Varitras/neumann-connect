@@ -41,6 +41,14 @@ class FakeSSCServer:
         # response objects (one per line). None entry = no response.
         self.responder = self.echo_responder
         self.response_delay: float = 0.0
+        # Deterministic alternative to response_delay: set `release` to an
+        # Event and the handler holds the answer back until the test sets it.
+        # `request_received` fires once a request has been parsed. Together
+        # they let a test order "request is out" against "answer arrives"
+        # without betting on a sleep being longer than the scheduler's mood -
+        # a bet that lost roughly every third full run under E2E load.
+        self.request_received = asyncio.Event()
+        self.release: asyncio.Event | None = None
 
     @staticmethod
     def echo_responder(request: dict) -> list[dict | None]:
@@ -55,7 +63,10 @@ class FakeSSCServer:
                 if not line:
                     return
                 request = json.loads(line)
-                if self.response_delay:
+                self.request_received.set()
+                if self.release is not None:
+                    await self.release.wait()
+                elif self.response_delay:
                     await asyncio.sleep(self.response_delay)
                 for response in self.responder(request):
                     if response is None:
@@ -244,12 +255,14 @@ async def test_cancelled_request_drops_connection_no_stale_bleed(server):
     The delayed response of the cancelled request must not be assigned to
     the next request (v1.15.0 hardening).
     """
-    server.response_delay = 0.2  # response arrives only after the cancellation
+    # The answer is held back by an Event, not by a delay, so "request is out
+    # but unanswered" holds no matter how loaded the machine is.
+    server.release = asyncio.Event()
     server.responder = lambda req: [{"stale": {"value": 1}}]
     client = _client(server.port)
     try:
         task = asyncio.create_task(client.get(("stale", "value")))
-        await asyncio.sleep(0.05)  # request is out, response not yet here
+        await asyncio.wait_for(server.request_received.wait(), timeout=5)
         task.cancel()
         with pytest.raises(asyncio.CancelledError):
             await task
@@ -257,11 +270,48 @@ async def test_cancelled_request_drops_connection_no_stale_bleed(server):
         # Connection must have been dropped.
         assert client._writer is None  # noqa: SLF001
 
+        # Let the stale answer out now - it must not reach the next request.
+        server.release.set()
+        server.release = None
+
         # Follow-up request: gets a NEW connection and the correct response.
-        server.response_delay = 0.0
         server.responder = lambda req: [{"fresh": {"value": 2}}]
         assert await client.get(("fresh", "value")) == 2
+
         assert server.connections == 2
+    finally:
+        await client.close()
+
+
+async def test_cancellation_in_the_drain_window_drops_the_connection(server, monkeypatch):
+    """Cancellation before the request goes out must drop the connection too.
+
+    Connecting and draining both await, so a cancellation can land there.
+    While that window sat outside the try block, _drop_connection() was
+    skipped and the client kept a socket the caller believed was gone -
+    the invariant the v1.15.0 hardening rests on held only from _send_raw
+    onwards. Found because the sibling test above hit this window roughly
+    once in seven full runs on a cold machine.
+    """
+    in_drain = asyncio.Event()
+
+    async def _hanging_drain(self) -> None:  # noqa: ANN001
+        in_drain.set()
+        await asyncio.sleep(60)  # hold the request inside the drain window
+
+    monkeypatch.setattr(SSCClient, "_discard_stale_lines", _hanging_drain)
+
+    client = _client(server.port)
+    try:
+        task = asyncio.create_task(client.get(("device", "name")))
+        await asyncio.wait_for(in_drain.wait(), timeout=5)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+        assert client._writer is None, (  # noqa: SLF001
+            "cancellation during the drain window kept the connection"
+        )
     finally:
         await client.close()
 
@@ -376,20 +426,24 @@ async def test_cancelled_priority_request_does_not_wedge_the_poll_loop(server):
     set, so a stuck event slows down every cycle until another priority
     request happens to complete.
     """
-    server.response_delay = 0.2
+    server.release = asyncio.Event()
     client = _client(server.port)
     try:
-        # Occupy the lock so the priority request has to wait for it.
+        # Occupy the lock so the priority request has to wait for it: the
+        # blocker holds it until the server is released.
         blocker = asyncio.create_task(client.get(("device", "name")))
-        await asyncio.sleep(0.02)
+        await asyncio.wait_for(server.request_received.wait(), timeout=5)
 
         waiter = asyncio.create_task(client.set(("audio", "out", "mute"), True))
-        await asyncio.sleep(0.02)
-        assert client.priority_waiting.is_set()
+        # request() sets the flag before it queues on the lock, so waiting for
+        # the event is exactly the state this test needs - no sleep required.
+        await asyncio.wait_for(client.priority_waiting.wait(), timeout=5)
 
         waiter.cancel()
         with pytest.raises(asyncio.CancelledError):
             await waiter
+        server.release.set()
+        server.release = None
         with contextlib.suppress(Exception):
             await blocker
 

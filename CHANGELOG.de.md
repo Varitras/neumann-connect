@@ -5,6 +5,17 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
+## [1.17.1] – Verbindungs-Invariante bei Abbruch eingehalten
+
+### Behoben
+- Eine abgebrochene Anfrage konnte ihre TCP-Verbindung offen lassen. Der
+  Verbindungsaufbau und das Verwerfen übrig gebliebener Zeilen laufen vor dem
+  Senden und lassen sich beide abbrechen, doch nur die Sende- und Lesephase
+  verwarf die Verbindung anschließend. Der Client behielt dann einen Socket,
+  den der Aufrufer für geschlossen hielt. Der Abfragezyklus bricht Anfragen bei
+  Überschreiten seines Zeitlimits ab, der Fall war im Normalbetrieb also
+  erreichbar
+
 ## [1.17.0] – Neu konfigurieren, Backup zurückspielen und ein Sicherheitsfix
 
 ### Sicherheit

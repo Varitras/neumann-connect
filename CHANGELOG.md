@@ -5,6 +5,16 @@
 All notable changes to this integration are documented here.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.17.1] – Keep the connection invariant on cancellation
+
+### Fixed
+- A cancelled request could leave its TCP connection open. Connecting and
+  draining leftover lines happen before the request is sent and both can be
+  cancelled, but only the send and read phase dropped the connection
+  afterwards. The client then kept a socket the caller considered gone. The
+  poll loop cancels requests when a cycle exceeds its time limit, so this was
+  reachable in normal operation
+
 ## [1.17.0] – Reconfigure, backup restore and a security fix
 
 ### Security
