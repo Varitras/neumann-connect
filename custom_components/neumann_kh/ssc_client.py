@@ -1,11 +1,11 @@
-"""Eigenständiger asyncio-Client für das Sennheiser Sound Control Protocol (SSC).
+"""Standalone asyncio client for the Sennheiser Sound Control Protocol (SSC).
 
-JSON über TCP (Standardport 45), jede Nachricht mit "\\r\\n" oder "\\n"
-abgeschlossen. "get" = Pfad mit Wert `null` anfragen, "set" = Pfad mit
-gewünschtem Wert senden.
+JSON over TCP (default port 45), every message terminated with "\\r\\n" or
+"\\n". "get" = request a path with value `null`, "set" = send a path with the
+desired value.
 
-IPv6 Link-Local-Adressen (fe80::...) brauchen eine Scope-ID (Interface) -
-wird automatisch angehängt, falls nötig.
+IPv6 link-local addresses (fe80::...) need a scope ID (interface) - it is
+appended automatically when needed.
 """
 
 from __future__ import annotations
@@ -21,30 +21,30 @@ from .const import DEFAULT_QUERY_SETTLE
 
 _LOGGER = logging.getLogger(__name__)
 
-# Trennzeichen lt. SSC-Spezifikation: CR+LF oder LF alleine sind erlaubt.
+# Terminator per the SSC specification: CR+LF or LF alone are allowed.
 _MESSAGE_TERMINATOR = b"\n"
 
-# Schutz gegen übermäßig große/nie terminierte Antworten: wird als explizites
-# StreamReader-Limit gesetzt (readuntil wirft oberhalb LimitOverrunError, siehe
-# _read_lines_until_settled). Deutlich über jeder realistischen SSC-Antwort
-# (auch der volle -q-Dump ist <<1 MB).
+# Guard against excessively large/never-terminated responses: set as an explicit
+# StreamReader limit (readuntil raises LimitOverrunError above it, see
+# _read_lines_until_settled). Well above any realistic SSC response (even the
+# full -q dump is <<1 MB).
 _MAX_LINE_BYTES = 1_048_576  # 1 MiB
 
 
 class SSCConnectionError(Exception):
-    """Wird ausgelöst, wenn keine Verbindung zum Lautsprecher hergestellt werden kann."""
+    """Raised when no connection to the speaker can be established."""
 
 
 class SSCTimeoutError(Exception):
-    """Wird ausgelöst, wenn innerhalb der Timeout-Zeit keine Antwort eintrifft."""
+    """Raised when no response arrives within the timeout window."""
 
 
 class SSCDeviceError(Exception):
-    """Gerät lehnt die Anfrage ab (OSC-Fehlerantwort, z. B. Fehler 400/404/405)."""
+    """Device rejects the request (OSC error response, e.g. error 400/404/405)."""
 
 
 class SSCClient:
-    """Hält eine TCP-Verbindung zu genau einem SSC-Server (Lautsprecher)."""
+    """Holds a TCP connection to exactly one SSC server (speaker)."""
 
     def __init__(
         self,
@@ -62,18 +62,18 @@ class SSCClient:
         self._reader: asyncio.StreamReader | None = None
         self._writer: asyncio.StreamWriter | None = None
         self._lock = asyncio.Lock()
-        # Signalisiert dem Poll-Loop, dass eine Nutzeraktion auf den Lock
-        # wartet (siehe request(priority=True)) - Poll gibt Lock dann frei.
+        # Signals the poll loop that a user action is waiting on the lock
+        # (see request(priority=True)) - poll then releases the lock.
         self._priority_waiting = asyncio.Event()
 
     @property
     def priority_waiting(self) -> asyncio.Event:
-        """Event, das anzeigt, dass eine Nutzeraktion auf den Lock wartet."""
+        """Event indicating that a user action is waiting on the lock."""
         return self._priority_waiting
 
     @property
     def _connect_host(self) -> str:
-        """Hängt bei Link-Local-Adressen (fe80::/10, RFC 4291) die Scope-ID an."""
+        """Appends the scope ID for link-local addresses (fe80::/10, RFC 4291)."""
         host = self._host
         if "%" not in host and self._interface and self._is_link_local(host):
             return f"{host}%{self._interface}"
@@ -81,11 +81,11 @@ class SSCClient:
 
     @staticmethod
     def _is_link_local(host: str) -> bool:
-        """Prüft, ob eine IPv6-Adresse im Link-Local-Bereich fe80::/10 liegt."""
+        """Checks whether an IPv6 address is in the link-local range fe80::/10."""
         prefix = host.lower().split("%", 1)[0][:4]
         if len(prefix) < 4 or not prefix.startswith("fe"):
             return False
-        # Drittes Hex-Zeichen muss im Bereich 8..b liegen (fe80..febf = /10).
+        # Third hex character must be in range 8..b (fe80..febf = /10).
         return prefix[2] in "89ab"
 
     async def _ensure_connected(self) -> None:
@@ -100,18 +100,18 @@ class SSCClient:
             )
         except (OSError, asyncio.TimeoutError) as err:
             raise SSCConnectionError(
-                f"Verbindung zu {self._connect_host}:{self._port} fehlgeschlagen: {err}"
+                f"Connection to {self._connect_host}:{self._port} failed: {err}"
             ) from err
 
     def _drop_connection(self) -> None:
-        """Verwirft die aktuelle Verbindung; der nächste Zugriff verbindet neu."""
+        """Drops the current connection; the next access reconnects."""
         if self._writer is not None:
             self._writer.close()
         self._writer = None
         self._reader = None
 
     async def close(self) -> None:
-        """Schließt die Verbindung (z. B. beim Entladen der Integration)."""
+        """Closes the connection (e.g. when unloading the integration)."""
         async with self._lock:
             if self._writer is not None:
                 self._writer.close()
@@ -122,18 +122,18 @@ class SSCClient:
 
     async def _send_raw(self, payload: dict) -> None:
         if self._writer is None:
-            # Sollte durch _ensure_connected() vor jedem Aufruf ausgeschlossen
-            # sein - explizite Prüfung statt `assert`, da assert-Anweisungen
-            # je nach Python-Startoptionen (-O) wegoptimiert werden können.
-            raise SSCConnectionError(f"Keine aktive Verbindung zu {self._host}")
+            # Should be ruled out by _ensure_connected() before every call -
+            # explicit check instead of `assert`, since assert statements can be
+            # optimized away depending on Python startup options (-O).
+            raise SSCConnectionError(f"No active connection to {self._host}")
         message = json.dumps(payload).encode("utf-8") + b"\r\n"
         self._writer.write(message)
         await self._writer.drain()
 
     async def _read_lines_until_settled(self) -> list[dict]:
-        """Liest Zeilen, bis für `settle_time` Sekunden nichts Neues mehr ankommt."""
+        """Reads lines until nothing new arrives for `settle_time` seconds."""
         if self._reader is None:
-            raise SSCConnectionError(f"Keine aktive Verbindung zu {self._host}")
+            raise SSCConnectionError(f"No active connection to {self._host}")
         results: list[dict] = []
         while True:
             try:
@@ -144,25 +144,25 @@ class SSCClient:
             except asyncio.TimeoutError as err:
                 if not results:
                     raise SSCTimeoutError(
-                        f"Keine Antwort von {self._host} innerhalb {self._timeout}s"
+                        f"No response from {self._host} within {self._timeout}s"
                     ) from err
                 break
             except asyncio.IncompleteReadError as err:
                 if err.partial:
                     raw_line = err.partial
                 else:
-                    raise SSCConnectionError(f"Verbindung zu {self._host} unterbrochen") from err
+                    raise SSCConnectionError(f"Connection to {self._host} interrupted") from err
             except asyncio.LimitOverrunError as err:
-                # Antwort ohne Zeilenumbruch wurde unerwartet groß (deutlich
-                # über jeder realistischen SSC-Nachricht) - Verbindung als
-                # gestört behandeln, statt eine riesige/nie endende Zeile
-                # weiter zu puffern.
+                # A response without a line break grew unexpectedly large (well
+                # above any realistic SSC message) - treat the connection as
+                # broken instead of continuing to buffer a huge/never-ending
+                # line.
                 raise SSCConnectionError(
-                    f"Antwort von {self._host} überschreitet Zeilenlimit"
+                    f"Response from {self._host} exceeds the line limit"
                 ) from err
 
             if len(raw_line) > _MAX_LINE_BYTES:
-                raise SSCConnectionError(f"Antwort von {self._host} unplausibel groß")
+                raise SSCConnectionError(f"Response from {self._host} implausibly large")
 
             line = raw_line.strip()
             if not line:
@@ -170,15 +170,15 @@ class SSCClient:
             try:
                 results.append(json.loads(line))
             except json.JSONDecodeError:
-                _LOGGER.debug("Ungültige SSC-Antwort von %s ignoriert: %s", self._host, line)
+                _LOGGER.debug("Ignored invalid SSC response from %s: %s", self._host, line)
         return results
 
     async def request(self, payload: dict, priority: bool = False) -> dict:
-        """Sendet eine SSC-Nachricht und liefert das zusammengeführte Ergebnis-Dict.
+        """Sends an SSC message and returns the merged result dict.
 
-        priority=True markiert eine Nutzeraktion: läuft gerade ein Poll-Zyklus,
-        wird ihm signalisiert, den Lock nach der aktuellen Einzelabfrage
-        freizugeben, statt den ganzen Zyklus abzuwarten.
+        priority=True marks a user action: if a poll cycle is currently
+        running, it is signaled to release the lock after the current single
+        query instead of waiting for the whole cycle.
         """
         if priority:
             self._priority_waiting.set()
@@ -190,14 +190,14 @@ class SSCClient:
                 await self._send_raw(payload)
                 lines = await self._read_lines_until_settled()
             except (SSCConnectionError, SSCTimeoutError):
-                # Verbindung verwerfen, damit beim nächsten Versuch neu verbunden wird
+                # Drop the connection so the next attempt reconnects
                 self._drop_connection()
                 raise
             except asyncio.CancelledError:
-                # Abbruch von außen (z. B. Zyklus-Zeitlimit im Coordinator): auf
-                # dem Socket kann eine unbeantwortete Anfrage liegen. Verbindung
-                # verwerfen, damit deren verspätete Antwort nicht der nächsten
-                # Anfrage zugeordnet wird (falsche Werte/Fehler-Zuordnung).
+                # External cancellation (e.g. cycle time limit in the
+                # coordinator): an unanswered request may be pending on the
+                # socket. Drop the connection so its late response is not
+                # attributed to the next request (wrong value/error mapping).
                 self._drop_connection()
                 raise
 
@@ -207,30 +207,30 @@ class SSCClient:
 
             osc_error = extract(merged, ("osc", "error"))
             if osc_error:
-                # Format lt. Testergebnis: [400, {"desc": "message not understood"}]
+                # Format per test result: [400, {"desc": "message not understood"}]
                 description = ""
                 if isinstance(osc_error, list):
                     for part in osc_error:
                         if isinstance(part, dict) and "desc" in part:
                             description = part["desc"]
                 raise SSCDeviceError(
-                    f"Gerät {self._host} hat die Anfrage abgelehnt: "
+                    f"Device {self._host} rejected the request: "
                     f"{description or osc_error}"
                 )
 
             return merged
 
     async def get(self, path: tuple[str, ...], priority: bool = False) -> Any:
-        """Fragt einen einzelnen Wert ab (get = Anfrage mit JSON null)."""
+        """Queries a single value (get = request with JSON null)."""
         response = await self.request(build_nested(path, None), priority=priority)
         return extract(response, path)
 
     async def set(self, path: tuple[str, ...], value: Any, priority: bool = True) -> Any:
-        """Setzt einen Wert und gibt den vom Gerät bestätigten Wert zurück."""
+        """Sets a value and returns the value confirmed by the device."""
         response = await self.request(build_nested(path, value), priority=priority)
         return extract(response, path)
 
     @staticmethod
     def extract(data: dict, path: tuple[str, ...]) -> Any:
-        """Öffentlicher Zugriff auf extract(), für die Auswertung von request()-Ergebnissen."""
+        """Public access to extract(), for evaluating request() results."""
         return extract(data, path)

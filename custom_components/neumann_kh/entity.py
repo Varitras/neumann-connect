@@ -1,9 +1,9 @@
-"""Gemeinsame Basisklasse für alle Neumann-KH-Entities.
+"""Shared base class for all Neumann KH entities.
 
-Liefert DeviceInfo (Hersteller, Modell, Seriennummer, Firmware) und
-`_apply_confirmed_value()`: übernimmt nach einem "set" den vom Gerät
-bestätigten Wert direkt, statt einen kompletten Poll-Zyklus abzuwarten
-(vermeidet Race Condition beim Zurückspringen von Schaltern/Auswahlen).
+Provides DeviceInfo (manufacturer, model, serial number, firmware) and
+`_apply_confirmed_value()`: after a "set", applies the value confirmed by
+the device directly, instead of waiting for a full poll cycle
+(avoids a race condition where switches/selections spring back).
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from .coordinator import NeumannKHCoordinator
 
 
 class NeumannKHEntity(CoordinatorEntity[NeumannKHCoordinator]):
-    """Basisklasse: liefert DeviceInfo und eine konsistente unique_id-Basis."""
+    """Base class: provides DeviceInfo and a consistent unique_id base."""
 
     _attr_has_entity_name = True
 
@@ -37,13 +37,13 @@ class NeumannKHEntity(CoordinatorEntity[NeumannKHCoordinator]):
         self._unique_id_base = serial
 
     async def _apply_confirmed_value(self, path: tuple[str, ...], confirmed_value: Any) -> None:
-        """Übernimmt einen vom Gerät bestätigten Wert direkt, ohne neue Netzwerk-Anfrage.
+        """Apply a value confirmed by the device directly, without a new network request.
 
-        Delegiert an coordinator.apply_confirmed_value(), das neben den
-        Coordinator-Daten auch den Slow-Poll-Cache pflegt (sonst würde der
-        nächste schnelle Zyklus den Wert wieder überschreiben). Liefert das
-        Gerät keinen eindeutigen Wert (None), wird stattdessen ein normaler
-        Refresh angestoßen.
+        Delegates to coordinator.apply_confirmed_value(), which besides the
+        coordinator data also maintains the slow-poll cache (otherwise the
+        next fast cycle would overwrite the value again). If the device
+        does not return an unambiguous value (None), a normal refresh is
+        triggered instead.
         """
         if confirmed_value is None:
             await self.coordinator.async_request_refresh()

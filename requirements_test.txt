@@ -1,4 +1,5 @@
-# Testabhängigkeiten - das Plugin pinnt pytest, pytest-asyncio und die
-# passende Home-Assistant-Version selbst.
-pytest-homeassistant-custom-component==0.13.205
+# Test dependencies. The plugin pins pytest, pytest-asyncio and the matching
+# Home Assistant version itself: 0.13.346 pins Home Assistant 2026.7.2 and
+# therefore requires Python >= 3.14.
+pytest-homeassistant-custom-component==0.13.346
 ruff

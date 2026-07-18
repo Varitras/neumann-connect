@@ -1,4 +1,4 @@
-"""Tests für _util: build_nested, deep_merge, extract."""
+"""Tests for _util: build_nested, deep_merge, extract."""
 
 from custom_components.neumann_kh._util import build_nested, deep_merge, extract
 
@@ -24,7 +24,7 @@ def test_extract_missing_path_returns_none():
 
 
 def test_extract_non_dict_intermediate_returns_none():
-    # Zwischenknoten ist kein Dict - darf nicht crashen.
+    # Intermediate node is not a dict - must not crash.
     assert extract({"a": 5}, ("a", "b")) is None
 
 

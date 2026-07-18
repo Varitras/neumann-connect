@@ -20,6 +20,6 @@ Thumbs.db
 .storage/
 *.log
 
-# Interne Entwickler-Statusdatei - nicht ins oeffentliche Repo
-RUNBOOK.md
-UEBERGABE.md
+# Test- und Linter-Caches
+.pytest_cache/
+.ruff_cache/

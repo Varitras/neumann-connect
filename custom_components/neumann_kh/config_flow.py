@@ -1,15 +1,15 @@
-"""Config Flow für Neumann KH (SSC).
+"""Config Flow for Neumann KH (SSC).
 
-Reines UI-Setup (kein YAML nötig). Startpunkt ist ein Menü mit zwei Wegen:
+Pure UI setup (no YAML needed). The starting point is a menu with two paths:
 
-- "scan": Aktive mDNS/Zeroconf-Suche im Netzwerk (siehe discovery.py), das
-  Ergebnis wird als Auswahlliste angezeigt, danach ein zweiter Schritt zur
-  Namensvergabe (vorausgefüllt, falls dieses Gerät schon einmal einen Namen
-  hatte - siehe storage.py).
-- "manual": Klassische manuelle Eingabe (IP-Adresse, Interface-Dropdown,
-  Port, Name) - Fallback für Geräte, die die automatische Suche nicht findet.
+- "scan": Active mDNS/Zeroconf search on the network (see discovery.py); the
+  result is shown as a selection list, followed by a second step for naming
+  the device (pre-filled if this device already had a name before - see
+  storage.py).
+- "manual": Classic manual input (IP address, interface dropdown, port, name)
+  - fallback for devices that the automatic search does not find.
 
-Für jeden Lautsprecher wird ein eigener Config Entry angelegt.
+A separate config entry is created for each speaker.
 """
 
 from __future__ import annotations
@@ -44,23 +44,29 @@ from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeou
 
 _LOGGER = logging.getLogger(__name__)
 
-_NO_INTERFACE_VALUE = ""  # "kein Interface angegeben" (z. B. bei globaler, nicht Link-Local IPv6-Adresse)
+_NO_INTERFACE_VALUE = ""  # "no interface specified" (e.g. for a global, non-link-local IPv6 address)
 _SELECTED_DEVICE = "selected_device"
 _RESCAN_VALUE = "__rescan__"
 
 
 async def _async_get_interface_options(hass: HomeAssistant) -> list[selector.SelectOptionDict]:
-    """Ermittelt die auf dem HA-Host bekannten Netzwerk-Interfaces für das Dropdown."""
+    """Determine the network interfaces known on the HA host for the dropdown."""
+    language = hass.config.language or "en"
+    no_interface_label = (
+        "(keine Angabe – nur bei globaler, nicht Link-Local IPv6-Adresse nötig)"
+        if language.startswith("de")
+        else "(none – only needed for a global, non-link-local IPv6 address)"
+    )
     options = [
         selector.SelectOptionDict(
             value=_NO_INTERFACE_VALUE,
-            label="(keine Angabe – nur bei globaler, nicht Link-Local IPv6-Adresse nötig)",
+            label=no_interface_label,
         )
     ]
     try:
         adapters = await network.async_get_adapters(hass)
-    except Exception:  # noqa: BLE001 - Netzwerk-Komponente sollte immer da sein, aber defensiv bleiben
-        _LOGGER.debug("Netzwerk-Interfaces konnten nicht ermittelt werden", exc_info=True)
+    except Exception:  # noqa: BLE001 - network component should always be present, but stay defensive
+        _LOGGER.debug("Could not determine network interfaces", exc_info=True)
         return options
 
     for adapter in adapters:
@@ -76,7 +82,7 @@ async def _async_get_interface_options(hass: HomeAssistant) -> list[selector.Sel
 
 
 def _build_manual_schema(interface_options: list[selector.SelectOptionDict]) -> vol.Schema:
-    """Baut das Formular-Schema für die manuelle Eingabe, inkl. Interface-Dropdown."""
+    """Build the form schema for manual input, incl. interface dropdown."""
     return vol.Schema(
         {
             vol.Required(CONF_NAME): str,
@@ -85,7 +91,7 @@ def _build_manual_schema(interface_options: list[selector.SelectOptionDict]) -> 
                 selector.SelectSelectorConfig(
                     options=interface_options,
                     mode=selector.SelectSelectorMode.DROPDOWN,
-                    custom_value=True,  # erlaubt manuelle Eingabe, falls Interface nicht gelistet ist
+                    custom_value=True,  # allows manual input if the interface is not listed
                 )
             ),
             vol.Optional(CONF_PORT, default=DEFAULT_PORT): vol.All(
@@ -96,7 +102,7 @@ def _build_manual_schema(interface_options: list[selector.SelectOptionDict]) -> 
 
 
 def _already_configured_serials(hass: HomeAssistant) -> set[str]:
-    """Sammelt die Seriennummern aller bereits eingerichteten Lautsprecher."""
+    """Collect the serial numbers of all already configured speakers."""
     return {
         entry.unique_id
         for entry in hass.config_entries.async_entries(DOMAIN)
@@ -107,10 +113,10 @@ def _already_configured_serials(hass: HomeAssistant) -> set[str]:
 async def _async_test_connection(
     host: str, port: int, interface: str | None
 ) -> tuple[str | None, str | None, str | None, str | None]:
-    """Testet die SSC-Verbindung und liest Modell + Seriennummer + Firmware-Version aus.
+    """Test the SSC connection and read out model + serial number + firmware version.
 
-    Rückgabe: (product, serial, firmware_version, error_key). error_key ist
-    None bei Erfolg.
+    Return: (product, serial, firmware_version, error_key). error_key is
+    None on success.
     """
     client = SSCClient(host=host, port=port, interface=interface, timeout=DEFAULT_TIMEOUT)
     try:
@@ -123,8 +129,8 @@ async def _async_test_connection(
         return None, None, None, "timeout"
     except SSCDeviceError:
         return None, None, None, "cannot_connect"
-    except Exception:  # noqa: BLE001 - unerwartete Fehler sauber abfangen
-        _LOGGER.exception("Unerwarteter Fehler beim Verbindungstest zu %s", host)
+    except Exception:  # noqa: BLE001 - catch unexpected errors cleanly
+        _LOGGER.exception("Unexpected error while testing the connection to %s", host)
         return None, None, None, "unknown"
     else:
         return product, serial, version, None
@@ -133,22 +139,22 @@ async def _async_test_connection(
 
 
 class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Config Flow, ein Entry pro physischem Lautsprecher."""
+    """Config Flow, one entry per physical speaker."""
 
     VERSION = 1
 
     def __init__(self) -> None:
-        # Zwischenspeicher, lebt nur innerhalb dieses Flows.
+        # Temporary storage, lives only within this flow.
         self._discovered: dict[str, DiscoveredSpeaker] = {}
         self._discovery_info: dict[str, dict[str, str | None]] = {}
         self._pending_key: str | None = None
 
-    # --- Einstiegspunkt: Menü mit den beiden Wegen -------------------------
+    # --- Entry point: menu with the two paths ------------------------------
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         return self.async_show_menu(step_id="user", menu_options=["scan", "manual"])
 
-    # --- Weg 1: Manuelle Eingabe -------------------------------------------
+    # --- Path 1: Manual input ----------------------------------------------
 
     async def async_step_manual(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         errors: dict[str, str] = {}
@@ -159,10 +165,10 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             port = user_input.get(CONF_PORT, DEFAULT_PORT)
             name = user_input[CONF_NAME].strip()
 
-            # Eingaben wie "fe80::1%eth0" akzeptieren: Scope-ID abtrennen
-            # (ipaddress.IPv6Address kennt keine Scope-ID) und - falls das
-            # Interface-Feld leer ist - als Interface übernehmen. Ein explizit
-            # gewähltes Interface im Dropdown hat Vorrang.
+            # Accept inputs like "fe80::1%eth0": split off the scope ID
+            # (ipaddress.IPv6Address does not know about scope IDs) and - if the
+            # interface field is empty - use it as the interface. An explicitly
+            # chosen interface in the dropdown takes precedence.
             if "%" in host:
                 host, _, host_scope = host.partition("%")
                 host = host.strip()
@@ -208,31 +214,31 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         interface_options = await _async_get_interface_options(self.hass)
         schema = _build_manual_schema(interface_options)
 
-        # Bei einem Fehler wird das Formular erneut angezeigt. Ohne die Werte aus
-        # dem letzten Versuch als "suggested_values" zu übernehmen, würde HA ein
-        # leeres Formular zeigen und der Nutzer müsste alle Felder neu eintippen.
+        # On an error the form is shown again. Without carrying over the values
+        # from the last attempt as "suggested_values", HA would show an empty
+        # form and the user would have to retype all fields.
         if user_input is not None:
             schema = self.add_suggested_values_to_schema(schema, user_input)
 
         return self.async_show_form(step_id="manual", data_schema=schema, errors=errors)
 
-    # --- Weg 2: Aktiver mDNS-Scan, danach Namensvergabe ---------------------
+    # --- Path 2: Active mDNS scan, then naming ------------------------------
 
     async def async_step_scan(self, user_input: dict[str, Any] | None = None) -> FlowResult:
-        # Nutzer hat aus der Liste etwas gewählt.
+        # User selected something from the list.
         if user_input is not None and _SELECTED_DEVICE in user_input:
             selected_key = user_input[_SELECTED_DEVICE]
             if selected_key != _RESCAN_VALUE:
                 self._pending_key = selected_key
                 return await self.async_step_scan_confirm()
-            # "Erneut suchen" gewählt -> unten normal neu scannen.
+            # "Search again" selected -> fall through to a normal rescan below.
 
-        # Erster Aufruf, Klick auf "Erneut suchen", oder Rücksprung von einem
-        # abgelaufenen Discovery-Ergebnis: aktiv im Netzwerk suchen.
+        # First call, click on "Search again", or return from an expired
+        # discovery result: actively search the network.
         try:
             speakers = await async_scan_for_speakers(self.hass)
-        except Exception:  # noqa: BLE001 - Scan soll bei Fehlern klar scheitern, nicht crashen
-            _LOGGER.exception("Unerwarteter Fehler beim mDNS-Scan")
+        except Exception:  # noqa: BLE001 - scan should fail clearly on errors, not crash
+            _LOGGER.exception("Unexpected error during the mDNS scan")
             return self.async_show_form(
                 step_id="scan", data_schema=vol.Schema({}), errors={"base": "scan_failed"}
             )
@@ -246,7 +252,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
             if error_key:
                 _LOGGER.debug(
-                    "Gefundenes Gerät %s (%s) antwortete nicht auf SSC-Anfragen: %s",
+                    "Discovered device %s (%s) did not respond to SSC requests: %s",
                     speaker.mdns_name,
                     speaker.host,
                     error_key,
@@ -257,7 +263,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._discovery_info[key] = {"product": product, "serial": serial, "version": version}
 
         if not self._discovered:
-            # Leeres Schema = nur ein Absenden-Button, der den Scan erneut auslöst.
+            # Empty schema = only a submit button that triggers the scan again.
             return self.async_show_form(
                 step_id="scan", data_schema=vol.Schema({}), errors={"base": "no_devices_found"}
             )
@@ -265,13 +271,13 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(step_id="scan", data_schema=self._build_scan_schema())
 
     async def async_step_scan_confirm(self, user_input: dict[str, Any] | None = None) -> FlowResult:
-        """Zweiter Schritt: Name vergeben (vorausgefüllt, falls Gerät bekannt)."""
+        """Second step: assign a name (pre-filled if the device is known)."""
         errors: dict[str, str] = {}
         candidate = self._discovered.get(self._pending_key or "")
         info = self._discovery_info.get(self._pending_key or "")
 
         if candidate is None or info is None:
-            # Discovery-Ergebnis abgelaufen (z. B. Flow zu lange offen) -> neu scannen.
+            # Discovery result expired (e.g. flow open too long) -> rescan.
             return self.async_show_form(
                 step_id="scan", data_schema=vol.Schema({}), errors={"base": "discovery_expired"}
             )
@@ -292,7 +298,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     data={
                         CONF_NAME: name,
                         CONF_HOST: candidate.host,
-                        # Scope-ID steckt bereits in candidate.host (%<scope>).
+                        # Scope ID is already contained in candidate.host (%<scope>).
                         CONF_INTERFACE: "",
                         CONF_PORT: candidate.port,
                         CONF_MODEL: info.get("product") or "KH DSP",
@@ -319,17 +325,21 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     def _build_scan_schema(self) -> vol.Schema:
-        """Baut das Auswahl-Formular aus den zuletzt gefundenen Geräten."""
+        """Build the selection form from the most recently discovered devices."""
+        de = (self.hass.config.language or "en").startswith("de")
         configured_serials = _already_configured_serials(self.hass)
         options = [
-            selector.SelectOptionDict(value=_RESCAN_VALUE, label="🔄 Erneut suchen")
+            selector.SelectOptionDict(
+                value=_RESCAN_VALUE,
+                label="🔄 Erneut suchen" if de else "🔄 Search again",
+            )
         ]
         for key, info in self._discovery_info.items():
             label = f"{info.get('product') or 'KH DSP'} – {self._discovered[key].host}"
             if info.get("serial"):
                 label += f" (Serial: {info['serial']})"
             if info.get("serial") in configured_serials:
-                label += " — ✓ bereits verbunden"
+                label += " — ✓ bereits verbunden" if de else " — ✓ already connected"
             options.append(selector.SelectOptionDict(value=key, label=label))
 
         return vol.Schema(

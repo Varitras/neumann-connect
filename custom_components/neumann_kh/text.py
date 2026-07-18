@@ -1,4 +1,4 @@
-"""Text-Entity: Gerätename (device/name), max. 52 Zeichen, modellunabhängig."""
+"""Text entity: device name (device/name), max. 52 characters, model-independent."""
 
 from __future__ import annotations
 
@@ -19,20 +19,20 @@ DEVICE_NAME_DESCRIPTION = TextEntityDescription(
     icon="mdi:tag-outline",
     mode=TextMode.TEXT,
     native_max=DEVICE_NAME_MAX_LENGTH,
-    entity_registry_enabled_default=False,  # ändert den am Gerät angezeigten Namen
+    entity_registry_enabled_default=False,  # changes the name shown on the device
 )
 
 
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    """Legt die Gerätename-Text-Entity für einen Lautsprecher an."""
+    """Sets up the device-name text entity for a speaker."""
     coordinator: NeumannKHCoordinator = hass.data[DOMAIN][entry.entry_id]
     async_add_entities([NeumannKHDeviceNameText(coordinator, entry)])
 
 
 class NeumannKHDeviceNameText(NeumannKHEntity, TextEntity):
-    """Beschreibbarer Gerätename des Lautsprechers."""
+    """Writable device name of the speaker."""
 
     entity_description = DEVICE_NAME_DESCRIPTION
 
@@ -52,8 +52,14 @@ class NeumannKHDeviceNameText(NeumannKHEntity, TextEntity):
             confirmed = await self.coordinator.client.set(PATH_DEVICE_NAME, value)
         except SSCDeviceError as err:
             raise HomeAssistantError(
-                f"Der Lautsprecher hat den neuen Namen abgelehnt: {err}"
+                translation_domain=DOMAIN,
+                translation_key="name_rejected",
+                translation_placeholders={"error": str(err)},
             ) from err
         except (SSCConnectionError, SSCTimeoutError) as err:
-            raise HomeAssistantError(f"Der Lautsprecher ist nicht erreichbar: {err}") from err
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="device_unreachable",
+                translation_placeholders={"error": str(err)},
+            ) from err
         await self._apply_confirmed_value(PATH_DEVICE_NAME, confirmed)

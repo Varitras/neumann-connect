@@ -1,14 +1,14 @@
-"""DataUpdateCoordinator für die Neumann KH (SSC) Integration.
+"""DataUpdateCoordinator for the Neumann KH (SSC) integration.
 
-Fragt bei jedem Poll-Zyklus jeden Wert einzeln ab (eine SSC-Nachricht pro
-Blattpfad). Sammelnachrichten und Container-Abfragen (z. B. {"device":null})
-werden von der Firmware abgelehnt - nur einzelne, konkrete Blattpfade
-funktionieren zuverlässig.
+Queries each value individually on every poll cycle (one SSC message per
+leaf path). Collective messages and container queries (e.g. {"device":null})
+are rejected by the firmware - only individual, concrete leaf paths
+work reliably.
 
-Fehlerbehandlung: Verbindungsfehler lassen den ganzen Zyklus fehlschlagen.
-Ein abgelehnter/fehlerhafter Einzelpfad wird übersprungen, die übrigen Werte
-werden trotzdem aktualisiert. Ein Zeitlimit (POLL_CYCLE_TIMEOUT_SECONDS)
-verhindert, dass ein hängendes Gerät den Zyklus blockiert.
+Error handling: connection errors fail the whole cycle.
+A rejected/faulty single path is skipped, the remaining values
+are updated anyway. A time limit (POLL_CYCLE_TIMEOUT_SECONDS)
+prevents a hanging device from blocking the cycle.
 """
 
 from __future__ import annotations
@@ -41,7 +41,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
-    """Koordiniert das Polling eines einzelnen Neumann KH Lautsprechers."""
+    """Coordinates the polling of a single Neumann KH speaker."""
 
     def __init__(
         self, hass: HomeAssistant, client: SSCClient, name: str, model: str | None = None
@@ -54,48 +54,48 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         self.client = client
         self.model = model
-        # Schnelle Pfade: jeder Zyklus. Langsame Pfade: nur alle N Zyklen.
+        # Fast paths: every cycle. Slow paths: only every N cycles.
         self._poll_paths = list(POLL_PATHS)
         self._slow_poll_paths = list(SLOW_POLL_PATHS)
-        # Logo-Helligkeit nur bei passenden Modellen (nicht KH 750 DSP).
+        # Logo brightness only on matching models (not KH 750 DSP).
         if model in MODELS_WITH_LOGO_AND_SAVE:
             self._poll_paths.append(PATH_LOGO_BRIGHTNESS)
-        # Subwoofer-spezifische Pfade nur bei erkanntem Subwoofer.
+        # Subwoofer-specific paths only on a detected subwoofer.
         if model in MODELS_WITH_SUBWOOFER_FEATURES:
             self._poll_paths.extend(SUBWOOFER_POLL_PATHS)
             self._slow_poll_paths.extend(SUBWOOFER_SLOW_POLL_PATHS)
-        # EQ-"enabled"-Arrays für die Container-Ein/Aus-Schalter (siehe eq.py).
-        # Ändern sich nur durch Nutzeraktion (die den Wert sofort bestätigt
-        # einspielt) - daher in den langsamen Poll.
+        # EQ "enabled" arrays for the container on/off switches (see eq.py).
+        # Change only through user action (which applies the confirmed value
+        # immediately) - therefore in the slow poll.
         for container in eq_containers_for_model(model):
             self._slow_poll_paths.append(container.path + ("enabled",))
-        # Zählt die Poll-Zyklen, um die langsamen Pfade nur alle N-te Runde
-        # mitzunehmen. Startet bei 0, sodass die langsamen Pfade beim allerersten
-        # Zyklus direkt mit abgefragt werden (Werte sofort vorhanden).
+        # Counts the poll cycles to include the slow paths only every Nth round.
+        # Starts at 0, so that the slow paths are queried right on the very first
+        # cycle (values available immediately).
         self._cycle_count = 0
-        # Zwischenspeicher der zuletzt gepollten langsamen Werte - wird in den
-        # schnellen Zyklen wieder eingemischt, damit die zugehörigen Entities
-        # nicht zwischendurch auf "unbekannt" fallen.
+        # Cache of the last polled slow values - merged back in during the
+        # fast cycles so that the associated entities do not
+        # fall to "unknown" in between.
         self._slow_data: dict[str, Any] = {}
-        # True, solange ein fälliger langsamer Poll noch nicht ERFOLGREICH
-        # durchgelaufen ist. Scheitert genau der Slow-Zyklus (z. B. Gerät
-        # kurz offline), holt der nächste erfolgreiche Zyklus die langsamen
-        # Pfade sofort nach, statt bis zu 5 Minuten auf dem alten Cache zu
-        # laufen.
+        # True as long as a due slow poll has not yet run SUCCESSFULLY.
+        # If exactly the slow cycle fails (e.g. device
+        # briefly offline), the next successful cycle picks up the slow
+        # paths immediately, instead of running up to 5 minutes on the old
+        # cache.
         self._slow_poll_pending = False
-        # Set über alle langsamen Pfade für den Membership-Test in
-        # apply_confirmed_value() (Liste ist zu dem Zeitpunkt vollständig).
+        # Set over all slow paths for the membership test in
+        # apply_confirmed_value() (the list is complete at that point).
         self._slow_path_set: set[tuple[str, ...]] = set(self._slow_poll_paths)
 
     async def _async_update_data(self) -> dict[str, Any]:
-        """Fragt jeden Pfad einzeln ab; ein abgelehnter/fehlerhafter Einzelpfad wird übersprungen."""
+        """Query each path individually; a rejected/faulty single path is skipped."""
         include_slow = (
             self._slow_poll_pending
             or self._cycle_count % SLOW_POLL_EVERY_N_CYCLES == 0
         )
         self._cycle_count += 1
         if include_slow:
-            # Bleibt gesetzt, bis der Slow-Poll erfolgreich war (siehe unten).
+            # Stays set until the slow poll succeeded (see below).
             self._slow_poll_pending = True
 
         paths = list(self._poll_paths)
@@ -108,13 +108,13 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             )
         except asyncio.TimeoutError as err:
             raise UpdateFailed(
-                f"Neumann KH: Poll-Zyklus überschritt das Zeitlimit von "
+                f"Neumann KH: poll cycle exceeded the time limit of "
                 f"{POLL_CYCLE_TIMEOUT_SECONDS}s"
             ) from err
 
         if include_slow:
-            # Langsame Werte frisch und erfolgreich gepollt - Cache für die
-            # nächsten schnellen Zyklen auffrischen, Nachhol-Flag löschen.
+            # Slow values polled freshly and successfully - refresh cache for
+            # the next fast cycles, clear the catch-up flag.
             self._slow_poll_pending = False
             self._slow_data = {}
             for path in self._slow_poll_paths:
@@ -122,7 +122,7 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 if value is not None:
                     deep_merge(self._slow_data, build_nested(path, value))
         else:
-            # Schneller Zyklus: zuletzt bekannte langsame Werte wieder einmischen.
+            # Fast cycle: merge the last known slow values back in.
             deep_merge(merged, self._slow_data)
 
         return merged
@@ -132,51 +132,51 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         reachable = False
         try:
             for path in paths:
-                # Priority-Pfad: wartende Nutzeraktion kurz vorlassen.
+                # Priority path: briefly yield to a waiting user action.
                 if self.client.priority_waiting.is_set():
                     await asyncio.sleep(0.05)
 
                 try:
                     value = await self.client.get(path)
                 except SSCDeviceError:
-                    # Pfad von diesem Gerät nicht unterstützt - überspringen.
+                    # Path not supported by this device - skip.
                     reachable = True
                     _LOGGER.debug(
-                        "Pfad %s wird vom Gerät nicht unterstützt, überspringe", path
+                        "Path %s is not supported by the device, skipping", path
                     )
                     continue
                 except (SSCConnectionError, SSCTimeoutError):
-                    # Verbindungsproblem betrifft den ganzen Zyklus, nicht nur
-                    # diesen einen Pfad - weiterreichen an die äußere
-                    # Behandlung, statt für jeden verbleibenden Pfad erneut
-                    # denselben Fehler zu loggen und einen neuen (ebenfalls
-                    # scheiternden) Verbindungsversuch zu starten.
+                    # A connection problem affects the whole cycle, not just
+                    # this one path - propagate to the outer
+                    # handling, instead of logging the same error again for
+                    # every remaining path and starting a new (also
+                    # failing) connection attempt.
                     raise
-                except Exception:  # noqa: BLE001 - ein Bug bei einem Pfad soll nicht alle Werte mitreißen
+                except Exception:  # noqa: BLE001 - a bug on one path should not drag down all values
                     _LOGGER.exception(
-                        "Unerwarteter Fehler beim Abfragen von Pfad %s, überspringe", path
+                        "Unexpected error while querying path %s, skipping", path
                     )
                     continue
                 reachable = True
                 deep_merge(merged, build_nested(path, value))
         except (SSCConnectionError, SSCTimeoutError) as err:
-            raise UpdateFailed(f"Neumann KH nicht erreichbar: {err}") from err
+            raise UpdateFailed(f"Neumann KH unreachable: {err}") from err
 
         if not reachable:
-            raise UpdateFailed("Neumann KH: keine der abgefragten Eigenschaften war erreichbar")
+            raise UpdateFailed("Neumann KH: none of the queried properties were reachable")
 
         return merged
 
     def apply_confirmed_value(self, path: tuple[str, ...], value: Any) -> None:
-        """Übernimmt einen vom Gerät bestätigten Wert direkt in die Daten.
+        """Apply a device-confirmed value directly into the data.
 
-        Liegt der Pfad im langsamen Poll, wird zusätzlich der
-        _slow_data-Cache aktualisiert. Ohne das würde der nächste SCHNELLE
-        Zyklus den bestätigten Wert wieder mit dem veralteten Cache-Stand
-        überschreiben - der Wert "springt zurück" und bliebe bis zum
-        nächsten Slow-Poll (bis zu 5 min) falsch. Nur Slow-Pfade in den
-        Cache mergen: pauschal würde umgekehrt ein veralteter Fast-Wert
-        aus dem Cache frische Poll-Werte überschreiben.
+        If the path is in the slow poll, the _slow_data cache is
+        additionally updated. Without that, the next FAST
+        cycle would overwrite the confirmed value again with the stale
+        cache state - the value "snaps back" and would stay wrong until the
+        next slow poll (up to 5 min). Only merge slow paths into the
+        cache: conversely, a blanket merge would let a stale fast value
+        from the cache overwrite fresh poll values.
         """
         new_data: dict[str, Any] = {}
         if self.data:
@@ -187,7 +187,7 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.async_set_updated_data(new_data)
 
     def value(self, path: tuple[str, ...]) -> Any:
-        """Bequemer Zugriff auf einen Wert aus den zuletzt gepollten Daten."""
+        """Convenient access to a value from the last polled data."""
         if self.data is None:
             return None
         return SSCClient.extract(self.data, path)

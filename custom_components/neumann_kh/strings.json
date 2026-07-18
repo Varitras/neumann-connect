@@ -117,5 +117,18 @@
     "text": {
       "device_name": { "name": "Device name" }
     }
+  },
+  "exceptions": {
+    "device_unreachable": { "message": "The speaker is unreachable: {error}" },
+    "change_rejected": { "message": "The speaker rejected this change (possibly not supported by this model/firmware): {error}" },
+    "selection_rejected": { "message": "The speaker rejected this selection (possibly not supported by this model/firmware): {error}" },
+    "save_settings_rejected": { "message": "The speaker rejected 'Save settings': {error}" },
+    "factory_reset_rejected": { "message": "The speaker rejected the factory reset: {error}" },
+    "eq_reset_rejected": { "message": "The speaker rejected the EQ reset: {error}" },
+    "name_rejected": { "message": "The speaker rejected the new name: {error}" },
+    "backup_in_progress": { "message": "A backup is already running, please wait." },
+    "discovery_in_progress": { "message": "A discovery is already running, please wait." },
+    "backup_failed": { "message": "Backup failed: {error}" },
+    "discovery_failed": { "message": "Discovery failed: {error}" }
   }
 }

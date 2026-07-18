@@ -1,8 +1,8 @@
-"""Number-Entities: Level, Dimm, Delay, Logo-Helligkeit, Auto-Standby-Werte
-sowie (nur bei erkanntem Subwoofer) die Ausgänge out1/out2.
+"""Number entities: level, dimm, delay, logo brightness, auto-standby values
+plus (only on a detected subwoofer) the out1/out2 outputs.
 
-"Dimm" auf der KH 120 II nicht vorhanden - Entity bleibt bestehen (andere
-Modelle), zeigt dort "unbekannt".
+"Dimm" is not present on the KH 120 II - the entity stays (other models) and
+shows "unknown" there.
 """
 
 from __future__ import annotations
@@ -60,10 +60,10 @@ _LOGGER = logging.getLogger(__name__)
 
 @dataclass(frozen=True, kw_only=True)
 class NeumannKHNumberDescription(NumberEntityDescription):
-    """Beschreibung einer Number-Entity inkl. SSC-Pfad.
+    """Description of a number entity including the SSC path.
 
-    integer: Ob beim Schreiben nach int() statt float() konvertiert werden
-    soll (z. B. Delay-Werte in Samples).
+    integer: Whether to convert to int() instead of float() when writing
+    (e.g. delay values in samples).
     """
 
     ssc_path: tuple[str, ...] = ()
@@ -91,7 +91,7 @@ COMMON_NUMBER_DESCRIPTIONS: tuple[NeumannKHNumberDescription, ...] = (
         native_step=0.5,
         native_unit_of_measurement="dB",
         mode=NumberMode.SLIDER,
-        entity_registry_enabled_default=False,  # nicht bei allen Modellen vorhanden
+        entity_registry_enabled_default=False,  # not present on all models
         ssc_path=PATH_OUTPUT_DIMM,
     ),
     NeumannKHNumberDescription(
@@ -118,7 +118,7 @@ COMMON_NUMBER_DESCRIPTIONS: tuple[NeumannKHNumberDescription, ...] = (
     ),
 )
 
-# Nur für Nicht-Subwoofer-Modelle verfügbar, siehe MODELS_WITH_LOGO_AND_SAVE
+# Only available for non-subwoofer models, see MODELS_WITH_LOGO_AND_SAVE
 BRIGHTNESS_DESCRIPTION = NeumannKHNumberDescription(
     key="logo_brightness",
     translation_key="logo_brightness",
@@ -131,7 +131,7 @@ BRIGHTNESS_DESCRIPTION = NeumannKHNumberDescription(
     ssc_path=PATH_LOGO_BRIGHTNESS,
 )
 
-# Nur bei erkanntem Subwoofer (siehe MODELS_WITH_SUBWOOFER_FEATURES)
+# Only on a detected subwoofer (see MODELS_WITH_SUBWOOFER_FEATURES)
 SUBWOOFER_NUMBER_DESCRIPTIONS: tuple[NeumannKHNumberDescription, ...] = (
     NeumannKHNumberDescription(
         key="out1_level",
@@ -142,7 +142,7 @@ SUBWOOFER_NUMBER_DESCRIPTIONS: tuple[NeumannKHNumberDescription, ...] = (
         native_step=0.5,
         native_unit_of_measurement="dB",
         mode=NumberMode.SLIDER,
-        entity_registry_enabled_default=False,  # nur relevant, falls Out1 belegt ist
+        entity_registry_enabled_default=False,  # only relevant if Out1 is in use
         ssc_path=PATH_OUT1_LEVEL,
     ),
     NeumannKHNumberDescription(
@@ -167,7 +167,7 @@ SUBWOOFER_NUMBER_DESCRIPTIONS: tuple[NeumannKHNumberDescription, ...] = (
         native_step=0.5,
         native_unit_of_measurement="dB",
         mode=NumberMode.SLIDER,
-        entity_registry_enabled_default=False,  # nur relevant, falls Out2 belegt ist
+        entity_registry_enabled_default=False,  # only relevant if Out2 is in use
         ssc_path=PATH_OUT2_LEVEL,
     ),
     NeumannKHNumberDescription(
@@ -187,7 +187,7 @@ SUBWOOFER_NUMBER_DESCRIPTIONS: tuple[NeumannKHNumberDescription, ...] = (
 
 
 def _build_output_delay_description(is_subwoofer: bool) -> NeumannKHNumberDescription:
-    """Baut die Delay-Beschreibung des Hauptausgangs mit modellabhängigem Max-Wert."""
+    """Builds the main output delay description with a model-dependent max value."""
     return NeumannKHNumberDescription(
         key="output_delay",
         translation_key="output_delay",
@@ -195,7 +195,7 @@ def _build_output_delay_description(is_subwoofer: bool) -> NeumannKHNumberDescri
         native_min_value=DELAY_MIN,
         native_max_value=DELAY_MAX_SUBWOOFER if is_subwoofer else DELAY_MAX_DEFAULT,
         native_step=1,
-        native_unit_of_measurement="samples",  # 1/48000s pro Sample
+        native_unit_of_measurement="samples",  # 1/48000s per sample
         mode=NumberMode.BOX,
         ssc_path=PATH_OUTPUT_DELAY,
         integer=True,
@@ -205,7 +205,7 @@ def _build_output_delay_description(is_subwoofer: bool) -> NeumannKHNumberDescri
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    """Legt die Number-Entities für einen Lautsprecher an."""
+    """Sets up the number entities for a speaker."""
     coordinator: NeumannKHCoordinator = hass.data[DOMAIN][entry.entry_id]
     model = entry.data.get(CONF_MODEL)
     is_subwoofer = model in MODELS_WITH_SUBWOOFER_FEATURES
@@ -225,7 +225,7 @@ async def async_setup_entry(
 
 
 class NeumannKHNumber(NeumannKHEntity, NumberEntity):
-    """Schreibbarer Zahlenwert eines Neumann-KH-Lautsprechers."""
+    """Writable numeric value of a Neumann KH speaker."""
 
     entity_description: NeumannKHNumberDescription
 
@@ -244,19 +244,19 @@ class NeumannKHNumber(NeumannKHEntity, NumberEntity):
         value = self.coordinator.value(self.entity_description.ssc_path)
         if value is None:
             return None
-        # Defensive Konvertierung: nicht-numerischer Wert -> "unbekannt" statt Exception.
+        # Defensive conversion: non-numeric value -> "unknown" instead of an exception.
         try:
             return float(value)
         except (ValueError, TypeError):
             _LOGGER.debug(
-                "Nicht-numerischer Wert für %s: %r - zeige 'unbekannt'",
+                "Non-numeric value for %s: %r - showing 'unknown'",
                 self.entity_description.key,
                 value,
             )
             return None
 
     async def async_set_native_value(self, value: float) -> None:
-        """Schreibt den neuen Wert per SSC "set" und aktualisiert danach den Cache."""
+        """Writes the new value via SSC "set" and then updates the cache."""
         payload_value: Any = int(value) if self.entity_description.integer else float(value)
 
         try:
@@ -265,9 +265,14 @@ class NeumannKHNumber(NeumannKHEntity, NumberEntity):
             )
         except SSCDeviceError as err:
             raise HomeAssistantError(
-                f"Der Lautsprecher hat diese Änderung abgelehnt (evtl. von diesem "
-                f"Modell/dieser Firmware nicht unterstützt): {err}"
+                translation_domain=DOMAIN,
+                translation_key="change_rejected",
+                translation_placeholders={"error": str(err)},
             ) from err
         except (SSCConnectionError, SSCTimeoutError) as err:
-            raise HomeAssistantError(f"Der Lautsprecher ist nicht erreichbar: {err}") from err
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="device_unreachable",
+                translation_placeholders={"error": str(err)},
+            ) from err
         await self._apply_confirmed_value(self.entity_description.ssc_path, confirmed)

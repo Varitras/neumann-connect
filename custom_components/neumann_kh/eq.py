@@ -1,14 +1,14 @@
-"""EQ-Entities: ein Ein/Aus-Schalter pro EQ-Container (alle Bänder gemeinsam)
-sowie ein "Auf neutral zurücksetzen"-Button pro Container (Gain/Boost aller
-Bänder auf 0 dB, Frequenz/Q/Typ bleiben unverändert). Beide standardmäßig
-aktiviert, mit `entity_category: config` in der Konfiguration-Sektion.
+"""EQ entities: one on/off switch per EQ container (all bands together) plus a
+"reset to flat" button per container (gain/boost of all bands to 0 dB;
+frequency/Q/type stay unchanged). Both enabled by default, with
+`entity_category: config` in the configuration section.
 
-Eine vollständige 1:1-Abbildung aller EQ-Parameter je Band wäre bei der
-KH 750 ca. 800 Entities - nicht mehr überschaubar. Deshalb bewusst auf
-Container-Ebene reduziert: ein Schalter schreibt "enabled" für ALLE Bänder
-des Containers gleichzeitig, statt jedes Band einzeln. Alle Container-Namen
-beginnen bewusst mit "EQ", damit sie in der Konfiguration-Sektion
-alphabetisch zusammen gruppiert erscheinen.
+A full 1:1 mapping of every EQ parameter per band would be about 800 entities
+on the KH 750 - no longer manageable. Therefore deliberately reduced to the
+container level: one switch writes "enabled" for ALL bands of the container at
+once, instead of each band individually. All container names deliberately
+begin with "EQ" so they appear grouped together alphabetically in the
+configuration section.
 """
 
 from __future__ import annotations
@@ -19,18 +19,19 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory
 from homeassistant.exceptions import HomeAssistantError
 
+from .const import DOMAIN
 from .coordinator import NeumannKHCoordinator
 from .entity import NeumannKHEntity
 from .eq_containers import EQContainer, eq_containers_for_model
 from .ssc_client import SSCConnectionError, SSCDeviceError, SSCTimeoutError
 
-# --- Container-Ein/Aus-Schalter ----------------------------------------------
+# --- Container on/off switch -------------------------------------------------
 
 
 def build_eq_switches(
     coordinator: NeumannKHCoordinator, entry: ConfigEntry, model: str | None
 ) -> list["NeumannKHEQContainerSwitch"]:
-    """Baut einen Ein/Aus-Schalter pro passendem EQ-Container."""
+    """Builds one on/off switch per matching EQ container."""
     return [
         NeumannKHEQContainerSwitch(coordinator, entry, container)
         for container in eq_containers_for_model(model)
@@ -38,12 +39,11 @@ def build_eq_switches(
 
 
 class NeumannKHEQContainerSwitch(NeumannKHEntity, SwitchEntity):
-    """Schaltet alle Bänder eines EQ-Containers gemeinsam ein/aus.
+    """Switches all bands of an EQ container on/off together.
 
-    is_on ist True, sobald mindestens ein Band aktiv ist (Ausgangszustand
-    kann pro Band unterschiedlich sein, z. B. nach externer Änderung über
-    MA1) - der Schalter selbst setzt beim Betätigen immer ALLE Bänder auf
-    denselben Wert.
+    is_on is True as soon as at least one band is active (the initial state
+    can differ per band, e.g. after an external change via MA1) - the switch
+    itself always sets ALL bands to the same value when operated.
     """
 
     def __init__(
@@ -63,7 +63,7 @@ class NeumannKHEQContainerSwitch(NeumannKHEntity, SwitchEntity):
 
     @property
     def translation_placeholders(self) -> dict[str, str]:
-        return {"container": self._container.label}
+        return {"container": self._container.label_for(self.hass.config.language)}
 
     @property
     def is_on(self) -> bool | None:
@@ -78,10 +78,16 @@ class NeumannKHEQContainerSwitch(NeumannKHEntity, SwitchEntity):
             confirmed = await self.coordinator.client.set(self._path, array)
         except SSCDeviceError as err:
             raise HomeAssistantError(
-                f"Der Lautsprecher hat diese Änderung abgelehnt: {err}"
+                translation_domain=DOMAIN,
+                translation_key="change_rejected",
+                translation_placeholders={"error": str(err)},
             ) from err
         except (SSCConnectionError, SSCTimeoutError) as err:
-            raise HomeAssistantError(f"Der Lautsprecher ist nicht erreichbar: {err}") from err
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="device_unreachable",
+                translation_placeholders={"error": str(err)},
+            ) from err
         await self._apply_confirmed_value(self._path, confirmed)
 
     async def async_turn_on(self, **kwargs) -> None:
@@ -91,13 +97,13 @@ class NeumannKHEQContainerSwitch(NeumannKHEntity, SwitchEntity):
         await self._async_set(False)
 
 
-# --- Reset-auf-neutral-Button ------------------------------------------------
+# --- Reset-to-flat button ----------------------------------------------------
 
 
 def build_eq_reset_buttons(
     coordinator: NeumannKHCoordinator, entry: ConfigEntry, model: str | None
 ) -> list["NeumannKHEQResetButton"]:
-    """Baut einen Reset-Button pro passendem EQ-Container."""
+    """Builds one reset button per matching EQ container."""
     return [
         NeumannKHEQResetButton(coordinator, entry, container)
         for container in eq_containers_for_model(model)
@@ -105,7 +111,7 @@ def build_eq_reset_buttons(
 
 
 class NeumannKHEQResetButton(NeumannKHEntity, ButtonEntity):
-    """Setzt Gain und Boost aller Bänder eines EQ-Containers auf 0 dB zurück."""
+    """Resets gain and boost of all bands of an EQ container to 0 dB."""
 
     def __init__(
         self, coordinator: NeumannKHCoordinator, entry: ConfigEntry, container: EQContainer
@@ -123,7 +129,7 @@ class NeumannKHEQResetButton(NeumannKHEntity, ButtonEntity):
 
     @property
     def translation_placeholders(self) -> dict[str, str]:
-        return {"container": self._container.label}
+        return {"container": self._container.label_for(self.hass.config.language)}
 
     async def async_press(self) -> None:
         zero = [0.0] * self._container.band_count
@@ -132,8 +138,14 @@ class NeumannKHEQResetButton(NeumannKHEntity, ButtonEntity):
             await self.coordinator.client.set(self._container.path + ("boost",), zero)
         except SSCDeviceError as err:
             raise HomeAssistantError(
-                f"Der Lautsprecher hat den EQ-Reset abgelehnt: {err}"
+                translation_domain=DOMAIN,
+                translation_key="eq_reset_rejected",
+                translation_placeholders={"error": str(err)},
             ) from err
         except (SSCConnectionError, SSCTimeoutError) as err:
-            raise HomeAssistantError(f"Der Lautsprecher ist nicht erreichbar: {err}") from err
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="device_unreachable",
+                translation_placeholders={"error": str(err)},
+            ) from err
         await self.coordinator.async_request_refresh()

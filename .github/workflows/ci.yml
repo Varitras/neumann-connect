@@ -33,7 +33,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
+          python-version: "3.14"
       - run: pip install ruff
       - run: ruff check .
 
@@ -44,6 +44,9 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
+          python-version: "3.14"
       - run: pip install -r requirements_test.txt
-      - run: python -m pytest tests/ -q
+      # -m "" overrides the default deselection in pytest.ini: CI always runs
+      # the end-to-end tests as well. They cost ~50 s, which is irrelevant here
+      # and makes every push a full check.
+      - run: python -m pytest tests/ -q -m ""

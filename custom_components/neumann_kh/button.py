@@ -1,15 +1,15 @@
-"""Button-Entities: 'Einstellungen speichern', 'Werkseinstellungen wiederherstellen',
-'Backup erstellen' und 'Geräte-Discovery ausführen'.
+"""Button entities: 'Save settings', 'Restore factory defaults',
+'Create backup' and 'Run device discovery'.
 
-'Einstellungen speichern' nur bei KH 80/150/120 II (nicht KH 750; auf KH 120 II
-per Test nicht funktional, daher standardmäßig deaktiviert).
+'Save settings' only on KH 80/150/120 II (not KH 750; non-functional on
+KH 120 II per test, therefore disabled by default).
 
-'Werkseinstellungen wiederherstellen' mit Zwei-Schritt-Sicherheitsabfrage:
-erster Druck bewaffnet nur, zweiter Druck innerhalb 30s löst den Reset aus.
+'Restore factory defaults' with two-step confirmation: the first press only
+arms it, a second press within 30s triggers the reset.
 
-'Backup erstellen' und 'Geräte-Discovery ausführen' speichern ihr Ergebnis
-dauerhaft (siehe storage.py, pro Seriennummer) und zusätzlich als JSON-Datei
-zum Download unter /config/www/.
+'Create backup' and 'Run device discovery' store their result permanently
+(see storage.py, per serial number) and additionally as a JSON file for
+download under /config/www/.
 """
 
 from __future__ import annotations
@@ -48,22 +48,33 @@ from .entity import NeumannKHEntity
 from .eq import build_eq_reset_buttons
 from .ssc_client import SSCConnectionError, SSCDeviceError, SSCTimeoutError
 
-# Zeitfenster, innerhalb dessen ein zweiter Druck auf "Werksreset" den
-# Reset tatsächlich auslöst. Nach Ablauf muss erneut "bewaffnet" werden.
+# Time window within which a second press of "factory reset" actually
+# triggers the reset. After it elapses, it must be "armed" again.
 _RESTORE_CONFIRM_WINDOW_SECONDS = 30
+
+
+def _localized(hass: HomeAssistant, de: str, en: str) -> str:
+    """Pick the German or English text based on the HA UI language.
+
+    Persistent notifications have no translation_key mechanism, so their
+    text is chosen here at runtime from the configured HA language.
+    """
+    language = hass.config.language or "en"
+    return de if language.startswith("de") else en
+
 
 SAVE_SETTINGS_DESCRIPTION = ButtonEntityDescription(
     key="save_settings",
     translation_key="save_settings",
     icon="mdi:content-save-outline",
-    entity_registry_enabled_default=False,  # per Test nicht funktional (KH 120 II)
+    entity_registry_enabled_default=False,  # non-functional per test (KH 120 II)
 )
 
 RESTORE_DESCRIPTION = ButtonEntityDescription(
     key="restore_factory_defaults",
     translation_key="restore_factory_defaults",
     icon="mdi:restore-alert",
-    entity_registry_enabled_default=False,  # destruktive Aktion, bewusst nicht standardmäßig sichtbar
+    entity_registry_enabled_default=False,  # destructive action, deliberately not visible by default
 )
 
 BACKUP_DESCRIPTION = ButtonEntityDescription(
@@ -83,7 +94,7 @@ DISCOVERY_DESCRIPTION = ButtonEntityDescription(
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    """Legt die Button-Entities für einen Lautsprecher an."""
+    """Creates the button entities for a speaker."""
     coordinator: NeumannKHCoordinator = hass.data[DOMAIN][entry.entry_id]
 
     entities: list[ButtonEntity] = [
@@ -99,24 +110,23 @@ async def async_setup_entry(
 
 
 def _mask_serial(serial: str) -> str:
-    """Zensiert eine Seriennummer, nur die letzten 3 Zeichen bleiben sichtbar."""
+    """Masks a serial number, only the last 3 characters remain visible."""
     if len(serial) <= 3:
         return serial
     return "x" * (len(serial) - 3) + serial[-3:]
 
 
 def _sanitize_filename_part(value: str) -> str:
-    """Bereinigt gerätegelieferte Werte für Dateinamen (nur [A-Za-z0-9_-]).
+    """Sanitizes device-supplied values for filenames (only [A-Za-z0-9_-]).
 
-    Schutz gegen Pfad-Bestandteile (z. B. "../") aus einer fehlerhaften oder
-    manipulierten Geräteantwort - Exportdateien dürfen /config/www/ nie
-    verlassen.
+    Guards against path components (e.g. "../") from a faulty or manipulated
+    device response - export files must never leave /config/www/.
     """
-    return re.sub(r"[^A-Za-z0-9_-]", "_", value) or "unbekannt"
+    return re.sub(r"[^A-Za-z0-9_-]", "_", value) or "unknown"
 
 
 def _write_export_file(hass: HomeAssistant, filename: str, data: dict) -> str:
-    """Schreibt ein JSON-Export unter /config/www/ und liefert die lokale URL."""
+    """Writes a JSON export under /config/www/ and returns the local URL."""
     www_dir = hass.config.path("www")
     os.makedirs(www_dir, exist_ok=True)
     path = os.path.join(www_dir, filename)
@@ -126,7 +136,7 @@ def _write_export_file(hass: HomeAssistant, filename: str, data: dict) -> str:
 
 
 class NeumannKHSaveSettingsButton(NeumannKHEntity, ButtonEntity):
-    """Schreibt die aktuellen Einstellungen dauerhaft ins Gerät (überlebt Stromausfall)."""
+    """Writes the current settings permanently to the device (survives power loss)."""
 
     entity_description = SAVE_SETTINGS_DESCRIPTION
 
@@ -139,14 +149,20 @@ class NeumannKHSaveSettingsButton(NeumannKHEntity, ButtonEntity):
             await self.coordinator.client.set(PATH_SAVE_SETTINGS, True)
         except SSCDeviceError as err:
             raise HomeAssistantError(
-                f"Der Lautsprecher hat 'Einstellungen speichern' abgelehnt: {err}"
+                translation_domain=DOMAIN,
+                translation_key="save_settings_rejected",
+                translation_placeholders={"error": str(err)},
             ) from err
         except (SSCConnectionError, SSCTimeoutError) as err:
-            raise HomeAssistantError(f"Der Lautsprecher ist nicht erreichbar: {err}") from err
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="device_unreachable",
+                translation_placeholders={"error": str(err)},
+            ) from err
 
 
 class NeumannKHRestoreButton(NeumannKHEntity, ButtonEntity):
-    """Werksreset mit Zwei-Schritt-Sicherheitsabfrage (erst 'bewaffnen', dann bestätigen)."""
+    """Factory reset with two-step confirmation (first 'arm', then confirm)."""
 
     entity_description = RESTORE_DESCRIPTION
 
@@ -160,38 +176,55 @@ class NeumannKHRestoreButton(NeumannKHEntity, ButtonEntity):
         now = time.monotonic()
 
         if self._armed_at is not None and (now - self._armed_at) <= _RESTORE_CONFIRM_WINDOW_SECONDS:
-            # Zweiter Druck innerhalb des Zeitfensters -> Reset tatsächlich auslösen.
+            # Second press within the time window -> actually trigger the reset.
             self._armed_at = None
             async_dismiss_notification(self.hass, self._notification_id)
             try:
                 await self.coordinator.client.set(PATH_RESTORE, RESTORE_FACTORY_DEFAULTS_VALUE)
             except SSCDeviceError as err:
                 raise HomeAssistantError(
-                    f"Der Lautsprecher hat den Werksreset abgelehnt: {err}"
+                    translation_domain=DOMAIN,
+                    translation_key="factory_reset_rejected",
+                    translation_placeholders={"error": str(err)},
                 ) from err
             except (SSCConnectionError, SSCTimeoutError) as err:
                 raise HomeAssistantError(
-                    f"Der Lautsprecher ist nicht erreichbar: {err}"
+                    translation_domain=DOMAIN,
+                    translation_key="device_unreachable",
+                    translation_placeholders={"error": str(err)},
                 ) from err
             return
 
-        # Erster Druck (oder Zeitfenster abgelaufen) -> nur "bewaffnen" und warnen.
+        # First press (or time window elapsed) -> only "arm" and warn.
         self._armed_at = now
         async_create_notification(
             self.hass,
-            (
-                f"⚠️ Werksreset für **{self._entry.title}** ist jetzt bereit. "
-                f"Drücke den Button innerhalb von {_RESTORE_CONFIRM_WINDOW_SECONDS} Sekunden "
-                f"ERNEUT, um alle Einstellungen unwiderruflich auf Werkszustand "
-                f"zurückzusetzen. Ohne zweiten Druck passiert nichts."
+            _localized(
+                self.hass,
+                (
+                    f"⚠️ Werksreset für **{self._entry.title}** ist jetzt bereit. "
+                    f"Drücke den Button innerhalb von {_RESTORE_CONFIRM_WINDOW_SECONDS} Sekunden "
+                    f"ERNEUT, um alle Einstellungen unwiderruflich auf Werkszustand "
+                    f"zurückzusetzen. Ohne zweiten Druck passiert nichts."
+                ),
+                (
+                    f"⚠️ Factory reset for **{self._entry.title}** is now armed. "
+                    f"Press the button AGAIN within {_RESTORE_CONFIRM_WINDOW_SECONDS} seconds "
+                    f"to irreversibly reset all settings to factory state. "
+                    f"Nothing happens without a second press."
+                ),
             ),
-            title="Neumann Connect: Werksreset bestätigen",
+            title=_localized(
+                self.hass,
+                "Neumann Connect: Werksreset bestätigen",
+                "Neumann Connect: confirm factory reset",
+            ),
             notification_id=self._notification_id,
         )
 
 
 class NeumannKHBackupButton(NeumannKHEntity, ButtonEntity):
-    """Liest alle bekannten Werte (ohne Live-Messwerte) und speichert sie als Backup."""
+    """Reads all known values (without live measurements) and saves them as a backup."""
 
     entity_description = BACKUP_DESCRIPTION
 
@@ -202,7 +235,10 @@ class NeumannKHBackupButton(NeumannKHEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         if self._running:
-            raise HomeAssistantError("Ein Backup läuft bereits, bitte warten.")
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="backup_in_progress",
+            )
         self._running = True
         try:
             serial = self._entry.data.get(CONF_SERIAL) or self._entry.entry_id
@@ -210,13 +246,17 @@ class NeumannKHBackupButton(NeumannKHEntity, ButtonEntity):
 
             try:
                 values = await async_build_backup(self.coordinator.client, model)
-            except Exception as err:  # noqa: BLE001 - Backup/Discovery sind best-effort
-                raise HomeAssistantError(f"Backup fehlgeschlagen: {err}") from err
+            except Exception as err:  # noqa: BLE001 - backup/discovery are best-effort
+                raise HomeAssistantError(
+                    translation_domain=DOMAIN,
+                    translation_key="backup_failed",
+                    translation_placeholders={"error": str(err)},
+                ) from err
 
-            # Datei-Inhalt und Dateiname nur mit zensierter Seriennummer:
-            # /config/www/ wird von HA OHNE Anmeldung ausgeliefert (/local/).
-            # Die Speicherung im HA-Store läuft weiter über die echte
-            # Seriennummer (Zuordnung/Abruf).
+            # File content and filename only with masked serial number:
+            # /config/www/ is served by HA WITHOUT authentication (/local/).
+            # Storage in the HA store still uses the real serial number
+            # (mapping/retrieval).
             masked_serial = _mask_serial(serial)
             timestamp = datetime.now(timezone.utc).isoformat()
             backup = {
@@ -234,8 +274,16 @@ class NeumannKHBackupButton(NeumannKHEntity, ButtonEntity):
 
             async_create_notification(
                 self.hass,
-                f"Backup für **{self._entry.title}** gespeichert. Download: {url}",
-                title="Neumann Connect: Backup erstellt",
+                _localized(
+                    self.hass,
+                    f"Backup für **{self._entry.title}** gespeichert. Download: {url}",
+                    f"Backup for **{self._entry.title}** saved. Download: {url}",
+                ),
+                title=_localized(
+                    self.hass,
+                    "Neumann Connect: Backup erstellt",
+                    "Neumann Connect: backup created",
+                ),
                 notification_id=f"{self._unique_id_base}_backup_done",
             )
         finally:
@@ -243,7 +291,7 @@ class NeumannKHBackupButton(NeumannKHEntity, ButtonEntity):
 
 
 class NeumannKHDiscoveryButton(NeumannKHEntity, ButtonEntity):
-    """Führt eine vollständige Geräte-Discovery aus und speichert das Ergebnis."""
+    """Runs a full device discovery and saves the result."""
 
     entity_description = DISCOVERY_DESCRIPTION
 
@@ -254,15 +302,22 @@ class NeumannKHDiscoveryButton(NeumannKHEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         if self._running:
-            raise HomeAssistantError("Eine Discovery läuft bereits, bitte warten.")
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="discovery_in_progress",
+            )
         self._running = True
         try:
             serial = self._entry.data.get(CONF_SERIAL) or self._entry.entry_id
 
             try:
                 discovery = await async_discover_all_values(self.coordinator.client)
-            except Exception as err:  # noqa: BLE001 - Backup/Discovery sind best-effort
-                raise HomeAssistantError(f"Discovery fehlgeschlagen: {err}") from err
+            except Exception as err:  # noqa: BLE001 - backup/discovery are best-effort
+                raise HomeAssistantError(
+                    translation_domain=DOMAIN,
+                    translation_key="discovery_failed",
+                    translation_placeholders={"error": str(err)},
+                ) from err
 
             masked_serial = _mask_serial(serial)
             timestamp = datetime.now(timezone.utc).isoformat()
@@ -273,8 +328,8 @@ class NeumannKHDiscoveryButton(NeumannKHEntity, ButtonEntity):
                 **discovery,
             }
 
-            # Speicherung intern über die echte Seriennummer (Zuordnung/Abruf),
-            # der Inhalt (und die Datei) enthält aber nur die zensierte Variante.
+            # Storage internally uses the real serial number (mapping/retrieval),
+            # but the content (and the file) contains only the masked variant.
             await storage.async_save_discovery(self.hass, serial, record)
             filename = f"neumann_kh_discovery_{_sanitize_filename_part(masked_serial)}.json"
             url = await self.hass.async_add_executor_job(
@@ -283,8 +338,16 @@ class NeumannKHDiscoveryButton(NeumannKHEntity, ButtonEntity):
 
             async_create_notification(
                 self.hass,
-                f"Discovery für **{self._entry.title}** gespeichert. Download: {url}",
-                title="Neumann Connect: Discovery abgeschlossen",
+                _localized(
+                    self.hass,
+                    f"Discovery für **{self._entry.title}** gespeichert. Download: {url}",
+                    f"Discovery for **{self._entry.title}** saved. Download: {url}",
+                ),
+                title=_localized(
+                    self.hass,
+                    "Neumann Connect: Discovery abgeschlossen",
+                    "Neumann Connect: discovery finished",
+                ),
                 notification_id=f"{self._unique_id_base}_discovery_done",
             )
         finally:

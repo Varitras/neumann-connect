@@ -1,6 +1,6 @@
-"""Backup-Snapshot: alle bekannten Werte (schreibbare Einstellungen plus
-Diagnose/Identität), ohne Live-Messwerte (ändern sich ständig, kein
-sinnvoller Bestandteil eines Einstellungs-Snapshots).
+"""Backup snapshot: all known values (writable settings plus
+diagnostics/identity), without live readings (they change constantly,
+not a meaningful part of a settings snapshot).
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ from .const import (
 )
 from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeoutError
 
-# Live-Messwerte: bewusst nicht im Backup enthalten.
+# Live readings: intentionally not included in the backup.
 _EXCLUDED_PATHS = {
     PATH_METER_INPUT_LEVEL,
     PATH_METER_CLIP,
@@ -31,7 +31,7 @@ _EXCLUDED_PATHS = {
 
 
 async def async_build_backup(client: SSCClient, model: str | None) -> dict[str, Any]:
-    """Fragt alle bekannten Werte (außer Live-Messwerten) ab und liefert ein JSON-Dict."""
+    """Query all known values (except live readings) and return a JSON dict."""
     paths = list(POLL_PATHS)
     if model in MODELS_WITH_SUBWOOFER_FEATURES:
         paths += list(SUBWOOFER_POLL_PATHS)
@@ -46,7 +46,7 @@ async def async_build_backup(client: SSCClient, model: str | None) -> dict[str, 
             continue
         except (SSCConnectionError, SSCTimeoutError):
             raise
-        except Exception:  # noqa: BLE001 - ein Bug bei einem Pfad soll das Backup nicht abbrechen
+        except Exception:  # noqa: BLE001 - a bug on one path should not abort the backup
             continue
         if value is not None:
             deep_merge(result, build_nested(path, value))

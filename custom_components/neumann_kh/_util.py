@@ -1,4 +1,4 @@
-"""Gemeinsame Hilfsfunktionen für verschachtelte SSC-JSON-Strukturen."""
+"""Shared helper functions for nested SSC JSON structures."""
 
 from __future__ import annotations
 
@@ -6,10 +6,10 @@ from typing import Any
 
 
 def build_nested(path: tuple[str, ...], value: Any) -> dict:
-    """Baut aus einem Pfad-Tupel und einem Wert ein verschachteltes JSON-Objekt.
+    """Build a nested JSON object from a path tuple and a value.
 
-    Beispiel: build_nested(("audio", "out", "mute"), True)
-              -> {"audio": {"out": {"mute": True}}}
+    Example: build_nested(("audio", "out", "mute"), True)
+             -> {"audio": {"out": {"mute": True}}}
     """
     node: dict[str, Any] = {}
     root = node
@@ -21,7 +21,7 @@ def build_nested(path: tuple[str, ...], value: Any) -> dict:
 
 
 def deep_merge(target: dict, source: dict) -> None:
-    """Führt zwei verschachtelte Dicts zusammen (in-place), source gewinnt bei Konflikten."""
+    """Merge two nested dicts (in-place); source wins on conflicts."""
     for key, value in source.items():
         if isinstance(value, dict) and isinstance(target.get(key), dict):
             deep_merge(target[key], value)
@@ -30,7 +30,7 @@ def deep_merge(target: dict, source: dict) -> None:
 
 
 def extract(data: dict, path: tuple[str, ...]) -> Any:
-    """Liest einen Wert aus einem verschachtelten Dict anhand eines Pfad-Tupels."""
+    """Read a value from a nested dict using a path tuple."""
     node: Any = data
     for part in path:
         if not isinstance(node, dict) or part not in node:

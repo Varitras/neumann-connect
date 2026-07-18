@@ -1,8 +1,8 @@
-"""Tests für den SSC-Client gegen einen echten lokalen asyncio-TCP-Server.
+"""Tests for the SSC client against a real local asyncio TCP server.
 
-Kurze Timeouts (settle 0.05 s, timeout 0.3 s), damit die Suite schnell bleibt -
-die echten Produktiv-Werte (DEFAULT_QUERY_SETTLE, 3 s Timeout) werden hier
-bewusst nicht verwendet.
+Short timeouts (settle 0.05 s, timeout 0.3 s) to keep the suite fast -
+the real production values (DEFAULT_QUERY_SETTLE, 3 s timeout) are
+deliberately not used here.
 """
 
 from __future__ import annotations
@@ -20,30 +20,30 @@ from custom_components.neumann_kh.ssc_client import (
     SSCTimeoutError,
 )
 
-# Das HA-Test-Plugin blockiert Sockets standardmäßig (keine echten
-# Netzwerkzugriffe in Tests). Diese Tests nutzen bewusst einen lokalen
-# TCP-Server auf Loopback - Sockets daher gezielt über die
-# socket_enabled-Fixture (pytest-socket) freigeben.
+# The HA test plugin blocks sockets by default (no real network
+# access in tests). These tests deliberately use a local TCP server
+# on loopback - so sockets are explicitly enabled via the
+# socket_enabled fixture (pytest-socket).
 
 _SETTLE = 0.05
 _TIMEOUT = 0.3
 
 
 class FakeSSCServer:
-    """Minimaler SSC-Server: pro Verbindung ein Handler, Antworten steuerbar."""
+    """Minimal SSC server: one handler per connection, responses controllable."""
 
     def __init__(self) -> None:
         self.server: asyncio.Server | None = None
         self.port: int = 0
         self.connections: int = 0
-        # Antwort-Fabrik: bekommt die geparste Anfrage, liefert Liste von
-        # Antwort-Objekten (je eines pro Zeile). None-Eintrag = keine Antwort.
+        # Response factory: receives the parsed request, returns a list of
+        # response objects (one per line). None entry = no response.
         self.responder = self.echo_responder
         self.response_delay: float = 0.0
 
     @staticmethod
     def echo_responder(request: dict) -> list[dict | None]:
-        """Standard: Anfrage unverändert zurückspiegeln (wie ein get/set-Echo)."""
+        """Default: mirror the request back unchanged (like a get/set echo)."""
         return [request]
 
     async def _handle(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
@@ -73,8 +73,8 @@ class FakeSSCServer:
     async def stop(self) -> None:
         if self.server is not None:
             self.server.close()
-            # wait_closed() kann unter Python 3.12 bei Servern ohne je
-            # angenommene Verbindung haengen - hart begrenzen.
+            # wait_closed() can hang under Python 3.12 for servers that never
+            # accepted a connection - bound it hard.
             with contextlib.suppress(asyncio.TimeoutError):
                 await asyncio.wait_for(self.server.wait_closed(), timeout=1)
 
@@ -103,7 +103,7 @@ async def test_get_returns_value(server):
 
 
 async def test_set_returns_confirmed_value(server):
-    # Gerät bestätigt einen anderen Wert als angefragt (z. B. Clamping).
+    # Device confirms a different value than requested (e.g. clamping).
     server.responder = lambda req: [{"audio": {"out": {"level": -60}}}]
     client = _client(server.port)
     try:
@@ -113,7 +113,7 @@ async def test_set_returns_confirmed_value(server):
 
 
 async def test_settle_merges_multiple_lines_last_wins(server):
-    # Zwei Zeilen für denselben Pfad: die spätere gewinnt (deep_merge-Reihenfolge).
+    # Two lines for the same path: the later one wins (deep_merge order).
     server.responder = lambda req: [
         {"device": {"name": "alt"}},
         {"device": {"name": "neu"}},
@@ -138,15 +138,17 @@ async def test_osc_error_raises_device_error(server):
 
 
 async def test_invalid_json_line_is_ignored(socket_enabled):
-    # Ungültige Zeile darf die gültige danach nicht verhindern.
+    # An invalid line must not prevent the valid one that follows.
     async def _handle(reader, writer):
         await reader.readline()
         writer.write(b"NOT JSON\r\n")
         writer.write(json.dumps({"device": {"name": "ok"}}).encode() + b"\r\n")
         await writer.drain()
-        # Verbindung offen lassen: der Client wartet nach der letzten Zeile
-        # noch die Settle-Zeit - ein Server-Close in dieser Phase wäre
-        # (korrekt) ein Verbindungsabbruch.
+        # Keep the connection open: after the last line the client still waits
+        # the settle time, and a server close during that phase would
+        # (correctly) be reported as a connection drop. Returning here would
+        # close the writer, so hold the handler open past the settle time.
+        await asyncio.sleep(0.5)
 
     raw_server = await asyncio.start_server(_handle, "127.0.0.1", 0)
     port = raw_server.sockets[0].getsockname()[1]
@@ -161,44 +163,44 @@ async def test_invalid_json_line_is_ignored(socket_enabled):
 
 
 async def test_timeout_raises_and_drops_connection(server):
-    # Server antwortet gar nicht -> SSCTimeoutError, Verbindung verworfen.
+    # Server does not respond at all -> SSCTimeoutError, connection dropped.
     server.responder = lambda req: [None]
     client = _client(server.port)
     try:
         with pytest.raises(SSCTimeoutError):
             await client.get(("device", "name"))
-        assert client._writer is None  # noqa: SLF001 - gezielter Whitebox-Test
+        assert client._writer is None  # noqa: SLF001 - deliberate whitebox test
     finally:
         await client.close()
 
 
 async def test_connection_refused_raises_connection_error(socket_enabled):
-    # Port ohne Server.
+    # Port without a server.
     client = SSCClient(host="127.0.0.1", port=1, timeout=_TIMEOUT, settle_time=_SETTLE)
     with pytest.raises(SSCConnectionError):
         await client.get(("device", "name"))
 
 
 async def test_cancelled_request_drops_connection_no_stale_bleed(server):
-    """Härtungsregression: Abbruch verwirft die Verbindung.
+    """Hardening regression: cancellation drops the connection.
 
-    Die verspätete Antwort der abgebrochenen Anfrage darf der nächsten
-    Anfrage nicht zugeordnet werden (v1.15.0-Härtung).
+    The delayed response of the cancelled request must not be assigned to
+    the next request (v1.15.0 hardening).
     """
-    server.response_delay = 0.2  # Antwort kommt erst nach dem Abbruch
+    server.response_delay = 0.2  # response arrives only after the cancellation
     server.responder = lambda req: [{"stale": {"value": 1}}]
     client = _client(server.port)
     try:
         task = asyncio.create_task(client.get(("stale", "value")))
-        await asyncio.sleep(0.05)  # Anfrage ist raus, Antwort noch nicht da
+        await asyncio.sleep(0.05)  # request is out, response not yet here
         task.cancel()
         with pytest.raises(asyncio.CancelledError):
             await task
 
-        # Verbindung muss verworfen sein.
+        # Connection must have been dropped.
         assert client._writer is None  # noqa: SLF001
 
-        # Folgeanfrage: bekommt eine NEUE Verbindung und die korrekte Antwort.
+        # Follow-up request: gets a NEW connection and the correct response.
         server.response_delay = 0.0
         server.responder = lambda req: [{"fresh": {"value": 2}}]
         assert await client.get(("fresh", "value")) == 2
@@ -208,10 +210,10 @@ async def test_cancelled_request_drops_connection_no_stale_bleed(server):
 
 
 async def test_oversized_line_raises_connection_error(socket_enabled):
-    # Zeile über dem StreamReader-Limit (1 MiB) ohne Terminator.
+    # Line above the StreamReader limit (1 MiB) without a terminator.
     async def _handle(reader, writer):
         await reader.readline()
-        writer.write(b"x" * (1_100_000))  # kein \n
+        writer.write(b"x" * (1_100_000))  # no \n
         await writer.drain()
         writer.close()
 

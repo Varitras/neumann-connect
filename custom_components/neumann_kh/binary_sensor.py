@@ -1,10 +1,10 @@
-"""Binary-Sensor-Entities: Clip-Anzeige, Warnungs-Indikator sowie (nur
-Subwoofer) Digital-Bypass und Auto-Standby-Status (nur lesend).
+"""Binary sensor entities: clip display, warning indicator plus (subwoofer
+only) digital bypass and auto-standby status (read-only).
 
-Clip/Warnungen liefert das Gerät als Liste (ein Wert pro Kanal).
+The device delivers clip/warnings as a list (one value per channel).
 
-Auto-Standby ist modellspezifisch: auf der KH 120 II als Switch schreibbar
-(siehe switch.py), auf der KH 750 nur lesend (Schreiben abgelehnt).
+Auto-standby is model-specific: writable as a switch on the KH 120 II
+(see switch.py), read-only on the KH 750 (writing rejected).
 """
 
 from __future__ import annotations
@@ -35,13 +35,13 @@ from .const import (
 from .coordinator import NeumannKHCoordinator
 from .entity import NeumannKHEntity
 
-# Wert im warnungsfreien Normalzustand.
+# Value in the normal, warning-free state.
 _NO_WARNING = "NO_WARNING"
 
 
 @dataclass(frozen=True, kw_only=True)
 class NeumannKHBinarySensorDescription(BinarySensorEntityDescription):
-    """Beschreibung einer Binary-Sensor-Entity inkl. SSC-Pfad."""
+    """Description of a binary sensor entity including the SSC path."""
 
     ssc_path: tuple[str, ...] = ()
     is_warnings: bool = False
@@ -66,7 +66,7 @@ BINARY_SENSOR_DESCRIPTIONS: tuple[NeumannKHBinarySensorDescription, ...] = (
     ),
 )
 
-# Nur bei erkanntem Subwoofer.
+# Only on a detected subwoofer.
 SUBWOOFER_BINARY_SENSOR_DESCRIPTIONS: tuple[NeumannKHBinarySensorDescription, ...] = (
     NeumannKHBinarySensorDescription(
         key="output_clip",
@@ -95,7 +95,7 @@ SUBWOOFER_BINARY_SENSOR_DESCRIPTIONS: tuple[NeumannKHBinarySensorDescription, ..
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    """Legt die Binary-Sensor-Entities für einen Lautsprecher an."""
+    """Sets up the binary sensor entities for a speaker."""
     coordinator: NeumannKHCoordinator = hass.data[DOMAIN][entry.entry_id]
 
     descriptions = list(BINARY_SENSOR_DESCRIPTIONS)
@@ -108,7 +108,7 @@ async def async_setup_entry(
 
 
 class NeumannKHBinarySensor(NeumannKHEntity, BinarySensorEntity):
-    """Boolescher Zustand, abgeleitet aus einer Listen-Antwort des Geräts."""
+    """Boolean state derived from a list response of the device."""
 
     entity_description: NeumannKHBinarySensorDescription
 
@@ -128,11 +128,11 @@ class NeumannKHBinarySensor(NeumannKHEntity, BinarySensorEntity):
         if value is None:
             return None
         if self.entity_description.is_warnings:
-            # "Problem" = irgendeine Warnung außer dem Normalzustand NO_WARNING.
+            # "Problem" = any warning other than the normal state NO_WARNING.
             if isinstance(value, list):
                 return any(item != _NO_WARNING for item in value)
             return value != _NO_WARNING
-        # Clip (Eingang oder Ausgang): "Problem" = mindestens ein Kanal clippt gerade.
+        # Clip (input or output): "Problem" = at least one channel is currently clipping.
         if isinstance(value, list):
             return any(bool(item) for item in value)
         return bool(value)

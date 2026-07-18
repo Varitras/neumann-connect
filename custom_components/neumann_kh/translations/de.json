@@ -117,5 +117,18 @@
     "text": {
       "device_name": { "name": "Gerätename" }
     }
+  },
+  "exceptions": {
+    "device_unreachable": { "message": "Der Lautsprecher ist nicht erreichbar: {error}" },
+    "change_rejected": { "message": "Der Lautsprecher hat diese Änderung abgelehnt (evtl. von diesem Modell/dieser Firmware nicht unterstützt): {error}" },
+    "selection_rejected": { "message": "Der Lautsprecher hat diese Auswahl abgelehnt (evtl. von diesem Modell/dieser Firmware nicht unterstützt): {error}" },
+    "save_settings_rejected": { "message": "Der Lautsprecher hat 'Einstellungen speichern' abgelehnt: {error}" },
+    "factory_reset_rejected": { "message": "Der Lautsprecher hat den Werksreset abgelehnt: {error}" },
+    "eq_reset_rejected": { "message": "Der Lautsprecher hat den EQ-Reset abgelehnt: {error}" },
+    "name_rejected": { "message": "Der Lautsprecher hat den neuen Namen abgelehnt: {error}" },
+    "backup_in_progress": { "message": "Ein Backup läuft bereits, bitte warten." },
+    "discovery_in_progress": { "message": "Eine Discovery läuft bereits, bitte warten." },
+    "backup_failed": { "message": "Backup fehlgeschlagen: {error}" },
+    "discovery_failed": { "message": "Discovery fehlgeschlagen: {error}" }
   }
 }

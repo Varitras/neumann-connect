@@ -1,7 +1,7 @@
-"""Select-Entities: feste Wertauswahlen (String-Enums).
+"""Select entities: fixed value choices (string enums).
 
-"Steuerungsmodus" (NETWORK/LOCAL) bleibt immer deaktiviert: Wechsel zu LOCAL
-kappt die Netzwerksteuerung bis zur manuellen Rückstellung am Gerät.
+"Control mode" (NETWORK/LOCAL) always stays disabled: switching to LOCAL cuts
+off network control until it is manually reset on the device.
 """
 
 from __future__ import annotations
@@ -30,12 +30,12 @@ from .ssc_client import SSCConnectionError, SSCDeviceError, SSCTimeoutError
 
 @dataclass(frozen=True, kw_only=True)
 class NeumannKHSelectDescription(SelectEntityDescription):
-    """Beschreibung einer Select-Entity inkl. SSC-Pfad."""
+    """Description of a select entity including the SSC path."""
 
     ssc_path: tuple[str, ...] = ()
 
 
-# Immer angelegt, bewusst immer deaktiviert (Sicherheits-Ausnahme).
+# Always created, deliberately always disabled (safety exception).
 CONTROL_MODE_DESCRIPTION = NeumannKHSelectDescription(
     key="control_mode",
     translation_key="control_mode",
@@ -47,11 +47,11 @@ CONTROL_MODE_DESCRIPTION = NeumannKHSelectDescription(
 
 
 def _build_input_interface_description(is_subwoofer: bool) -> NeumannKHSelectDescription:
-    """Baut die 'Eingangs-Interface'-Beschreibung.
+    """Builds the 'input interface' description.
 
-    Bestätigt schreibbar auf KH 120 II und KH 750 DSP, daher auf beiden
-    Modellen standardmäßig aktiviert (is_subwoofer nur noch als Parameter
-    behalten, falls später doch eine Differenzierung nötig wird).
+    Confirmed writable on KH 120 II and KH 750 DSP, therefore enabled by
+    default on both models (is_subwoofer only kept as a parameter in case a
+    differentiation becomes necessary later).
     """
     return NeumannKHSelectDescription(
         key="input_interface",
@@ -66,7 +66,7 @@ def _build_input_interface_description(is_subwoofer: bool) -> NeumannKHSelectDes
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    """Legt die Select-Entities für einen Lautsprecher an."""
+    """Sets up the select entities for a speaker."""
     coordinator: NeumannKHCoordinator = hass.data[DOMAIN][entry.entry_id]
     is_subwoofer = entry.data.get(CONF_MODEL) in MODELS_WITH_SUBWOOFER_FEATURES
 
@@ -81,7 +81,7 @@ async def async_setup_entry(
 
 
 class NeumannKHSelect(NeumannKHEntity, SelectEntity):
-    """Feste Auswahl (String-Enum) eines Neumann-KH-Lautsprechers."""
+    """Fixed choice (string enum) of a Neumann KH speaker."""
 
     entity_description: NeumannKHSelectDescription
 
@@ -107,9 +107,14 @@ class NeumannKHSelect(NeumannKHEntity, SelectEntity):
             confirmed = await self.coordinator.client.set(self.entity_description.ssc_path, option)
         except SSCDeviceError as err:
             raise HomeAssistantError(
-                f"Der Lautsprecher hat diese Auswahl abgelehnt (evtl. von diesem "
-                f"Modell/dieser Firmware nicht unterstützt): {err}"
+                translation_domain=DOMAIN,
+                translation_key="selection_rejected",
+                translation_placeholders={"error": str(err)},
             ) from err
         except (SSCConnectionError, SSCTimeoutError) as err:
-            raise HomeAssistantError(f"Der Lautsprecher ist nicht erreichbar: {err}") from err
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="device_unreachable",
+                translation_placeholders={"error": str(err)},
+            ) from err
         await self._apply_confirmed_value(self.entity_description.ssc_path, confirmed)

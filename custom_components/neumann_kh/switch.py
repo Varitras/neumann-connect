@@ -1,11 +1,11 @@
-"""Switch-Entities: Mute, Gerät identifizieren, Auto-Standby (nur Nicht-
-Subwoofer), Phasenumkehr (nur Nicht-Subwoofer).
+"""Switch entities: mute, identify device, auto-standby (non-subwoofer only),
+phase inversion (non-subwoofer only).
 
-"Identifizieren" ist ein Schalter statt eines Auto-Stopp-Buttons, da das
-Blinken erst nach mehreren Minuten von selbst aufhört.
+"Identify" is a switch rather than an auto-stop button, because the blinking
+only stops by itself after several minutes.
 
-"Auto-Standby" ist modellspezifisch schreibbar: auf der KH 120 II
-funktioniert das Schreiben, auf der KH 750 nicht (siehe binary_sensor.py).
+"Auto-standby" is writable in a model-specific way: writing works on the
+KH 120 II, but not on the KH 750 (see binary_sensor.py).
 """
 
 from __future__ import annotations
@@ -37,12 +37,12 @@ from .ssc_client import SSCConnectionError, SSCDeviceError, SSCTimeoutError
 
 @dataclass(frozen=True, kw_only=True)
 class NeumannKHSwitchDescription(SwitchEntityDescription):
-    """Beschreibung einer Switch-Entity inkl. SSC-Pfad."""
+    """Description of a switch entity including the SSC path."""
 
     ssc_path: tuple[str, ...] = ()
 
 
-# Immer angelegt (modellunabhängig)
+# Always created (model-independent)
 COMMON_SWITCH_DESCRIPTIONS: tuple[NeumannKHSwitchDescription, ...] = (
     NeumannKHSwitchDescription(
         key="mute",
@@ -58,7 +58,7 @@ COMMON_SWITCH_DESCRIPTIONS: tuple[NeumannKHSwitchDescription, ...] = (
     ),
 )
 
-# Nur bei Nicht-Subwoofer-Modellen (nur dort schreibbar).
+# Only on non-subwoofer models (only writable there).
 NON_SUBWOOFER_SWITCH_DESCRIPTIONS: tuple[NeumannKHSwitchDescription, ...] = (
     NeumannKHSwitchDescription(
         key="phase_invert",
@@ -74,20 +74,20 @@ NON_SUBWOOFER_SWITCH_DESCRIPTIONS: tuple[NeumannKHSwitchDescription, ...] = (
     ),
 )
 
-# Nur bei erkanntem Subwoofer.
+# Only on a detected subwoofer.
 SUBWOOFER_SWITCH_DESCRIPTIONS: tuple[NeumannKHSwitchDescription, ...] = (
     NeumannKHSwitchDescription(
         key="out1_mute",
         translation_key="out1_mute",
         icon="mdi:volume-mute",
-        entity_registry_enabled_default=False,  # nur relevant, falls Out1 belegt ist
+        entity_registry_enabled_default=False,  # only relevant if Out1 is in use
         ssc_path=PATH_OUT1_MUTE,
     ),
     NeumannKHSwitchDescription(
         key="out2_mute",
         translation_key="out2_mute",
         icon="mdi:volume-mute",
-        entity_registry_enabled_default=False,  # nur relevant, falls Out2 belegt ist
+        entity_registry_enabled_default=False,  # only relevant if Out2 is in use
         ssc_path=PATH_OUT2_MUTE,
     ),
 )
@@ -96,7 +96,7 @@ SUBWOOFER_SWITCH_DESCRIPTIONS: tuple[NeumannKHSwitchDescription, ...] = (
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    """Legt die Switch-Entities für einen Lautsprecher an."""
+    """Sets up the switch entities for a speaker."""
     coordinator: NeumannKHCoordinator = hass.data[DOMAIN][entry.entry_id]
 
     descriptions = list(COMMON_SWITCH_DESCRIPTIONS)
@@ -113,7 +113,7 @@ async def async_setup_entry(
 
 
 class NeumannKHSwitch(NeumannKHEntity, SwitchEntity):
-    """Boolescher SSC-Wert als Switch."""
+    """Boolean SSC value as a switch."""
 
     entity_description: NeumannKHSwitchDescription
 
@@ -135,16 +135,21 @@ class NeumannKHSwitch(NeumannKHEntity, SwitchEntity):
         return bool(value)
 
     async def _async_set(self, value: bool) -> None:
-        """Setzt den Wert; wandelt eine Geräte-Ablehnung in eine klare HA-Fehlermeldung um."""
+        """Sets the value; turns a device rejection into a clear HA error message."""
         try:
             confirmed = await self.coordinator.client.set(self.entity_description.ssc_path, value)
         except SSCDeviceError as err:
             raise HomeAssistantError(
-                f"Der Lautsprecher hat diese Änderung abgelehnt (evtl. von diesem "
-                f"Modell/dieser Firmware nicht unterstützt): {err}"
+                translation_domain=DOMAIN,
+                translation_key="change_rejected",
+                translation_placeholders={"error": str(err)},
             ) from err
         except (SSCConnectionError, SSCTimeoutError) as err:
-            raise HomeAssistantError(f"Der Lautsprecher ist nicht erreichbar: {err}") from err
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="device_unreachable",
+                translation_placeholders={"error": str(err)},
+            ) from err
         await self._apply_confirmed_value(self.entity_description.ssc_path, confirmed)
 
     async def async_turn_on(self, **kwargs) -> None:

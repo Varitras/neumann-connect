@@ -1,7 +1,11 @@
-"""Gemeinsame Test-Konfiguration.
+"""Shared test configuration.
 
-Macht das Repo-Root importierbar (`custom_components.neumann_kh...`),
-unabhängig davon, aus welchem Verzeichnis pytest gestartet wird.
+Makes the repo root importable (`custom_components.neumann_kh...`)
+regardless of the directory pytest is started from.
+
+The suite targets Linux (WSL2 or CI) and does not run on native Windows:
+pytest-homeassistant-custom-component imports `homeassistant.runner` at
+collection time, which imports the Unix-only `fcntl` module.
 """
 
 import os

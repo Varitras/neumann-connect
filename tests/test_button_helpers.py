@@ -1,4 +1,4 @@
-"""Tests für die Export-Hilfsfunktionen in button.py (Maskierung, Sanitize)."""
+"""Tests for the export helper functions in button.py (masking, sanitize)."""
 
 from custom_components.neumann_kh.button import _mask_serial, _sanitize_filename_part
 
@@ -23,11 +23,11 @@ def test_sanitize_keeps_safe_chars():
 
 
 def test_sanitize_empty_fallback():
-    assert _sanitize_filename_part("") == "unbekannt"
+    assert _sanitize_filename_part("") == "unknown"
 
 
 def test_sanitize_masked_serial_stays_safe():
-    # Kombination wie im Backup-Button: erst maskieren, dann bereinigen.
+    # Combination as in the backup button: first mask, then sanitize.
     evil = "..%2F..%2Fetc"
     safe = _sanitize_filename_part(_mask_serial(evil))
     assert all(c.isalnum() or c in "_-" for c in safe)

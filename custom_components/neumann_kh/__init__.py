@@ -1,12 +1,12 @@
-"""Neumann KH (SSC) Integration - Einstiegspunkt.
+"""Neumann KH (SSC) integration - entry point.
 
-Pro Config Entry (= ein physischer Lautsprecher) wird ein SSCClient und ein
-DataUpdateCoordinator angelegt und in hass.data abgelegt, damit die
-Plattformen (number, select, switch, sensor, binary_sensor, button, text)
-darauf zugreifen können.
+Per config entry (= one physical speaker), an SSCClient and a
+DataUpdateCoordinator are created and stored in hass.data, so that the
+platforms (number, select, switch, sensor, binary_sensor, button, text)
+can access them.
 
-Backup und Geräte-Discovery laufen ausschließlich manuell über die
-entsprechenden Buttons (siehe button.py), nicht automatisch.
+Backup and device discovery run exclusively manually via the
+corresponding buttons (see button.py), not automatically.
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ PLATFORMS: list[Platform] = [
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Richtet einen Config Entry (einen Lautsprecher) ein."""
+    """Set up a config entry (one speaker)."""
     client = SSCClient(
         host=entry.data[CONF_HOST],
         port=entry.data.get(CONF_PORT, DEFAULT_PORT),
@@ -45,10 +45,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     try:
         await coordinator.async_config_entry_first_refresh()
     except Exception:
-        # Setup schlägt fehl (z. B. ConfigEntryNotReady bei ausgeschaltetem
-        # Gerät): offenen Socket schließen. HA wiederholt das Setup später
-        # mit einem neuen Client - ohne close() würden sich bis dahin
-        # halboffene Verbindungen ansammeln.
+        # Setup fails (e.g. ConfigEntryNotReady with a powered-off
+        # device): close the open socket. HA retries the setup later
+        # with a new client - without close() half-open connections
+        # would accumulate until then.
         await client.close()
         raise
 
@@ -60,12 +60,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Entlädt einen Config Entry und schließt die TCP-Verbindung sauber."""
+    """Unload a config entry and close the TCP connection cleanly."""
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
     coordinator: NeumannKHCoordinator | None = hass.data.get(DOMAIN, {}).get(entry.entry_id)
     if coordinator is not None:
-        # Verbindung immer schließen, unabhängig vom Plattform-Unload-Ergebnis.
+        # Always close the connection, regardless of the platform unload result.
         await coordinator.client.close()
         if unload_ok:
             hass.data[DOMAIN].pop(entry.entry_id, None)
@@ -74,5 +74,5 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Lädt den Entry neu, falls Optionen geändert werden."""
+    """Reload the entry if options are changed."""
     await hass.config_entries.async_reload(entry.entry_id)

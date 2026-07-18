@@ -1,409 +1,408 @@
 # Changelog
 
-Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
-Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
+**English** | [Deutsch](./CHANGELOG.de.md)
 
-## [1.15.2] – Qualitätssicherung
+All notable changes to this integration are documented here.
+The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
-### Hinzugefügt
-- Automatisierte Testsuite (33 Tests): Protokoll-Client gegen einen lokalen
-  Testserver (u. a. Zeitüberschreitungen, Verbindungsabbrüche, Abbruch-
-  Härtung aus 1.15.0), Poll-Koordination inkl. Regressionstests für den in
-  1.15.1 behobenen Fehler, Hilfsfunktionen und Export-Bereinigung
-- Kontinuierliche Integration über GitHub Actions: Home-Assistant- und
-  HACS-Validierung, Linter und Testlauf bei jedem Push und Pull Request
+## [1.16.0] – Localisation and test tooling
 
-### Geändert
-- Zwei stilistische Korrekturen im SSC-Client (durchgängige
-  Fehler-Ursachenkette, vereinfachtes Schließen der Verbindung) – kein
-  geändertes Verhalten
+### Added
+- Device simulator (`tools/ssc_simulator.py`) that reproduces the verified
+  firmware behaviour of the KH 120 II and KH 750, so the integration can be
+  exercised end to end without hardware
+- End-to-end tests that set the integration up against the simulator, plus
+  tests for the simulator itself (42 tests in total)
 
-### Behoben
-- Fehlende Abhängigkeitsdeklaration der `network`-Komponente im Manifest
-  ergänzt (wird für die Interface-Auswahl bei der manuellen Einrichtung
-  genutzt; funktionierte bisher nur indirekt über `zeroconf`)
+### Changed
+- User-facing messages follow the Home Assistant language instead of being
+  fixed German: error messages use translation keys, and notifications,
+  dynamic config flow labels, EQ container names and the unassigned output
+  state are available in German and English
+- Repository language is English throughout (comments, docstrings, log and
+  developer messages); the bilingual documentation stays as it is
+- Test suite targets Linux (WSL2 or CI) and Home Assistant 2026.7. The slow
+  end-to-end tests are deselected by default so the everyday run stays fast;
+  continuous integration always runs the full set
+
+### Removed
+- Three unused storage modules left over from an earlier refactor
+
+## [1.15.2] – Quality assurance
+
+### Added
+- Automated test suite (33 tests): protocol client against a local test server
+  (including timeouts, connection drops, and the cancellation hardening from
+  1.15.0), poll coordination including regression tests for the bug fixed in
+  1.15.1, helper functions and export sanitization
+- Continuous integration via GitHub Actions: Home Assistant and HACS
+  validation, linter and test run on every push and pull request
+
+### Changed
+- Two stylistic corrections in the SSC client (consistent error cause chain,
+  simplified connection close) – no change in behaviour
+
+### Fixed
+- Added the missing dependency declaration for the `network` component in the
+  manifest (used for interface selection during manual setup; previously it
+  only worked indirectly via `zeroconf`)
 
 ## [1.15.1] – Bugfix
 
-### Behoben
-- Geänderte Werte sprangen in der Oberfläche kurz nach der Änderung auf den
-  alten Stand zurück und blieben bis zu 5 Minuten falsch, obwohl der
-  Lautsprecher den neuen Wert längst übernommen hatte. Betroffen waren die
-  seltener abgefragten Einstellungen (u. a. Eingangsverstärkung,
-  Ausgangspegel, Bass/Mitten/Höhen, Eingangswahl, Gerätename, beim
-  Subwoofer zusätzlich Bass-Management, Kanal-B-Modus, Sub-Eingangspegel,
-  Low Cut, Digital Bypass sowie die EQ-Ein/Aus-Schalter). Bestand seit der
-  Poll-Aufteilung in 1.14.0
+### Fixed
+- Changed values would jump back to their previous state shortly after being
+  changed and stayed wrong for up to 5 minutes, even though the loudspeaker had
+  long since applied the new value. Affected were the less frequently polled
+  settings (among others input gain, output level, bass/mid/treble, input
+  select, device name, and on the subwoofer additionally bass management,
+  channel B mode, subwoofer input level, low cut, digital bypass as well as the
+  EQ on/off switches). Present since the poll split in 1.14.0
 
-## [1.15.0] – Robustheit & Datenschutz
+## [1.15.0] – Robustness & privacy
 
-### Behoben / Abgehärtet
-- Wird ein Poll-Zyklus durch das Zeitlimit abgebrochen, wird die
-  Verbindung nun sauber verworfen. Verhindert, dass eine verspätet
-  eintreffende Antwort einer späteren Abfrage zugeordnet wird und dort zu
-  falschen Werten oder einem fälschlich übersprungenen Pfad führt
-- Schreibaktionen (Pegel, Schalter, Auswahllisten, Gerätename, EQ,
-  Werksreset u. a.) melden einen nicht erreichbaren Lautsprecher jetzt als
-  klare Fehlermeldung, statt einen unbehandelten Fehler ins Protokoll zu
-  schreiben
-- Schlägt die erste Verbindung direkt nach dem Einrichten fehl (z. B. Gerät
-  ausgeschaltet), wird die offene Netzwerkverbindung geschlossen, bevor
-  Home Assistant den Einrichtungsversuch wiederholt
-- Nach einem fehlgeschlagenen Abruf der selten abgefragten Werte werden
-  diese beim nächsten erfolgreichen Zyklus sofort nachgeholt, statt bis zum
-  regulären Intervall (5 min) auf zwischengespeicherte Werte zu warten
+### Fixed / hardened
+- If a poll cycle is aborted by the time limit, the connection is now discarded
+  cleanly. This prevents a late-arriving response from being attributed to a
+  later request, where it would cause wrong values or a wrongly skipped path
+- Write actions (levels, switches, select lists, device name, EQ, factory reset
+  and others) now report an unreachable loudspeaker as a clear error message
+  instead of writing an unhandled error to the log
+- If the first connection right after setup fails (e.g. device switched off),
+  the open network connection is closed before Home Assistant retries the setup
+- After a failed fetch of the rarely polled values, these are now retrieved
+  immediately on the next successful cycle instead of waiting for the regular
+  interval (5 min) on cached values
 
-### Datenschutz
-- Das Einstellungs-Backup enthält die Seriennummer nur noch zensiert – in
-  der heruntergeladenen Datei und im Dateinamen (bislang nur bei der
-  Geräte-Diagnose so). Die interne Zuordnung bleibt unverändert
-- Dateinamen der Export-Dateien werden zusätzlich bereinigt, sodass sie den
-  Export-Ordner unter keinen Umständen verlassen können
+### Privacy
+- The settings backup now only contains a redacted serial number – in the
+  downloaded file and in the filename (previously this was only the case for
+  the device diagnostics). The internal association remains unchanged
+- Filenames of exported files are additionally sanitized so that they cannot
+  under any circumstances leave the export folder
 
-### Geändert
-- Manuelle Einrichtung: Die IPv6-Adresse darf jetzt die Interface-Angabe
-  direkt enthalten (z. B. `fe80::1%eth0`); ein separat gewähltes Interface
-  hat weiterhin Vorrang. Zusätzlich wird der Port auf einen gültigen
-  Bereich (1–65535) geprüft
+### Changed
+- Manual setup: the IPv6 address may now contain the interface directly (e.g.
+  `fe80::1%eth0`); a separately selected interface still takes precedence. In
+  addition, the port is checked against a valid range (1–65535)
 
-## [1.14.0] – Effizienz & Robustheit
+## [1.14.0] – Efficiency & robustness
 
-### Geändert
-- Poll-Zyklus in schnelle und langsame Pfade aufgeteilt: veränderliche Werte
-  werden weiterhin alle 30 s abgefragt, selten ändernde Werte (Geräte-
-  Identität, statische Konfiguration, Ausgangs-Bezeichnungen, EQ-Status) nur
-  noch alle 5 Minuten. Reduziert die Anzahl der Netzwerkabfragen pro Zyklus
-  deutlich (KH 750 DSP: 47 → 23 pro schnellem Zyklus) und schafft mehr Abstand
-  zum Zyklus-Zeitlimit. Zwischenzeitlich nicht neu abgefragte Werte bleiben
-  über einen Cache erhalten (keine kurzzeitig "unbekannten" Entities)
-- Eingangs-Interface (`audio/in/interface`) ist jetzt auch auf der KH 750 DSP
-  standardmäßig aktiviert (bestätigt schreibbar auf KH 120 II und KH 750 DSP)
+### Changed
+- Poll cycle split into fast and slow paths: changing values are still polled
+  every 30 s, while rarely changing values (device identity, static
+  configuration, output labels, EQ status) are only polled every 5 minutes.
+  This significantly reduces the number of network requests per cycle
+  (KH 750 DSP: 47 → 23 per fast cycle) and creates more headroom against the
+  cycle time limit. Values not re-polled in between are preserved via a cache
+  (no briefly "unknown" entities)
+- Input interface (`audio/in/interface`) is now enabled by default on the
+  KH 750 DSP as well (confirmed writable on KH 120 II and KH 750 DSP)
 
-### Behoben / Abgehärtet
-- Backup- und Discovery-Button sind gegen versehentliches Mehrfach-Auslösen
-  abgesichert (ein bereits laufender Vorgang wird nicht erneut gestartet)
-- Der Best-effort-Discovery-Durchlauf (`osc/schema`) hat jetzt ein
-  Gesamt-Zeitlimit von 30 s und verwendet bei Überschreitung das bis dahin
-  gesammelte Teilergebnis, statt unbegrenzt weiterzulaufen
+### Fixed / hardened
+- The backup and discovery buttons are protected against accidental
+  double-triggering (an already running operation is not started again)
+- The best-effort discovery run (`osc/schema`) now has an overall time limit of
+  30 s and, if exceeded, uses the partial result collected up to that point
+  instead of running indefinitely
 
-## [1.13.1] – Doku-Korrektur
+## [1.13.1] – Documentation fix
 
-### Geändert
-- README-Einleitung präzisiert: Die Geräte-Suche nutzt `zeroconf` über
-  Home Assistants eingebaute Komponente (kein manuelles pip-Install
-  nötig). Nur das SSC-Protokoll selbst kommt ohne jede
-  Drittanbieter-Bibliothek aus (eigener asyncio-Client)
+### Changed
+- Clarified the README introduction: device discovery uses `zeroconf` via Home
+  Assistant's built-in component (no manual pip install required). Only the SSC
+  protocol itself works without any third-party library (own asyncio client)
 
-## [1.13.0] – Bugfix Verbindungsabbruch, erweiterte Modell-Erkennung, Aufräumen
+## [1.13.0] – Bugfix for connection loss, extended model detection, cleanup
 
-### Behoben
-- Ist der Lautsprecher nicht erreichbar, fing der generische
-  Fehler-Handler pro Einzelpfad `SSCConnectionError`/`SSCTimeoutError` ab,
-  statt sie an die äußere Behandlung weiterzureichen. Das führte zu
-  Log-Flut und teils zum Überschreiten des Poll-Zyklus-Zeitlimits. Bricht
-  jetzt sofort nach dem ersten fehlgeschlagenen Verbindungsversuch ab
-- `storage.py` wieder zu einer Datei zusammengeführt - die drei
-  `.storage/`-Ausgabedateien (`neumann_kh_names`, `neumann_kh_backups`,
-  `neumann_kh_discovery`) bleiben davon unberührt
+### Fixed
+- If the loudspeaker was unreachable, the generic per-path error handler caught
+  `SSCConnectionError`/`SSCTimeoutError` instead of passing them on to the outer
+  handling. This led to log flooding and sometimes to exceeding the poll cycle
+  time limit. It now aborts immediately after the first failed connection attempt
+- `storage.py` merged back into a single file – the three `.storage/` output
+  files (`neumann_kh_names`, `neumann_kh_backups`, `neumann_kh_discovery`) are
+  unaffected by this
 
-### Geändert
-- `manifest.json`: `documentation`/`issue_tracker` zeigen jetzt auf das
-  eigene Repository
-- Modell-Erkennung erweitert: akzeptiert jetzt auch "KH 750 DSP" (nicht
-  nur "KH 750"), sowie "KH 80 DSP", "KH 150 AES67", "KH 120 II AES67" für
-  Logo-Helligkeit/Save-Settings (unverifiziert)
-- README: neuer Abschnitt zu unterstützten/nicht unterstützten Modellen;
-  IPv4-bezogene Anleitungstexte entfernt (Lautsprecher sind laut
-  offizieller Doku IPv6-only)
+### Changed
+- `manifest.json`: `documentation`/`issue_tracker` now point to this repository
+- Extended model detection: now also accepts "KH 750 DSP" (not just "KH 750"),
+  as well as "KH 80 DSP", "KH 150 AES67", "KH 120 II AES67" for logo
+  brightness/save settings (unverified)
+- README: new section on supported/unsupported models; IPv4-related instructions
+  removed (according to the official documentation the loudspeakers are
+  IPv6-only)
 
-## [1.12.0] – Bass Gain zu Diagnose, Speicher aufgeteilt
+## [1.12.0] – Bass gain moved to diagnostics, storage split
 
-### Geändert
-- `ui/bass_gain` (KH 120 II) von `select` (schreibbar) zu `sensor`
-  (Diagnose, nur lesend) verschoben - nicht schreibbar, analog zu
-  Mid Gain/Treble Gain
-- `storage.py` in drei separate Module aufgeteilt: `name_storage.py`,
-  `backup_storage.py`, `discovery_storage.py` - landen dadurch auch als
-  drei separate Dateien unter `.storage/`
+### Changed
+- `ui/bass_gain` (KH 120 II) moved from `select` (writable) to `sensor`
+  (diagnostic, read-only) – not writable, in line with mid gain/treble gain
+- `storage.py` split into three separate modules: `name_storage.py`,
+  `backup_storage.py`, `discovery_storage.py` – as a result they also end up as
+  three separate files under `.storage/`
 
-### Behoben
-- `translations/en.json` war nach der Bass-Gain-Umstellung kurzzeitig
-  nicht mit `strings.json` synchron
+### Fixed
+- `translations/en.json` was briefly out of sync with `strings.json` after the
+  bass gain change
 
-## [1.11.1] – EQ-Schalter auf Container-Ebene statt pro Band
+## [1.11.1] – EQ switches at container level instead of per band
 
-### Geändert
-- EQ-Ein/Aus-Schalter schalten jetzt alle Bänder eines Containers
-  gemeinsam (ein SSC-Schreibvorgang für das komplette `enabled`-Array),
-  statt einen Schalter pro einzelnem Band anzulegen - deutlich weniger
-  Entities (4 statt 32 bei der KH 120 II, 14 statt 61 bei der KH 750 DSP)
-- Alle EQ-Container-Namen beginnen jetzt einheitlich mit "EQ", damit sie
-  in der "Konfiguration"-Sektion alphabetisch zusammen gruppiert
-  erscheinen
-- EQ-Schalter und Reset-Buttons sind jetzt standardmäßig aktiviert
+### Changed
+- EQ on/off switches now switch all bands of a container together (one SSC write
+  for the entire `enabled` array) instead of creating one switch per individual
+  band – considerably fewer entities (4 instead of 32 on the KH 120 II, 14
+  instead of 61 on the KH 750 DSP)
+- All EQ container names now consistently start with "EQ" so that they appear
+  grouped together alphabetically in the "Configuration" section
+- EQ switches and reset buttons are now enabled by default
 
-## [1.11.0] – EQ-Unterstützung, Discovery-Anonymisierung
+## [1.11.0] – EQ support, discovery anonymization
 
-### Hinzugefügt
-- EQ-Unterstützung: pro EQ-Container ein Ein/Aus-Schalter (SSC-Array-
-  Teilschreiben) sowie ein "Auf neutral zurücksetzen"-Button (setzt Gain
-  und Boost aller Bänder auf 0 dB). Abgedeckt: `eq2`/`eq3` am
-  Hauptausgang, plus `eq1`/`eq2`/`eq3` an `out1`/`out2` bei der KH 750 DSP
-- README: neue Übersichtstabelle, welche Entity-Typen schreibbar sind
+### Added
+- EQ support: one on/off switch per EQ container (partial SSC array write) plus
+  a "Reset to neutral" button (sets gain and boost of all bands to 0 dB).
+  Covered: `eq2`/`eq3` on the main output, plus `eq1`/`eq2`/`eq3` on `out1`/`out2`
+  on the KH 750 DSP
+- README: new overview table showing which entity types are writable
 
-### Geändert
-- Seriennummer im Discovery-Export wird jetzt zensiert (nur die letzten
-  3 Zeichen bleiben sichtbar)
-- Backup und Discovery laufen ausschließlich manuell über die
-  jeweiligen Buttons
+### Changed
+- The serial number in the discovery export is now redacted (only the last 3
+  characters remain visible)
+- Backup and discovery only ever run manually via their respective buttons
 
-## [1.10.0] – Namensgedächtnis, Backup & Geräte-Discovery
+## [1.10.0] – Name memory, backup & device discovery
 
-### Hinzugefügt
-- Neuer dauerhafter Speicher (`storage.py`, ein Eintrag pro
-  Seriennummer, unabhängig von Config Entries)
-- Namensgedächtnis: zuletzt verwendeter Name pro Seriennummer wird beim
-  erneuten Einrichten über die automatische Suche vorausgefüllt
-  (zweistufiger Scan-Flow: erst Gerät wählen, dann Name bestätigen)
-- "🔄 Erneut suchen" als Eintrag in der Scan-Auswahlliste
-- "Backup erstellen"-Button: liest alle bekannten Werte (ohne
-  Live-Messwerte) und speichert sie dauerhaft sowie als JSON-Datei
-- "Geräte-Discovery ausführen"-Button (Diagnose): kombiniert bekannte
-  Pfade mit einem Best-effort-Versuch über die optionalen SSC-Methoden
-  `osc/schema` + `osc/limits`
+### Added
+- New persistent store (`storage.py`, one entry per serial number, independent
+  of config entries)
+- Name memory: the most recently used name per serial number is pre-filled when
+  setting up again via automatic discovery (two-stage scan flow: first select
+  the device, then confirm the name)
+- "🔄 Search again" as an entry in the scan selection list
+- "Create backup" button: reads all known values (without live measurements) and
+  stores them persistently as well as as a JSON file
+- "Run device discovery" button (diagnostic): combines known paths with a
+  best-effort attempt via the optional SSC methods `osc/schema` + `osc/limits`
 
-## [1.9.0] – Nicht schreibbare Werte korrigiert, Bugfixes
+## [1.9.0] – Non-writable values corrected, bugfixes
 
-### Geändert (KH 120 II, nicht schreibbar → jetzt Lesewert)
-- Input Gain, Input Select, Mid Gain, Output Level (SPL), Treble Gain
-- "Einstellungen speichern"-Button standardmäßig deaktiviert (nicht
-  funktional)
+### Changed (KH 120 II, not writable → now read-only)
+- Input gain, input select, mid gain, output level (SPL), treble gain
+- "Save settings" button disabled by default (not functional)
 
-### Geändert (KH 750 DSP, nicht schreibbar → jetzt Lesewert)
-- Bass Management, Channel B Input Mode, Subwoofer Input Gain,
-  Subwoofer Low-Cut, Subwoofer Output Level, Subwoofer Phase,
-  Subwoofer Phase Inversion
+### Changed (KH 750 DSP, not writable → now read-only)
+- Bass management, channel B input mode, subwoofer input gain, subwoofer low
+  cut, subwoofer output level, subwoofer phase, subwoofer phase inversion
 
-### Behoben
-- Ausgang-1/2-Stummschaltung (`out1_mute`/`out2_mute`, KH 750 DSP) fehlte
-  komplett - wieder ergänzt
-- `settle_time` in `ssc_client.py` nutzt jetzt die vorgesehene Konstante
-  statt eines fest verdrahteten Werts
-- Ungenutzte Konstante entfernt
+### Fixed
+- Output 1/2 mute (`out1_mute`/`out2_mute`, KH 750 DSP) was missing entirely –
+  added back
+- `settle_time` in `ssc_client.py` now uses the intended constant instead of a
+  hard-wired value
+- Removed an unused constant
 
-### Aufgeräumt
-- Code-Kommentare durchgängig gekürzt (kurz und fachlich)
+### Cleaned up
+- Code comments shortened consistently (concise and technical)
 
-## [1.8.1] – Bugfix: Geräte-Suche fand keine Lautsprecher mehr
+## [1.8.1] – Bugfix: device discovery no longer found any loudspeakers
 
-### Behoben
-- `discovery.py`: Parameternamen des mDNS-Callbacks `_on_change()`
-  korrigiert (`zeroconf`, `service_type` - python-zeroconf ruft diesen
-  Handler mit benannten Argumenten auf, nicht positional; eine
-  Umbenennung führte zu `TypeError` und einer leeren Geräteliste)
+### Fixed
+- `discovery.py`: corrected the parameter names of the mDNS callback
+  `_on_change()` (`zeroconf`, `service_type` – python-zeroconf calls this handler
+  with named arguments, not positionally; a rename led to a `TypeError` and an
+  empty device list)
 
-## [1.8.0] – Reaktivität & Robustheit
+## [1.8.0] – Responsiveness & robustness
 
-### Hinzugefügt
-- Priority-Pfad für Nutzeraktionen: Ein "set" (Schalter, Auswahl, Regler)
-  drängelt sich jetzt zwischen zwei Einzelabfragen eines laufenden
-  Poll-Zyklus, statt bis zu ~25s auf dessen Ende zu warten
+### Added
+- Priority path for user actions: a "set" (switch, select, slider) now cuts in
+  between two individual queries of a running poll cycle instead of waiting up
+  to ~25s for it to finish
 
-### Geändert (Robustheit)
-- Bestätigten Wert HA-idiomatisch einspielen: `_apply_confirmed_value()`
-  nutzt `async_set_updated_data()` des Coordinators statt
-  `coordinator.data` direkt zu mutieren
-- Defensive Zahlkonvertierung: `number`-/`sensor`-Entities fangen
-  nicht-numerische Gerätewerte ab (zeigen "unbekannt" statt eine
-  Exception auszulösen)
-- Verbindung wird beim Entladen immer geschlossen, auch wenn eine
-  Plattform sich nicht sauber entladen lässt
-- Korrekte Link-Local-Erkennung für den gesamten IPv6-Bereich fe80::/10
-  (RFC 4291), nicht nur exaktes "fe80"-Präfix
+### Changed (robustness)
+- Apply the confirmed value in an HA-idiomatic way: `_apply_confirmed_value()`
+  uses the coordinator's `async_set_updated_data()` instead of mutating
+  `coordinator.data` directly
+- Defensive numeric conversion: `number`/`sensor` entities catch non-numeric
+  device values (showing "unknown" instead of raising an exception)
+- The connection is always closed on unload, even if a platform fails to unload
+  cleanly
+- Correct link-local detection for the entire IPv6 range fe80::/10 (RFC 4291),
+  not just an exact "fe80" prefix
 
-## [1.7.0] – Bereits verbundene Lautsprecher in der Suche kennzeichnen
+## [1.7.0] – Mark already connected loudspeakers in the search
 
-### Hinzugefügt
-- Beim automatischen Netzwerk-Scan werden bereits eingerichtete
-  Lautsprecher in der Auswahlliste mit "✓ bereits verbunden"
-  gekennzeichnet
+### Added
+- During the automatic network scan, loudspeakers that are already set up are
+  marked with "✓ already connected" in the selection list
 
-## [1.6.3] – Bugfix: binary_sensor-Setup schlug fehl
+## [1.6.3] – Bugfix: binary_sensor setup failed
 
-### Behoben
-- `binary_sensor.py`: Zwei Entities übergaben `entity_category` als
-  reinen String statt des von Home Assistant erwarteten
-  `EntityCategory`-Enums - neuere HA-Versionen lehnen das ab
+### Fixed
+- `binary_sensor.py`: two entities passed `entity_category` as a plain string
+  instead of the `EntityCategory` enum expected by Home Assistant – newer HA
+  versions reject this
 
-## [1.6.2] – Schalter/Auswahl springen nicht mehr kurz zurück
+## [1.6.2] – Switches/selects no longer briefly jump back
 
-### Behoben
-- Race Condition behoben: Nach einem "set" wird jetzt direkt der vom
-  Gerät in derselben Antwort bereits bestätigte Wert übernommen, statt
-  einen kompletten Poll-Zyklus anzustoßen. Neue gemeinsame Methode
+### Fixed
+- Fixed a race condition: after a "set", the value already confirmed by the
+  device in the same response is now applied directly, instead of triggering a
+  complete poll cycle. New shared method
   `NeumannKHEntity._apply_confirmed_value()`
 
-## [1.6.1] – Auto-Standby-Korrektur: modellspezifisch, nicht universell
+## [1.6.1] – Auto standby correction: model-specific, not universal
 
-### Behoben
-- Auto-Standby ist jetzt modellabhängig: Bei Nicht-Subwoofer-Modellen
-  (KH 120 II etc.) ein schreibbarer `switch`, bei der KH 750 DSP bleibt
-  es ein reiner `binary_sensor` (dort nicht schreibbar)
+### Fixed
+- Auto standby is now model-dependent: on non-subwoofer models (KH 120 II etc.)
+  a writable `switch`, on the KH 750 DSP it remains a pure `binary_sensor` (not
+  writable there)
 
-## [1.6.0] – Korrigierte Wertebereiche und neue Entities
+## [1.6.0] – Corrected value ranges and new entities
 
-### Korrigiert (Wertebereiche)
-- Verzögerung: KH 120 II 0-5760 Samples, KH 750 DSP (Haupt/out1/out2)
-  0-1000 Samples - jetzt modellabhängig
-- Standby-Zeit: 1-240 min
-- Standby-Schwellwert: -80 bis -55 dBu
-- Logo-Helligkeit: 0-125 %
-- Subwoofer-Eingangsverstärkung: -12 bis +2 dB
-- Subwoofer-Low-Cut: -12 bis 0 dB
+### Corrected (value ranges)
+- Delay: KH 120 II 0-5760 samples, KH 750 DSP (main/out1/out2) 0-1000 samples –
+  now model-dependent
+- Standby time: 1-240 min
+- Standby threshold: -80 to -55 dBu
+- Logo brightness: 0-125 %
+- Subwoofer input gain: -12 to +2 dB
+- Subwoofer low cut: -12 to 0 dB
 
-### Geändert (Number → Select, da feste Stufen statt kontinuierlichem Bereich)
-- Bass/Mitten/Höhen (KH 120 II): jetzt `select` mit festen Stufen
-- Subwoofer-Phase: jetzt `select` (0°/-45°/-90°/-135°)
-- Subwoofer-Phaseninversion: jetzt `select` ("0"/"-180")
+### Changed (number → select, as these are fixed steps rather than a continuous range)
+- Bass/mid/treble (KH 120 II): now `select` with fixed steps
+- Subwoofer phase: now `select` (0°/-45°/-90°/-135°)
+- Subwoofer phase inversion: now `select` ("0"/"-180")
 
-### Hinzugefügt
-- Eingangsverstärkung (Nicht-Subwoofer) als schreibbares `number`
-- Ausgangspegel SPL (Nicht-Subwoofer) als `select`
-- Eingangsauswahl und Eingangs-Interface als `select`
-- Steuerungsmodus (`select`, NETWORK/LOCAL) - standardmäßig deaktiviert
-  (Sicherheits-Ausnahme)
-- Gerätename (`text`, max. 52 Zeichen) - neue Plattform `text.py`
-- "Werkseinstellungen wiederherstellen"-Button mit
-  Zwei-Schritt-Sicherheitsabfrage
-- Digitaler Bypass (`binary_sensor`, nur Subwoofer)
-- Ausgangsbezeichnung Hauptausgang (`sensor`, nur Subwoofer)
-- "UNKNOWN" bei Ausgang-1/2-Lautsprecher wird als "Nicht zugewiesen"
-  angezeigt
+### Added
+- Input gain (non-subwoofer) as a writable `number`
+- Output level SPL (non-subwoofer) as a `select`
+- Input select and input interface as `select`
+- Control mode (`select`, NETWORK/LOCAL) – disabled by default (safety exception)
+- Device name (`text`, max. 52 characters) – new platform `text.py`
+- "Restore factory defaults" button with two-step safety confirmation
+- Digital bypass (`binary_sensor`, subwoofer only)
+- Output label for the main output (`sensor`, subwoofer only)
+- "UNKNOWN" for output 1/2 loudspeaker is displayed as "Not assigned"
 
-### Geändert (Verhalten)
-- "Identifizieren" ist jetzt ein Schalter (An/Aus) statt eines
-  Auto-Stopp-Buttons
-- "Auto-Standby" war in dieser Version kurzzeitig nur ein Lesewert
-  (in 1.6.1 korrigiert, siehe oben)
-- Alle KH-120-II-Entities sind jetzt standardmäßig aktiviert, außer
-  "Dimm" und "Steuerungsmodus"
+### Changed (behaviour)
+- "Identify" is now a switch (on/off) instead of an auto-stop button
+- "Auto standby" was briefly read-only in this version (corrected in 1.6.1, see
+  above)
+- All KH 120 II entities are now enabled by default, except "Dimm" and "Control
+  mode"
 
-### Code-Härtung
-- Gemeinsame Hilfsfunktionen (`_util.py`) statt doppelter
-  Implementierung
-- `ssc_client.py`: `asyncio.LimitOverrunError` wird abgefangen
-- `coordinator.py`: Fehler bei einem Poll-Pfad reißt nicht mehr den
-  gesamten Zyklus mit; Gesamt-Zeitlimit pro Poll-Zyklus ergänzt
-- `config_flow.py`: leerer Name auch beim manuellen Setup abgelehnt
-- Firmware-Version wird als `sw_version` im Geräte-Info angezeigt
+### Code hardening
+- Shared helper functions (`_util.py`) instead of duplicated implementations
+- `ssc_client.py`: `asyncio.LimitOverrunError` is caught
+- `coordinator.py`: an error on one poll path no longer brings down the entire
+  cycle; overall time limit per poll cycle added
+- `config_flow.py`: an empty name is now also rejected during manual setup
+- The firmware version is shown as `sw_version` in the device info
 
-## [1.5.0] – Subwoofer-Support (KH 750 DSP) und Code-Härtung
+## [1.5.0] – Subwoofer support (KH 750 DSP) and code hardening
 
-### Hinzugefügt (nur bei erkanntem Subwoofer)
-- Zwei zusätzliche Ausgangskanäle `out1`/`out2`: Pegel, Verzögerung,
-  Mute, sowie Bezeichnung und zugewiesener Lautsprechertyp (Diagnose)
-- Subwoofer-Kalibrierung: Eingangsverstärkung, Low-Cut, Phase,
-  Phaseninversion
-- Subwoofer-Ausgangspegel als feste Auswahl 94/100/108/114 dB SPL
-- Gerätetemperatur (`device_class: temperature`)
-- Ausgangspegel-Metering und Ausgang-Clip-Anzeige
-- Bass-Management-Modus, Kanal-B-Eingangsmodus (Diagnose)
+### Added (only on a detected subwoofer)
+- Two additional output channels `out1`/`out2`: level, delay, mute, as well as
+  label and assigned loudspeaker type (diagnostic)
+- Subwoofer calibration: input gain, low cut, phase, phase inversion
+- Subwoofer output level as a fixed selection of 94/100/108/114 dB SPL
+- Device temperature (`device_class: temperature`)
+- Output level metering and output clip indicator
+- Bass management mode, channel B input mode (diagnostic)
 
-### Geändert (Code-Härtung, alle Modelle)
-- Gemeinsame Hilfsfunktionen (`_util.py`) statt doppelter Implementierung
-- `ssc_client.py`: Schutz gegen unerwartet große/nie terminierte
-  Geräteantworten
-- `coordinator.py`: Fehler bei einem einzelnen Poll-Pfad reißt nicht
-  mehr den gesamten Zyklus mit; Gesamt-Zeitlimit ergänzt
-- `config_flow.py`: leerer Name auch beim manuellen Setup abgelehnt
-- Firmware-Version wird als `sw_version` im Geräte-Info angezeigt
+### Changed (code hardening, all models)
+- Shared helper functions (`_util.py`) instead of duplicated implementations
+- `ssc_client.py`: protection against unexpectedly large/never-terminated device
+  responses
+- `coordinator.py`: an error on a single poll path no longer brings down the
+  entire cycle; overall time limit added
+- `config_flow.py`: an empty name is now also rejected during manual setup
+- The firmware version is shown as `sw_version` in the device info
 
-## [1.4.1] – Eigenes Icon/Logo
+## [1.4.1] – Custom icon/logo
 
-### Hinzugefügt
-- Eigenständiges Marken-Design (`brand/`-Ordner): dunkles Anthrazit,
-  stilisiertes Lautsprecher-Chassis-Symbol, Schriftzug
-  "NEUMANN CONNECT". Voraussetzung: Home Assistant 2026.3 oder neuer
+### Added
+- Independent brand design (`brand/` folder): dark anthracite, stylized
+  loudspeaker chassis symbol, "NEUMANN CONNECT" wordmark. Requires Home
+  Assistant 2026.3 or newer
 
-## [1.4.0] – Clip-Anzeige, Auto-Standby, Identify, Klangregler, Info-Sensoren
+## [1.4.0] – Clip indicator, auto standby, identify, tone controls, info sensors
 
-### Hinzugefügt
-- Clip-Anzeige (`binary_sensor`) - zeigt an, wenn mindestens ein
-  Eingangskanal übersteuert
-- Auto-Standby - Ein/Aus-Schalter, Zeit- und Schwellwert-Regler sowie
-  ein Countdown-Sensor
-- "Gerät identifizieren"-Button - lässt das Logo/die LEDs kurz blinken
-- Klangregler Bass/Mitten/Höhen als Number-Entities
-- Info-/Diagnose-Sensoren: Gerätename, Hardware-Version, aktueller
-  Eingang, Eingangs-Interface-Typ, Steuerungsmodus
-- Warnungs-Sensor (`binary_sensor`)
+### Added
+- Clip indicator (`binary_sensor`) – shows when at least one input channel is
+  clipping
+- Auto standby – on/off switch, time and threshold sliders as well as a
+  countdown sensor
+- "Identify device" button – makes the logo/LEDs flash briefly
+- Tone controls bass/mid/treble as number entities
+- Info/diagnostic sensors: device name, hardware version, current input, input
+  interface type, control mode
+- Warning sensor (`binary_sensor`)
 
-## [1.3.2] – Entity-Standardwerte angepasst
+## [1.3.2] – Entity defaults adjusted
 
-### Geändert
-- "Dimm" ist jetzt standardmäßig deaktiviert (existiert auf der
-  KH 120 II nicht)
-- "Eingangspegel (live)" ist jetzt standardmäßig aktiviert
+### Changed
+- "Dimm" is now disabled by default (does not exist on the KH 120 II)
+- "Input level (live)" is now enabled by default
 
-## [1.3.1] – Fehlerbehandlung verbessert
+## [1.3.1] – Improved error handling
 
-### Geändert
-- Coordinator fragt jetzt jeden Wert einzeln ab (ein Blattpfad pro
-  SSC-Nachricht) statt containerweise
-- Geräte-Identität wird nicht mehr bei jedem Poll-Zyklus wiederholt
-  abgefragt
-- Differenzierte Fehlerbehandlung: Ein genereller Verbindungsfehler
-  lässt den ganzen Poll-Zyklus fehlschlagen; lehnt das Gerät nur einen
-  einzelnen Pfad ab, wird nur dieser übersprungen
+### Changed
+- The coordinator now polls each value individually (one leaf path per SSC
+  message) instead of per container
+- The device identity is no longer re-queried on every poll cycle
+- Differentiated error handling: a general connection error fails the entire
+  poll cycle; if the device only rejects a single path, only that one is skipped
 
-## [1.3.0] – SSC-Pfade korrigiert
+## [1.3.0] – SSC paths corrected
 
-### Geändert
-- Coordinator fragt Werte containerweise ab (`device`, `ui`, `audio`,
-  `m` als vier getrennte SSC-Nachrichten) statt in einer Sammelnachricht
-- Korrigierte SSC-Pfade: Eingangsverstärkung (`ui/input_gain`),
-  Phasenumkehr (`audio/out/phaseinversion`), Live-Pegelmessung
-  (`m/in/level`, liefert eine Liste von Werten statt Einzelwert)
-- `input_level_meter`-Sensor zeigt bei Listenwerten den lautesten Kanal an
+### Changed
+- The coordinator polls values per container (`device`, `ui`, `audio`, `m` as
+  four separate SSC messages) instead of in a single combined message
+- Corrected SSC paths: input gain (`ui/input_gain`), phase inversion
+  (`audio/out/phaseinversion`), live level metering (`m/in/level`, which returns
+  a list of values rather than a single value)
+- The `input_level_meter` sensor shows the loudest channel for list values
 
-### Entfernt
-- `solo`-Switch (`audio/out/solo`) - vom Modell nicht unterstützt
+### Removed
+- `solo` switch (`audio/out/solo`) – not supported by the model
 
-### Hinzugefügt
-- Neue Exception `SSCDeviceError`: erkennt vom Gerät abgelehnte
-  Anfragen und wandelt sie in klare Fehlermeldungen um
+### Added
+- New exception `SSCDeviceError`: detects requests rejected by the device and
+  converts them into clear error messages
 
-## [1.2.0] – Aktive Netzwerksuche
+## [1.2.0] – Active network discovery
 
-### Hinzugefügt
-- Einstiegsmenü im Config Flow: "Automatisch im Netzwerk suchen" oder
-  "Manuell eingeben"
-- Aktiver mDNS/Zeroconf-Scan über Home Assistants bestehende
-  Zeroconf-Instanz, Ergebnis als Auswahlliste
-- Bei automatisch gefundenen Geräten wird die IPv6-Scope-ID automatisch
-  übernommen
+### Added
+- Entry menu in the config flow: "Search the network automatically" or "Enter
+  manually"
+- Active mDNS/Zeroconf scan via Home Assistant's existing Zeroconf instance,
+  results shown as a selection list
+- For automatically discovered devices, the IPv6 scope ID is applied
+  automatically
 
-## [1.1.0] – Interface-Auswahl als Dropdown
+## [1.1.0] – Interface selection as a dropdown
 
-### Geändert
-- Das Netzwerk-Interface-Feld im manuellen Setup ist jetzt ein Dropdown,
-  mit Freitext-Fallback für nicht gelistete Interfaces
+### Changed
+- The network interface field in manual setup is now a dropdown, with a
+  free-text fallback for interfaces that are not listed
 
-## [1.0.1] – Formular-Werte bleiben bei Fehlern erhalten
+## [1.0.1] – Form values are retained on errors
 
-### Behoben
-- Der Config Flow zeigte bei einem Fehler ein vollständig leeres
-  Formular - bereits eingegebene Werte gingen verloren. Jetzt werden
-  zuletzt eingegebene Werte als editierbare Vorschläge übernommen
+### Fixed
+- On an error the config flow showed a completely empty form – values that had
+  already been entered were lost. The most recently entered values are now
+  carried over as editable suggestions
 
-## [1.0.0] – Erste Version
+## [1.0.0] – Initial release
 
-### Hinzugefügt
-- Eigenständiger asyncio-SSC-Client (TCP Port 45, JSON-Protokoll)
-- Config Flow (manuelle Eingabe: Name, IP-Adresse, Interface, Port)
-- `DataUpdateCoordinator` mit 30-Sekunden-Poll-Intervall
-- Entities: Ausgangspegel, Dimm, Verzögerung, Logo-Helligkeit (`number`);
-  Stummschaltung, Phasenumkehr (`switch`); Eingangsverstärkung,
-  Live-Eingangspegel (`sensor`); Einstellungen speichern (`button`)
-- Modellerkennung: Logo-Helligkeit/Einstellungen-speichern nur bei
-  KH 80/150/120 II, nicht bei KH 750 DSP
+### Added
+- Self-contained asyncio SSC client (TCP port 45, JSON protocol)
+- Config flow (manual entry: name, IP address, interface, port)
+- `DataUpdateCoordinator` with a 30-second poll interval
+- Entities: output level, dimm, delay, logo brightness (`number`); mute, phase
+  inversion (`switch`); input gain, live input level (`sensor`); save settings
+  (`button`)
+- Model detection: logo brightness/save settings only on KH 80/150/120 II, not
+  on the KH 750 DSP

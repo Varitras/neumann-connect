@@ -1,8 +1,8 @@
-"""Sensor-Entities: Messwerte (dB) sowie reine Info-/Diagnose-Sensoren.
+"""Sensor entities: measured values (dB) plus pure info/diagnostic sensors.
 
-Info-Sensoren liefern reine Textwerte und sind als `entity_category:
-diagnostic` markiert. Nicht schreibbare Werte (per Test bestätigt) landen
-hier statt in number.py/select.py.
+Info sensors return plain text values and are marked as `entity_category:
+diagnostic`. Non-writable values (confirmed by testing) end up here instead
+of in number.py/select.py.
 """
 
 from __future__ import annotations
@@ -58,16 +58,16 @@ _LOGGER = logging.getLogger(__name__)
 
 @dataclass(frozen=True, kw_only=True)
 class NeumannKHSensorDescription(SensorEntityDescription):
-    """Beschreibung einer Sensor-Entity inkl. SSC-Pfad.
+    """Description of a sensor entity including the SSC path.
 
-    numeric: Zahl (float-Konvertierung) oder reiner Text.
-    kelvin_to_celsius: Rohwert ist Kelvin, wird nach Celsius umgerechnet.
+    numeric: Number (float conversion) or plain text.
+    kelvin_to_celsius: Raw value is Kelvin, converted to Celsius.
     """
 
     ssc_path: tuple[str, ...] = ()
     numeric: bool = True
     kelvin_to_celsius: bool = False
-    translate_unknown: bool = False  # "UNKNOWN" -> "Nicht zugewiesen"
+    translate_unknown: bool = False  # "UNKNOWN" -> localized "Not assigned"
 
 
 COMMON_SENSOR_DESCRIPTIONS: tuple[NeumannKHSensorDescription, ...] = (
@@ -107,7 +107,7 @@ COMMON_SENSOR_DESCRIPTIONS: tuple[NeumannKHSensorDescription, ...] = (
     ),
 )
 
-# Nur bei Nicht-Subwoofer-Modellen. Per Test bestätigt nicht schreibbar.
+# Only on non-subwoofer models. Confirmed not writable by testing.
 NON_SUBWOOFER_SENSOR_DESCRIPTIONS: tuple[NeumannKHSensorDescription, ...] = (
     NeumannKHSensorDescription(
         key="input_gain",
@@ -159,7 +159,7 @@ NON_SUBWOOFER_SENSOR_DESCRIPTIONS: tuple[NeumannKHSensorDescription, ...] = (
     ),
 )
 
-# Nur bei erkanntem Subwoofer (siehe MODELS_WITH_SUBWOOFER_FEATURES)
+# Only on a detected subwoofer (see MODELS_WITH_SUBWOOFER_FEATURES)
 SUBWOOFER_SENSOR_DESCRIPTIONS: tuple[NeumannKHSensorDescription, ...] = (
     NeumannKHSensorDescription(
         key="device_temperature",
@@ -177,7 +177,7 @@ SUBWOOFER_SENSOR_DESCRIPTIONS: tuple[NeumannKHSensorDescription, ...] = (
         icon="mdi:gauge",
         native_unit_of_measurement="dB",
         state_class=SensorStateClass.MEASUREMENT,
-        entity_registry_enabled_default=False,  # hochfrequente Live-Werte, standardmäßig aus
+        entity_registry_enabled_default=False,  # high-frequency live values, off by default
         ssc_path=PATH_METER_OUTPUT_LEVEL,
     ),
     NeumannKHSensorDescription(
@@ -226,7 +226,7 @@ SUBWOOFER_SENSOR_DESCRIPTIONS: tuple[NeumannKHSensorDescription, ...] = (
         ssc_path=PATH_OUTPUT_LABEL,
         numeric=False,
     ),
-    # Per Test bestätigt nicht schreibbar - reine Lesewerte.
+    # Confirmed not writable by testing - read-only values.
     NeumannKHSensorDescription(
         key="bass_management",
         translation_key="bass_management",
@@ -289,7 +289,7 @@ SUBWOOFER_SENSOR_DESCRIPTIONS: tuple[NeumannKHSensorDescription, ...] = (
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    """Legt die Sensor-Entities für einen Lautsprecher an."""
+    """Sets up the sensor entities for a speaker."""
     coordinator: NeumannKHCoordinator = hass.data[DOMAIN][entry.entry_id]
 
     descriptions = list(COMMON_SENSOR_DESCRIPTIONS)
@@ -304,7 +304,7 @@ async def async_setup_entry(
 
 
 class NeumannKHSensor(NeumannKHEntity, SensorEntity):
-    """Nur lesbarer SSC-Wert als Sensor (numerisch, Text oder Temperatur)."""
+    """Read-only SSC value as a sensor (numeric, text or temperature)."""
 
     entity_description: NeumannKHSensorDescription
 
@@ -325,22 +325,23 @@ class NeumannKHSensor(NeumannKHEntity, SensorEntity):
             return None
         if not self.entity_description.numeric:
             if self.entity_description.translate_unknown and value == "UNKNOWN":
-                return "Nicht zugewiesen"
+                de = (self.hass.config.language or "en").startswith("de")
+                return "Nicht zugewiesen" if de else "Not assigned"
             return value
 
-        # Live-Pegel liefern eine LISTE (ein Wert pro Kanal) - lautesten Kanal anzeigen.
+        # Live levels return a LIST (one value per channel) - show the loudest channel.
         if isinstance(value, list):
             numeric_items = [v for v in value if isinstance(v, (int, float))]
             if not numeric_items:
                 return None
             value = max(numeric_items)
 
-        # Defensive Konvertierung: nicht-numerischer Wert -> "unbekannt" statt Exception.
+        # Defensive conversion: non-numeric value -> "unknown" instead of an exception.
         try:
             numeric_value = float(value)
         except (ValueError, TypeError):
             _LOGGER.debug(
-                "Nicht-numerischer Wert für %s: %r - zeige 'unbekannt'",
+                "Non-numeric value for %s: %r - showing 'unknown'",
                 self.entity_description.key,
                 value,
             )
