@@ -272,7 +272,9 @@ serial number:
 - **`.storage/neumann_kh_names`**: the most recently used name. When setting up
   again via automatic discovery, the name field is pre-filled from this.
 - **`.storage/neumann_kh_backups`**: the result of the `Create backup` button –
-  all known values except live measurements. The notification links to a
+  all known values except live measurements, including the rarely polled
+  settings and the full EQ of every container (gain, boost, frequency, Q and
+  filter type per band). The notification links to a
   download served by an authenticated endpoint; the link is signed and valid
   for one hour. Nothing is written to disk.
 - **`.storage/neumann_kh_discovery`**: the result of the `Run device discovery`

@@ -80,6 +80,26 @@ SUBWOOFER_EQ_CONTAINERS: tuple[EQContainer, ...] = (
 )
 
 
+# Leaves every EQ container exposes, each an array with one entry per band.
+# Verified by reading them off a KH 120 II (firmware 1_7_3); "bypass" and
+# "order" do not exist and answer 404.
+EQ_LEAVES = ("enabled", "gain", "boost", "frequency", "q", "type")
+
+
+def eq_leaf_paths(model: str | None) -> tuple[tuple[str, ...], ...]:
+    """All EQ paths of a model, for a complete settings snapshot.
+
+    The entities only expose "enabled" (per container) and reset gain/boost,
+    but a backup has to carry frequency, Q and filter type as well - without
+    them a restored EQ would not be the one that was saved.
+    """
+    return tuple(
+        container.path + (leaf,)
+        for container in eq_containers_for_model(model)
+        for leaf in EQ_LEAVES
+    )
+
+
 def eq_containers_for_model(model: str | None) -> tuple[EQContainer, ...]:
     """Returns the matching EQ containers for the given model."""
     if model in MODELS_WITH_SUBWOOFER_FEATURES:

@@ -16,8 +16,11 @@ from .const import (
     PATH_METER_OUTPUT_LEVEL,
     PATH_STANDBY_COUNTDOWN,
     POLL_PATHS,
+    SLOW_POLL_PATHS,
     SUBWOOFER_POLL_PATHS,
+    SUBWOOFER_SLOW_POLL_PATHS,
 )
+from .eq_containers import eq_leaf_paths
 from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeoutError
 
 # Live readings: intentionally not included in the backup.
@@ -30,14 +33,26 @@ _EXCLUDED_PATHS = {
 }
 
 
+def known_paths_for_model(model: str | None) -> list[tuple[str, ...]]:
+    """Every path this integration knows about for a model.
+
+    The poll cycle splits these into fast, slow and EQ paths for timing
+    reasons; a snapshot has no such reason and needs all of them. Earlier
+    versions exported only the fast paths, so the rear-panel switches, the
+    device name and the entire EQ were silently missing - while the README
+    promised "all known values".
+    """
+    paths = list(POLL_PATHS) + list(SLOW_POLL_PATHS)
+    if model in MODELS_WITH_SUBWOOFER_FEATURES:
+        paths += list(SUBWOOFER_POLL_PATHS) + list(SUBWOOFER_SLOW_POLL_PATHS)
+    paths += list(eq_leaf_paths(model))
+    return paths
+
+
 async def async_build_backup(client: SSCClient, model: str | None) -> dict[str, Any]:
     """Query all known values (except live readings) and return a JSON dict."""
-    paths = list(POLL_PATHS)
-    if model in MODELS_WITH_SUBWOOFER_FEATURES:
-        paths += list(SUBWOOFER_POLL_PATHS)
-
     result: dict[str, Any] = {}
-    for path in paths:
+    for path in known_paths_for_model(model):
         if path in _EXCLUDED_PATHS:
             continue
         try:

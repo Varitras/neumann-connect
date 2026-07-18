@@ -1,8 +1,9 @@
 """Full device discovery for backup/diagnostics with unknown devices.
 
 Two combined methods:
-1. Guaranteed part: query all paths known to us (POLL_PATHS + SUBWOOFER_POLL_PATHS)
-   individually - always works, but only returns already known values.
+1. Guaranteed part: query every path known to us for the model (fast, slow and
+   EQ paths, see backup_export.known_paths_for_model) individually - always
+   works, but only returns already known values.
 2. Best-effort part: `osc/schema` (determine command tree) + `osc/limits` (type/
    range/options/writeable per endpoint) - per the SSC specification OPTIONAL
    methods that not every firmware supports. If this part fails, it simply
@@ -16,7 +17,7 @@ import logging
 from typing import Any
 
 from ._util import build_nested, deep_merge, extract
-from .const import POLL_PATHS, SUBWOOFER_POLL_PATHS
+from .backup_export import known_paths_for_model
 from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeoutError
 
 _LOGGER = logging.getLogger(__name__)
@@ -30,19 +31,22 @@ _MAX_SCHEMA_DEPTH = 10
 _SCHEMA_DISCOVERY_TIMEOUT = 30.0
 
 
-async def async_discover_all_values(client: SSCClient) -> dict[str, Any]:
+async def async_discover_all_values(
+    client: SSCClient, model: str | None = None
+) -> dict[str, Any]:
     """Run both discovery methods and return a merged result."""
     return {
-        "known_paths": await _async_query_known_paths(client),
+        "known_paths": await _async_query_known_paths(client, model),
         "schema_limits": await _async_discover_via_schema(client),
     }
 
 
-async def _async_query_known_paths(client: SSCClient) -> dict[str, Any]:
+async def _async_query_known_paths(
+    client: SSCClient, model: str | None
+) -> dict[str, Any]:
     """Query all known paths individually (guaranteed part, like coordinator.py)."""
     result: dict[str, Any] = {}
-    all_paths = list(POLL_PATHS) + list(SUBWOOFER_POLL_PATHS)
-    for path in all_paths:
+    for path in known_paths_for_model(model):
         try:
             value = await client.get(path)
         except SSCDeviceError:

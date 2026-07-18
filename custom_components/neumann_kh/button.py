@@ -311,7 +311,9 @@ class NeumannKHDiscoveryButton(NeumannKHEntity, ButtonEntity):
             serial = self._entry.data.get(CONF_SERIAL) or self._entry.entry_id
 
             try:
-                discovery = await async_discover_all_values(self.coordinator.client)
+                discovery = await async_discover_all_values(
+                    self.coordinator.client, self._entry.data.get(CONF_MODEL)
+                )
             except Exception as err:  # noqa: BLE001 - backup/discovery are best-effort
                 raise HomeAssistantError(
                     translation_domain=DOMAIN,
