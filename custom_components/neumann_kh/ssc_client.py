@@ -130,19 +130,32 @@ class SSCClient:
         self._writer.write(message)
         await self._writer.drain()
 
-    async def _read_lines_until_settled(self) -> list[dict]:
-        """Reads lines until nothing new arrives for `settle_time` seconds."""
+    async def _read_lines_until_settled(
+        self, expect_path: tuple[str, ...] | None = None
+    ) -> dict[str, Any]:
+        """Read response lines and merge them into one result dict.
+
+        Returns as soon as `expect_path` (or an error) has arrived. Measured
+        against real hardware, a single leaf query is answered with exactly one
+        line after ~19 ms, so sitting out the settle window afterwards is pure
+        dead time - and it is paid per path. On a KH 750 slow cycle that was
+        54 x 0.4 s = 21.6 s against a 25 s cycle limit.
+
+        The settle window still applies while the answer is incomplete, so a
+        firmware that splits a response across lines is still handled.
+        """
         if self._reader is None:
             raise SSCConnectionError(f"No active connection to {self._host}")
-        results: list[dict] = []
+        merged: dict[str, Any] = {}
+        received = False
         while True:
             try:
                 raw_line = await asyncio.wait_for(
                     self._reader.readuntil(_MESSAGE_TERMINATOR),
-                    timeout=self._settle_time if results else self._timeout,
+                    timeout=self._settle_time if received else self._timeout,
                 )
             except asyncio.TimeoutError as err:
-                if not results:
+                if not received:
                     raise SSCTimeoutError(
                         f"No response from {self._host} within {self._timeout}s"
                     ) from err
@@ -168,12 +181,29 @@ class SSCClient:
             if not line:
                 continue
             try:
-                results.append(json.loads(line))
+                parsed = json.loads(line)
             except json.JSONDecodeError:
                 _LOGGER.debug("Ignored invalid SSC response from %s: %s", self._host, line)
-        return results
+                continue
+            if not isinstance(parsed, dict):
+                # Valid JSON, but not an address tree - nothing to merge.
+                _LOGGER.debug("Ignored non-object SSC response from %s: %s", self._host, line)
+                continue
 
-    async def request(self, payload: dict, priority: bool = False) -> dict:
+            received = True
+            deep_merge(merged, parsed)
+            if extract(merged, ("osc", "error")) is not None:
+                break
+            if expect_path is not None and extract(merged, expect_path) is not None:
+                break
+        return merged
+
+    async def request(
+        self,
+        payload: dict,
+        priority: bool = False,
+        expect_path: tuple[str, ...] | None = None,
+    ) -> dict:
         """Sends an SSC message and returns the merged result dict.
 
         priority=True marks a user action: if a poll cycle is currently
@@ -188,7 +218,7 @@ class SSCClient:
             await self._ensure_connected()
             try:
                 await self._send_raw(payload)
-                lines = await self._read_lines_until_settled()
+                merged = await self._read_lines_until_settled(expect_path)
             except (SSCConnectionError, SSCTimeoutError):
                 # Drop the connection so the next attempt reconnects
                 self._drop_connection()
@@ -200,10 +230,6 @@ class SSCClient:
                 # attributed to the next request (wrong value/error mapping).
                 self._drop_connection()
                 raise
-
-            merged: dict[str, Any] = {}
-            for line in lines:
-                deep_merge(merged, line)
 
             osc_error = extract(merged, ("osc", "error"))
             if osc_error:
@@ -222,12 +248,16 @@ class SSCClient:
 
     async def get(self, path: tuple[str, ...], priority: bool = False) -> Any:
         """Queries a single value (get = request with JSON null)."""
-        response = await self.request(build_nested(path, None), priority=priority)
+        response = await self.request(
+            build_nested(path, None), priority=priority, expect_path=path
+        )
         return extract(response, path)
 
     async def set(self, path: tuple[str, ...], value: Any, priority: bool = True) -> Any:
         """Sets a value and returns the value confirmed by the device."""
-        response = await self.request(build_nested(path, value), priority=priority)
+        response = await self.request(
+            build_nested(path, value), priority=priority, expect_path=path
+        )
         return extract(response, path)
 
     @staticmethod

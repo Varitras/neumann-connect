@@ -112,15 +112,33 @@ async def test_set_returns_confirmed_value(server):
         await client.close()
 
 
-async def test_settle_merges_multiple_lines_last_wins(server):
-    # Two lines for the same path: the later one wins (deep_merge order).
+async def test_answer_split_across_lines_is_merged(server):
+    # While the requested path has not arrived yet, further lines are still
+    # collected and merged - a firmware splitting its answer is handled.
     server.responder = lambda req: [
-        {"device": {"name": "alt"}},
-        {"device": {"name": "neu"}},
+        {"audio": {"out": {"mute": False}}},
+        {"device": {"name": "value"}},
     ]
     client = _client(server.port)
     try:
-        assert await client.get(("device", "name")) == "neu"
+        assert await client.get(("device", "name")) == "value"
+    finally:
+        await client.close()
+
+
+async def test_first_answer_for_the_path_ends_the_read(server):
+    # Deliberate trade-off: the read returns as soon as the requested path is
+    # present, so a later line for the SAME path no longer overrides it.
+    # Measured against real hardware, a single leaf query is answered with
+    # exactly one line, while waiting out the settle window cost 0.4 s per
+    # path - 21.6 s of a 25 s cycle limit on a KH 750.
+    server.responder = lambda req: [
+        {"device": {"name": "first"}},
+        {"device": {"name": "second"}},
+    ]
+    client = _client(server.port)
+    try:
+        assert await client.get(("device", "name")) == "first"
     finally:
         await client.close()
 
