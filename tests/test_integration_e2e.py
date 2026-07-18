@@ -220,6 +220,51 @@ async def test_restore_needs_two_presses_and_writes_back(hass, socket_enabled, t
         assert hass.states.get(mute).state == "off", "restore did not write the backup back"
 
 
+async def test_restore_refreshes_slow_polled_values_too(hass, socket_enabled, tmp_path):
+    """A restored value must show up in the UI, not just reach the device.
+
+    The device name is a slow-poll path, fetched only every tenth cycle. A
+    plain refresh after a restore therefore re-merges the cached pre-restore
+    value, and the entity keeps showing the old name for up to five minutes -
+    which looks exactly like "the restore did not work".
+    """
+    hass.config.config_dir = str(tmp_path)
+
+    async with _simulator(MODEL_KH_120_II) as port:
+        entry = await _setup_entry(hass, MODEL_KH_120_II, port, "SIM0001234")
+        # Both are hidden by default; enable them before any press, because
+        # the reload inside _enable would discard a pending confirmation.
+        await _enable(hass, entry, "_device_name")
+        await _enable(hass, entry, "_restore_backup")
+
+        name_entity = next(
+            e.entity_id
+            for e in er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id)
+            if e.entity_id.startswith("text.")
+        )
+        original = hass.states.get(name_entity).state
+        assert original and original != "unknown"
+
+        await _press(hass, entry, "_create_backup")
+
+        await hass.services.async_call(
+            "text",
+            "set_value",
+            {"entity_id": name_entity, "value": "Changed"},
+            blocking=True,
+        )
+        await hass.async_block_till_done()
+        assert hass.states.get(name_entity).state == "Changed"
+
+        await _press(hass, entry, "_restore_backup")
+        await _press(hass, entry, "_restore_backup")
+        await hass.async_block_till_done()
+
+        assert hass.states.get(name_entity).state == original, (
+            "the restored name never reached the entity"
+        )
+
+
 async def test_restore_without_a_backup_refuses(hass, socket_enabled, tmp_path):
     hass.config.config_dir = str(tmp_path)
     async with _simulator(MODEL_KH_120_II) as port:

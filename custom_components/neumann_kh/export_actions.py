@@ -16,7 +16,13 @@ from homeassistant.exceptions import HomeAssistantError
 from . import storage
 from ._util import localized
 from .backup_export import async_build_backup
-from .const import CONF_MODEL, CONF_SERIAL, DOMAIN
+from .const import (
+    CONF_MODEL,
+    CONF_SERIAL,
+    DOMAIN,
+    PATH_RESTORE,
+    PATH_SAVE_SETTINGS,
+)
 from .discovery_export import async_discover_all_values
 from .export_file import async_write_export
 from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeoutError
@@ -25,6 +31,14 @@ _LOGGER = logging.getLogger(__name__)
 
 KIND_BACKUP = "backup"
 KIND_DISCOVERY = "discovery"
+
+# Never written back during a restore. These are commands, not settings: a
+# write to device/restore is the factory reset, and save_settings commits to
+# flash. Both devices return an empty string for device/restore, so writing it
+# back would be harmless today - but a value is a value, and a firmware that
+# starts reporting something else must not be able to wipe a device through a
+# restore.
+_NOT_RESTORABLE = frozenset({PATH_RESTORE, PATH_SAVE_SETTINGS})
 
 
 def mask_serial(serial: str) -> str:
@@ -202,11 +216,11 @@ async def async_run_restore(
     written = 0
     skipped = 0
     for path, value in _leaf_paths(backup["values"]):
-        if value is None:
+        if value is None or path in _NOT_RESTORABLE:
             skipped += 1
             continue
         try:
-            await client.set(path, value)
+            confirmed = await client.set(path, value)
         except SSCDeviceError:
             # Read-only on this model - expected for identity and diagnostics.
             skipped += 1
@@ -217,12 +231,16 @@ async def async_run_restore(
                 translation_placeholders={"error": str(err)},
             ) from err
         else:
+            # Feed the confirmed value back the same way the entities do. A
+            # plain refresh is not enough: slow-poll paths (the device name
+            # among them) are only fetched every tenth cycle, so the next fast
+            # cycle would re-merge the stale cache and the restored value would
+            # snap back for up to five minutes. apply_confirmed_value() keeps
+            # that cache in step - see the 1.15.1 regression.
+            coordinator.apply_confirmed_value(path, confirmed)
             written += 1
 
     _LOGGER.debug("Restore for %s: %d written, %d skipped", entry.title, written, skipped)
-
-    # Pull the device state in now instead of leaving stale values on screen.
-    await coordinator.async_request_refresh()
 
     language = hass.config.language
     _notify(

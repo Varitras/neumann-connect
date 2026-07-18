@@ -5,6 +5,20 @@
 All notable changes to this integration are documented here.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.17.0b5] – Restore now reaches the UI (pre-release)
+
+### Fixed
+- A restored value that is only polled every fifth minute - the device name
+  among them - reached the device but not the interface: the next fast poll
+  cycle re-merged the cached pre-restore value, so the entity kept showing the
+  old one for up to five minutes and the restore looked like it had failed.
+  Restore now feeds every confirmed value back the same way the entities do
+- `device/restore` and `device/save_settings` are no longer written back
+  during a restore. They are commands rather than settings; both test devices
+  report an empty string for the former, so writing it back is harmless today,
+  but a firmware that reports something else must not be able to wipe a device
+  through a restore
+
 ## [1.17.0b4] – Restore, plain exports and audit fixes (pre-release)
 
 ### Added

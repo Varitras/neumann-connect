@@ -62,6 +62,51 @@ def test_model_specific_extras_are_covered():
     assert PATH_LOGO_BRIGHTNESS not in known_paths_for_model(_KH_750)
 
 
+# Everything the entities can write. If a platform gains a writable path and
+# nobody adds it here, the test below still catches it only if the path is
+# missing from the export - so keep this list in step with the platforms.
+_WRITABLE = {
+    "PATH_DEVICE_NAME": ("KH 120 II", "KH 750"),
+    "PATH_IDENTIFY": ("KH 120 II", "KH 750"),
+    "PATH_INPUT_INTERFACE_TYPE": ("KH 120 II", "KH 750"),
+    "PATH_OUTPUT_DELAY": ("KH 120 II", "KH 750"),
+    "PATH_OUTPUT_DIMM": ("KH 120 II", "KH 750"),
+    "PATH_OUTPUT_LEVEL": ("KH 120 II", "KH 750"),
+    "PATH_OUTPUT_MUTE": ("KH 120 II", "KH 750"),
+    "PATH_OUTPUT_PHASE_INVERSION": ("KH 120 II", "KH 750"),
+    "PATH_STANDBY_AUTO_TIME": ("KH 120 II", "KH 750"),
+    "PATH_STANDBY_ENABLED": ("KH 120 II", "KH 750"),
+    "PATH_STANDBY_LEVEL": ("KH 120 II", "KH 750"),
+    "PATH_UI_CONTROL_MODE": ("KH 120 II", "KH 750"),
+    # Model-specific: a logo only on the monitors, out1/out2 only on the sub.
+    "PATH_LOGO_BRIGHTNESS": ("KH 120 II",),
+    "PATH_OUT1_DELAY": ("KH 750",),
+    "PATH_OUT1_LEVEL": ("KH 750",),
+    "PATH_OUT1_MUTE": ("KH 750",),
+    "PATH_OUT2_DELAY": ("KH 750",),
+    "PATH_OUT2_LEVEL": ("KH 750",),
+    "PATH_OUT2_MUTE": ("KH 750",),
+}
+
+
+@pytest.mark.parametrize("model", [_KH_120_II, _KH_750])
+def test_every_writable_path_is_backed_up(model):
+    """A backup that misses a writable value cannot restore that value.
+
+    This is the guarantee behind "all known values": whatever an entity can
+    write has to come back out of the export.
+    """
+    from custom_components.neumann_kh import const  # noqa: PLC0415
+
+    covered = set(known_paths_for_model(model))
+    missing = [
+        name
+        for name, models in _WRITABLE.items()
+        if model in models and getattr(const, name) not in covered
+    ]
+    assert not missing, f"writable but not backed up on {model}: {missing}"
+
+
 def test_no_duplicate_paths():
     # A duplicate would mean querying the device twice for the same value.
     paths = known_paths_for_model(_KH_750)

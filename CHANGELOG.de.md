@@ -5,6 +5,21 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
+## [1.17.0b5] – Zurückspielen erreicht jetzt die Oberfläche (Vorabversion)
+
+### Behoben
+- Ein zurückgespielter Wert, der nur alle fünf Minuten abgefragt wird — darunter
+  der Gerätename — kam zwar am Gerät an, aber nicht in der Oberfläche: Der
+  nächste schnelle Poll-Zyklus mischte den zwischengespeicherten Wert von vor
+  dem Zurückspielen wieder ein, sodass die Entität bis zu fünf Minuten den alten
+  Wert zeigte und das Zurückspielen fehlgeschlagen wirkte. Es reicht bestätigte
+  Werte jetzt genauso zurück wie die Entitäten selbst
+- `device/restore` und `device/save_settings` werden beim Zurückspielen nicht
+  mehr geschrieben. Das sind Befehle, keine Einstellungen; beide Testgeräte
+  melden für Ersteres eine leere Zeichenkette, ein Rückschreiben ist heute also
+  harmlos — aber eine Firmware, die etwas anderes meldet, darf ein Gerät nicht
+  über ein Zurückspielen löschen können
+
 ## [1.17.0b4] – Zurückspielen, einfache Exporte und Audit-Korrekturen (Vorabversion)
 
 ### Hinzugefügt
