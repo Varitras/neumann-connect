@@ -67,6 +67,17 @@ feel free to get in touch.
 5. Create a separate entry for **each** loudspeaker (e.g. "KH 120 II Left",
    "KH 120 II Right", "KH 750 DSP Sub 1", "KH 750 DSP Sub 2").
 
+### Changing connection details later
+
+If a loudspeaker ends up on a different address, interface or port, use
+**Settings → Devices & Services → [device] → ⋮ → Reconfigure**. The entry is
+updated in place, so entity IDs, history and any automation referencing them
+are kept – there is no need to delete and re-add it.
+
+The new address is checked before anything is saved. If a speaker with a
+different serial number answers there, the change is refused: otherwise one
+speaker's history would silently end up attached to another physical unit.
+
 ## Automatic discovery (mDNS/Zeroconf)
 
 According to the SSC specification, Neumann KH loudspeakers announce

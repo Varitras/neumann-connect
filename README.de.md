@@ -68,6 +68,19 @@ gerne melden.
 5. Für **jeden** Lautsprecher einen eigenen Eintrag anlegen (z. B. "KH 120 II Links",
    "KH 120 II Rechts", "KH 750 DSP Sub 1", "KH 750 DSP Sub 2").
 
+### Verbindungsdaten nachträglich ändern
+
+Landet ein Lautsprecher auf einer anderen Adresse, Schnittstelle oder einem
+anderen Port, führt der Weg über **Einstellungen → Geräte & Dienste → [Gerät]
+→ ⋮ → Neu konfigurieren**. Der Eintrag wird an Ort und Stelle aktualisiert,
+Entity-IDs, Verlauf und darauf verweisende Automationen bleiben also erhalten –
+Löschen und neu anlegen ist nicht nötig.
+
+Die neue Adresse wird geprüft, bevor irgendetwas gespeichert wird. Antwortet
+dort ein Lautsprecher mit abweichender Seriennummer, wird die Änderung
+abgelehnt: sonst hinge der Verlauf des einen Geräts still an einem anderen
+physischen Gerät.
+
 ## Automatische Suche (mDNS/Zeroconf)
 
 Neumann-KH-Lautsprecher machen sich laut SSC-Spezifikation per mDNS/Bonjour

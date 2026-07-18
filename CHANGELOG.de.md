@@ -5,6 +5,54 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
+## [1.17.0b1] – Sicherheit, Robustheit und Neukonfiguration (Vorabversion)
+
+Vorabversion zum Testen. Alles Folgende ist von der automatisierten Testsuite
+abgedeckt; die Hardware-Messungen wurden lesend gegen eine KH 120 II und eine
+KH 750 erhoben.
+
+### Sicherheit
+- Backup- und Discovery-Exporte werden nicht mehr nach `/config/www/`
+  geschrieben, das Home Assistant unter `/local/` **ohne jede
+  Authentifizierung** ausliefert. Sie kommen stattdessen aus dem vorhandenen
+  Speicher über einen authentifizierten Endpunkt, aus der Benachrichtigung
+  verlinkt über eine signierte, eine Stunde gültige URL. Es wird nichts mehr
+  auf die Platte geschrieben
+
+### Hinzugefügt
+- **Neu konfigurieren**: Adresse, Schnittstelle und Port eines vorhandenen
+  Lautsprechers lassen sich ändern, ohne den Eintrag zu verlieren – Entity-IDs,
+  Verlauf und Automationen bleiben erhalten. Ein Lautsprecher mit abweichender
+  Seriennummer wird abgelehnt
+- Geräte, die sich nicht als Neumann ausweisen, werden bei der Einrichtung
+  gekennzeichnet (nutzbar bleiben sie – SSC ist kein Neumann-Exklusivprotokoll)
+- Der gemeldete Hersteller wird gespeichert und in den Geräteinformationen
+  angezeigt
+
+### Geändert
+- Backup und Discovery erfassen jetzt auch die selten abgefragten
+  Einstellungen und den vollständigen EQ jedes Containers (Gain, Boost,
+  Frequenz, Q und Filtertyp je Band). Zuvor wurden nur die schnellen
+  Poll-Pfade exportiert, das Versprechen „alle bekannten Werte" im README traf
+  also nicht zu
+- Ein Lesevorgang kehrt zurück, sobald der angefragte Pfad eingetroffen ist,
+  statt immer das Settle-Fenster abzuwarten. An einer KH 750 gemessen sank ein
+  vollständiger langsamer Poll-Zyklus von 19,2 s auf 1,6 s
+- Mindestversion von Home Assistant auf 2024.11.0 angehoben – das ist das
+  Release, das die hier genutzten Reconfigure-Helfer erstmals mitbrachte
+
+### Behoben
+- Scheiterte das Setup einer Plattform, blieben Verbindung und Coordinator
+  zurück, und der nächste Versuch stapelte den nächsten obendrauf
+- Die Suche konnte aus einem mDNS-Eintrag eine IPv4-Adresse wählen, die dann
+  bei der Einrichtung an „keine gültige IPv6-Adresse" scheiterte
+- Ein Gerät, das nicht aufhörte zu senden, konnte einen Lesevorgang – und
+  damit die Client-Sperre – dauerhaft belegen
+- Die Link-Local-Prüfung akzeptierte nur Adressen, die mit `fe80` beginnen,
+  statt des vollen Bereichs `fe80::/10`
+- Das README behauptete, alle Werte würden alle 30 Sekunden abgefragt; die
+  selten wechselnden werden alle 5 Minuten geholt
+
 ## [1.16.0] – Lokalisierung und Test-Werkzeuge
 
 ### Hinzugefügt

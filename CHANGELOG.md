@@ -5,6 +5,50 @@
 All notable changes to this integration are documented here.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.17.0b1] – Security, robustness and reconfigure (pre-release)
+
+Pre-release for testing. Everything below is covered by the automated test
+suite; the hardware measurements were taken read-only against a KH 120 II and
+a KH 750.
+
+### Security
+- Backup and discovery exports are no longer written to `/config/www/`, which
+  Home Assistant serves under `/local/` without any authentication. They are
+  served from the existing store through an authenticated endpoint instead,
+  linked from the notification via a signed URL that is valid for one hour.
+  Nothing is written to disk any more
+
+### Added
+- **Reconfigure**: address, interface and port of an existing speaker can be
+  changed in place, keeping entity IDs, history and automations. A speaker
+  whose serial number does not match the entry is refused
+- Devices that do not identify as Neumann are flagged during setup (the device
+  is still usable – SSC is not exclusive to Neumann)
+- The reported manufacturer is stored and shown in the device info
+
+### Changed
+- Backup and discovery now cover the rarely polled settings and the full EQ of
+  every container (gain, boost, frequency, Q and filter type per band).
+  Previously only the fast poll paths were exported, so the README's promise of
+  "all known values" did not hold
+- A read returns as soon as the requested path has arrived instead of always
+  waiting out the settle window. Measured on a KH 750, a full slow poll cycle
+  went from 19.2 s to 1.6 s
+- Minimum Home Assistant version raised to 2024.11.0, which is the release that
+  first carried the reconfigure helpers this integration uses
+
+### Fixed
+- A failing platform setup left the connection and coordinator behind, so the
+  next attempt stacked another one on top
+- Discovery could pick an IPv4 address from an mDNS record, which then failed
+  during setup as "not a valid IPv6 address"
+- A device that never stopped sending could hold a read - and the client lock -
+  open indefinitely
+- The link-local check accepted only addresses starting with `fe80` instead of
+  the full `fe80::/10` range
+- The README claimed every value is polled every 30 seconds; the rarely
+  changing ones are polled every 5 minutes
+
 ## [1.16.0] – Localisation and test tooling
 
 ### Added
