@@ -210,7 +210,9 @@ Entities that are disabled by default can be enabled manually under
 
 ## Polling
 
-All values of a loudspeaker are fetched every 30 seconds – and specifically
+A loudspeaker is polled every 30 seconds. Not everything is fetched on every
+cycle: rarely changing values (identity, rear-panel switches, device name) are
+only queried on every tenth cycle, so every 5 minutes. Values are fetched
 **each value individually** (one leaf path per SSC message), not as a combined
 message and not as a container query. The reason (confirmed by two hardware
 tests): the firmware rejects both a combined message containing several leaves

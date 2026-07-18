@@ -1,7 +1,7 @@
 {
   "domain": "neumann_kh",
   "name": "Neumann KH (SSC)",
-  "codeowners": [],
+  "codeowners": ["@Varitras"],
   "config_flow": true,
   "dependencies": ["http", "network", "zeroconf"],
   "documentation": "https://github.com/Varitras/Neumann-Connect",

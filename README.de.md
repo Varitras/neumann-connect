@@ -212,7 +212,10 @@ Dienste → [Gerät] → Entities** manuell aktivieren.
 
 ## Polling
 
-Alle Werte eines Lautsprechers werden alle 30 Sekunden abgeholt - und zwar
+Ein Lautsprecher wird alle 30 Sekunden abgefragt. Dabei wird nicht jedes Mal
+alles geholt: Selten wechselnde Werte (Identität, Rückseiten-Schalter,
+Gerätename) werden nur in jedem zehnten Zyklus abgefragt, also alle 5 Minuten.
+Abgefragt wird - und zwar
 **jeder Wert einzeln** (ein Blattpfad pro SSC-Nachricht), nicht als
 Sammelnachricht und nicht als Container-Abfrage. Grund (per zwei
 Hardware-Tests bestätigt): Die Firmware lehnt sowohl eine Sammelnachricht

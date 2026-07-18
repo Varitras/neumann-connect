@@ -25,6 +25,15 @@
           "selected_device": "Discovered device"
         }
       },
+      "reconfigure": {
+        "title": "Change connection details",
+        "description": "New connection details for {device}. The name, entities and history are kept.",
+        "data": {
+          "host": "IP address (IPv6, e.g. link-local fe80::...)",
+          "interface": "Network interface (select from list, or type a custom value if not shown — only needed for link-local addresses)",
+          "port": "Port"
+        }
+      },
       "unsupported": {
         "title": "Device of another manufacturer",
         "description": "This device reports itself as \"{product}\" by \"{vendor}\" and is not a Neumann speaker. It speaks SSC, so the integration can control it, but anything model-specific (subwoofer entities, EQ layout, factory reset) is a guess and may not match. Submit to add it anyway."
@@ -49,7 +58,9 @@
       "unknown": "Unexpected error."
     },
     "abort": {
-      "already_configured": "This speaker is already configured."
+      "already_configured": "This speaker is already configured.",
+      "wrong_device": "A different speaker answered at that address (serial number does not match). Nothing was changed.",
+      "reconfigure_successful": "Connection details updated."
     }
   },
   "entity": {

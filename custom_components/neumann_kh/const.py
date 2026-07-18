@@ -26,7 +26,6 @@ DEFAULT_QUERY_SETTLE = 0.4  # Seconds of quiet time until multiple responses cou
 UPDATE_INTERVAL_SECONDS = 30
 POLL_CYCLE_TIMEOUT_SECONDS = 25.0  # Time limit for a complete poll cycle
 
-# Models with logo brightness + save_settings
 # Models with logo brightness + save_settings. "KH 80"/"KH 150"/"KH 120 II"
 # are confirmed (KH 120 II via real hardware test, the others per
 # khtool documentation). The "DSP"/"AES67" variants are UNVERIFIED

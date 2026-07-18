@@ -104,6 +104,27 @@ def _build_manual_schema(interface_options: list[selector.SelectOptionDict]) -> 
     )
 
 
+def _build_reconfigure_schema(
+    interface_options: list[selector.SelectOptionDict],
+) -> vol.Schema:
+    """Same fields as manual setup, minus the name - renaming is done in HA."""
+    return vol.Schema(
+        {
+            vol.Required(CONF_HOST): str,
+            vol.Optional(CONF_INTERFACE, default=_NO_INTERFACE_VALUE): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=interface_options,
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                    custom_value=True,
+                )
+            ),
+            vol.Optional(CONF_PORT, default=DEFAULT_PORT): vol.All(
+                vol.Coerce(int), vol.Range(min=1, max=65535)
+            ),
+        }
+    )
+
+
 def _already_configured_serials(hass: HomeAssistant) -> set[str]:
     """Collect the serial numbers of all already configured speakers."""
     return {
@@ -261,6 +282,86 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             schema = self.add_suggested_values_to_schema(schema, user_input)
 
         return self.async_show_form(step_id="manual", data_schema=schema, errors=errors)
+
+    # --- Reconfigure: change address/interface/port of an existing entry -----
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Change the connection details of an existing speaker.
+
+        A link-local address depends on the interface and a speaker can move to
+        a different port, so without this the only way to correct either was to
+        delete the entry and set it up again - losing its entity IDs, history
+        and any automation referencing them.
+        """
+        entry = self._get_reconfigure_entry()
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            host = user_input[CONF_HOST].strip()
+            interface = user_input.get(CONF_INTERFACE, "").strip() or None
+            port = user_input.get(CONF_PORT, DEFAULT_PORT)
+
+            if "%" in host:
+                host, _, host_scope = host.partition("%")
+                host = host.strip()
+                if not interface:
+                    interface = host_scope.strip() or None
+
+            try:
+                ipaddress.IPv6Address(host)
+            except ValueError:
+                errors["base"] = "invalid_ipv6"
+            else:
+                if SSCClient._is_link_local(host) and not interface:  # noqa: SLF001
+                    errors["base"] = "interface_required_for_link_local"
+                else:
+                    identity = await _async_test_connection(host, port, interface)
+                    if identity.error_key:
+                        errors["base"] = identity.error_key
+                    else:
+                        # Guard against pointing an entry at a different
+                        # speaker: that would silently attach one device's
+                        # history to another. Entries created without a serial
+                        # (unique_id is host_port) cannot be checked this way.
+                        known_serial = entry.data.get(CONF_SERIAL)
+                        if (
+                            known_serial
+                            and identity.serial
+                            and identity.serial != known_serial
+                        ):
+                            return self.async_abort(reason="wrong_device")
+
+                        return self.async_update_reload_and_abort(
+                            entry,
+                            data_updates={
+                                CONF_HOST: host,
+                                CONF_INTERFACE: interface or "",
+                                CONF_PORT: port,
+                                CONF_MODEL: identity.product or entry.data.get(CONF_MODEL),
+                                CONF_VENDOR: identity.vendor or "",
+                                CONF_FIRMWARE_VERSION: identity.version or "",
+                            },
+                        )
+
+        interface_options = await _async_get_interface_options(self.hass)
+        schema = _build_reconfigure_schema(interface_options)
+        schema = self.add_suggested_values_to_schema(
+            schema,
+            user_input
+            or {
+                CONF_HOST: entry.data.get(CONF_HOST, ""),
+                CONF_INTERFACE: entry.data.get(CONF_INTERFACE, _NO_INTERFACE_VALUE),
+                CONF_PORT: entry.data.get(CONF_PORT, DEFAULT_PORT),
+            },
+        )
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=schema,
+            errors=errors,
+            description_placeholders={"device": entry.title},
+        )
 
     # --- Shared: confirmation for devices of another vendor ------------------
 

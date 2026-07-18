@@ -25,6 +25,15 @@
           "selected_device": "Gefundenes Gerät"
         }
       },
+      "reconfigure": {
+        "title": "Verbindungsdaten ändern",
+        "description": "Neue Verbindungsdaten für {device}. Name, Entitäten und Verlauf bleiben erhalten.",
+        "data": {
+          "host": "IP-Adresse (IPv6, z. B. Link-Local fe80::...)",
+          "interface": "Netzwerk-Schnittstelle (aus der Liste wählen oder eigenen Wert eintippen, falls nicht gelistet — nur bei Link-Local-Adressen nötig)",
+          "port": "Port"
+        }
+      },
       "unsupported": {
         "title": "Gerät eines anderen Herstellers",
         "description": "Dieses Gerät meldet sich als \"{product}\" von \"{vendor}\" und ist kein Neumann-Lautsprecher. Es spricht SSC, die Integration kann es also steuern – alles Modellspezifische (Subwoofer-Entitäten, EQ-Aufbau, Werksreset) ist aber geraten und passt womöglich nicht. Zum Hinzufügen trotzdem bestätigen."
@@ -49,7 +58,9 @@
       "unknown": "Unerwarteter Fehler."
     },
     "abort": {
-      "already_configured": "Dieser Lautsprecher ist bereits konfiguriert."
+      "already_configured": "Dieser Lautsprecher ist bereits konfiguriert.",
+      "wrong_device": "Unter dieser Adresse hat ein anderer Lautsprecher geantwortet (Seriennummer passt nicht). Es wurde nichts geändert.",
+      "reconfigure_successful": "Verbindungsdaten aktualisiert."
     }
   },
   "entity": {
