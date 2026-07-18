@@ -168,22 +168,36 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return merged
 
     def apply_confirmed_value(self, path: tuple[str, ...], value: Any) -> None:
-        """Apply a device-confirmed value directly into the data.
+        """Apply a single device-confirmed value directly into the data."""
+        self.apply_confirmed_values([(path, value)])
 
-        If the path is in the slow poll, the _slow_data cache is
-        additionally updated. Without that, the next FAST
-        cycle would overwrite the confirmed value again with the stale
-        cache state - the value "snaps back" and would stay wrong until the
-        next slow poll (up to 5 min). Only merge slow paths into the
-        cache: conversely, a blanket merge would let a stale fast value
-        from the cache overwrite fresh poll values.
+    def apply_confirmed_values(
+        self, values: list[tuple[tuple[str, ...], Any]]
+    ) -> None:
+        """Apply several device-confirmed values in one update.
+
+        If a path is in the slow poll, the _slow_data cache is additionally
+        updated. Without that, the next FAST cycle would overwrite the
+        confirmed value again with the stale cache state - the value "snaps
+        back" and would stay wrong until the next slow poll (up to 5 min).
+        Only merge slow paths into the cache: conversely, a blanket merge
+        would let a stale fast value from the cache overwrite fresh poll
+        values.
+
+        Batching matters for the restore, which confirms dozens of values at
+        once: every call copies the whole data tree and notifies every entity
+        of the device, so applying them one by one produced thousands of state
+        changes for a single button press.
         """
+        if not values:
+            return
         new_data: dict[str, Any] = {}
         if self.data:
             deep_merge(new_data, self.data)
-        deep_merge(new_data, build_nested(path, value))
-        if path in self._slow_path_set:
-            deep_merge(self._slow_data, build_nested(path, value))
+        for path, value in values:
+            deep_merge(new_data, build_nested(path, value))
+            if path in self._slow_path_set:
+                deep_merge(self._slow_data, build_nested(path, value))
         self.async_set_updated_data(new_data)
 
     def value(self, path: tuple[str, ...]) -> Any:

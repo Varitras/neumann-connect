@@ -5,6 +5,51 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
+## [1.17.0b6] – Härtung des Zurückspielens und ein Protokoll-Desync (Vorabversion)
+
+### Sicherheit
+- Das Zurückspielen schreibt nur noch Pfade einer ausdrücklichen Positivliste
+  von Einstellungen. Zuvor wurde jedes Blatt des Backups zurückgeschrieben,
+  darunter Befehlspfade — unter anderem `device/restore`, der Werksreset. Sich
+  darauf zu verlassen, dass das Gerät Unpassendes ablehnt, ist keine
+  Absicherung: die gefährlichen Pfade sind gerade die schreibbaren
+- `ui/control_mode` wird zuletzt geschrieben. Seine Werte sind NETWORK und
+  LOCAL, ein in LOCAL gezogenes Backup kann die Netzwerksteuerung also mitten
+  im Vorgang abschneiden; zuletzt geschrieben ist alles andere bereits
+  angekommen
+- `device/identification/visual` wird nicht mehr zurückgespielt — ein
+  gesichertes „an“ würde den Lautsprecher blinken lassen
+
+### Behoben
+- Ein Lesevorgang kehrt zurück, sobald der angefragte Pfad eintrifft; weitere
+  Zeilen derselben Antwort blieben auf dem Socket liegen. Die nächste Anfrage
+  auf denselben Pfad las eine davon und lieferte die vorige Antwort. Reste
+  werden jetzt vor jeder Anfrage verworfen
+- Eine abgebrochene priorisierte Anfrage konnte die Sperrmarkierung dauerhaft
+  gesetzt lassen; danach pausierte die Abfrageschleife vor jedem einzelnen Pfad
+- Vom Gerät begrenzte oder normalisierte Werte galten als zurückgespielt; sie
+  werden jetzt getrennt gezählt und ausgewiesen
+- Ein Verbindungsabbruch mitten im Zurückspielen meldete nur „nicht
+  erreichbar“; jetzt wird genannt, wie viele Werte bereits geschrieben waren —
+  die bleiben auf dem Gerät
+- Zurückgespielt wurde das beim zweiten Druck vorhandene Backup, nicht das in
+  der Bestätigung gezeigte
+- Das Zurückspielen löste ein Coordinator-Update je Wert aus — rund 3.500
+  Zustandsänderungen und ebenso viele Recorder-Einträge für einen Tastendruck
+  an einer KH 750. Jetzt eines
+- Exporte zweier Lautsprecher mit gleicher maskierter Seriennummer
+  überschrieben sich gegenseitig
+- Exporte werden atomar geschrieben; ein abgebrochener Schreibvorgang
+  hinterlässt keine abgeschnittene Datei mehr
+- `device/restore` steht gar nicht mehr im Backup
+
+### Geändert
+- Der Modul-Docstring von `button.py` beschrieb einen signierten HTTP-Download
+  und eine authentifizierte View, die es nicht mehr gibt, und behauptete, es
+  werde nichts auf die Platte geschrieben — das Gegenteil des Verhaltens
+- Config-Flow-Schritte sind mit `ConfigFlowResult` annotiert
+- Im deutschen README fehlte der Restore-Button
+
 ## [1.17.0b5] – Zurückspielen erreicht jetzt die Oberfläche (Vorabversion)
 
 ### Behoben

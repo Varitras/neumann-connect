@@ -342,6 +342,62 @@ async def test_write_failure_becomes_a_connection_error(server):
         await client.close()
 
 
+async def test_leftover_line_is_not_read_as_the_next_answer(server):
+    """The early return can leave lines buffered; they must not bleed over.
+
+    A read returns as soon as the requested path arrives, so a second line for
+    the same answer stays on the socket. Without draining it, the next request
+    would read it as its own reply and every following answer would be off by
+    one.
+    """
+    server.responder = lambda req: [
+        {"device": {"name": "first"}},
+        {"device": {"name": "leftover"}},
+    ]
+    client = _client(server.port)
+    try:
+        assert await client.get(("device", "name")) == "first"
+
+        # Ask for the SAME path again. This is the case that actually bites: a
+        # leftover line for a different path would just be merged harmlessly,
+        # but one for the requested path satisfies the read immediately and is
+        # returned as the fresh answer.
+        server.responder = lambda req: [{"device": {"name": "fresh"}}]
+        assert await client.get(("device", "name")) == "fresh"
+        assert server.connections == 1, "the fix must not cost a reconnect"
+    finally:
+        await client.close()
+
+
+async def test_cancelled_priority_request_does_not_wedge_the_poll_loop(server):
+    """A cancelled priority request must not leave the event set.
+
+    The poll loop sleeps before every single path while priority_waiting is
+    set, so a stuck event slows down every cycle until another priority
+    request happens to complete.
+    """
+    server.response_delay = 0.2
+    client = _client(server.port)
+    try:
+        # Occupy the lock so the priority request has to wait for it.
+        blocker = asyncio.create_task(client.get(("device", "name")))
+        await asyncio.sleep(0.02)
+
+        waiter = asyncio.create_task(client.set(("audio", "out", "mute"), True))
+        await asyncio.sleep(0.02)
+        assert client.priority_waiting.is_set()
+
+        waiter.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await waiter
+        with contextlib.suppress(Exception):
+            await blocker
+
+        assert not client.priority_waiting.is_set(), "event stayed set after cancellation"
+    finally:
+        await client.close()
+
+
 def test_is_link_local():
     assert SSCClient._is_link_local("fe80::1")  # noqa: SLF001
     assert SSCClient._is_link_local("FE80::1")  # noqa: SLF001

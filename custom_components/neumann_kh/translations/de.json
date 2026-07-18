@@ -289,6 +289,9 @@
     },
     "restore_in_progress": {
       "message": "Es läuft bereits ein Zurückspielen, bitte warten."
+    },
+    "restore_interrupted": {
+      "message": "Die Verbindung brach ab, nachdem bereits {written} Werte geschrieben waren; der Lautsprecher ist nur teilweise zurückgespielt. Erneut drücken, sobald er wieder erreichbar ist. ({error})"
     }
   }
 }

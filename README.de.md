@@ -192,6 +192,7 @@ speichern" (nicht funktional).
 | Einstellungen speichern* (Default: deaktiviert, per Test nicht funktional) | `button` | – | `device/save_settings` |
 | Werkseinstellungen wiederherstellen (Default: deaktiviert, Zwei-Schritt-Bestätigung) | `button` | – | `device/restore` |
 | Backup erstellen (alle bekannten Werte außer Live-Messwerten) | `button` | – | – |
+| Backup zurückspielen (schreibt das gespeicherte Backup zurück, standardmäßig deaktiviert) | `button` | – | – |
 | Geräte-Discovery ausführen (Diagnose) | `button` | – | – |
 
 \* **Nur** bei KH 80 / KH 150 / KH 120 II – laut khtool-Dokumentation nicht bei

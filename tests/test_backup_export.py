@@ -13,6 +13,7 @@ pytest.importorskip("homeassistant")
 
 from custom_components.neumann_kh.backup_export import (  # noqa: E402
     known_paths_for_model,
+    restorable_paths_for_model,
 )
 from custom_components.neumann_kh.const import (  # noqa: E402
     PATH_LOGO_BRIGHTNESS,
@@ -111,3 +112,49 @@ def test_no_duplicate_paths():
     # A duplicate would mean querying the device twice for the same value.
     paths = known_paths_for_model(_KH_750)
     assert len(paths) == len(set(paths))
+
+
+# --- Restore allowlist ------------------------------------------------------
+
+
+@pytest.mark.parametrize("model", [_KH_120_II, _KH_750])
+def test_commands_are_never_restorable(model):
+    """A restore must not replay commands or momentary actions.
+
+    device/restore is the factory reset, save_settings commits to flash, and
+    identification/visual makes the speaker blink. Relying on the device to
+    reject them is no safeguard - these are writable, that is the point of
+    them.
+    """
+    from custom_components.neumann_kh import const  # noqa: PLC0415
+
+    restorable = set(restorable_paths_for_model(model))
+    for name in ("PATH_RESTORE", "PATH_SAVE_SETTINGS", "PATH_IDENTIFY"):
+        assert getattr(const, name) not in restorable, f"{name} must not be restorable"
+
+
+@pytest.mark.parametrize("model", [_KH_120_II, _KH_750])
+def test_read_only_paths_are_not_restorable(model):
+    # Confirmed read-only on real hardware; writing them would only produce
+    # rejections and inflate the "skipped" count.
+    from custom_components.neumann_kh import const  # noqa: PLC0415
+
+    restorable = set(restorable_paths_for_model(model))
+    for name in ("PATH_INPUT_GAIN", "PATH_UI_OUTPUT_LEVEL", "PATH_WARNINGS",
+                 "PATH_IDENTITY_HW_VERSION", "PATH_INPUT_CURRENT"):
+        assert getattr(const, name) not in restorable, f"{name} is read-only"
+
+
+@pytest.mark.parametrize("model", [_KH_120_II, _KH_750])
+def test_control_mode_is_written_last(model):
+    """LOCAL would cut network control - so write it after everything else."""
+    from custom_components.neumann_kh import const  # noqa: PLC0415
+
+    paths = restorable_paths_for_model(model)
+    assert paths[-1] == const.PATH_UI_CONTROL_MODE
+
+
+@pytest.mark.parametrize("model", [_KH_120_II, _KH_750])
+def test_restorable_is_a_subset_of_the_backup(model):
+    # Restoring a path that is never backed up could not work.
+    assert set(restorable_paths_for_model(model)) <= set(known_paths_for_model(model))

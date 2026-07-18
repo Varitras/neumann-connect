@@ -1,16 +1,21 @@
 """Button entities: 'Save settings', 'Restore factory defaults',
-'Create backup' and 'Run device discovery'.
+'Create backup', 'Restore backup' and 'Run device discovery'.
 
 'Save settings' only on KH 80/150/120 II (not KH 750; non-functional on
 KH 120 II per test, therefore disabled by default).
 
-'Restore factory defaults' with two-step confirmation: the first press only
-arms it, a second press within 30s triggers the reset.
+'Restore factory defaults' and 'Restore backup' both overwrite device state,
+so both use a two-step confirmation: the first press only arms it, a second
+press within 30s carries it out. Button entities cannot show a modal dialog,
+which is why it works this way.
 
 'Create backup' and 'Run device discovery' store their result permanently
-(see storage.py, per serial number). The notification links to it via a
-signed, time-limited URL served by the authenticated view in export_view.py -
-nothing is written to disk.
+(see storage.py, per serial number) and additionally write a JSON file to
+<config>/neumann_kh/. That folder is not served over HTTP - unlike
+<config>/www/, which Home Assistant exposes under /local/ without any
+authentication. The notification names the path as plain text rather than a
+link, because the frontend routes a same-host link inside the app instead of
+fetching it.
 """
 
 from __future__ import annotations
@@ -265,6 +270,7 @@ class NeumannKHRestoreBackupButton(NeumannKHEntity, ButtonEntity):
         super().__init__(coordinator, entry)
         self._attr_unique_id = f"{self._unique_id_base}_restore_backup"
         self._armed_at: float | None = None
+        self._armed_backup: dict | None = None
         self._running = False
         self._notification_id = f"{self._unique_id_base}_restore_backup_confirm"
 
@@ -277,11 +283,18 @@ class NeumannKHRestoreBackupButton(NeumannKHEntity, ButtonEntity):
 
         now = time.monotonic()
         if self._armed_at is not None and (now - self._armed_at) <= _RESTORE_CONFIRM_WINDOW_SECONDS:
+            armed_backup = self._armed_backup
             self._armed_at = None
+            self._armed_backup = None
             async_dismiss_notification(self.hass, self._notification_id)
             self._running = True
             try:
-                await async_run_restore(self.hass, self._entry, self.coordinator)
+                # Restore exactly what was confirmed. Re-reading here would
+                # pick up a backup created between the two presses, so the
+                # user would confirm one snapshot and get another.
+                await async_run_restore(
+                    self.hass, self._entry, self.coordinator, armed_backup
+                )
             finally:
                 self._running = False
             return
@@ -291,6 +304,7 @@ class NeumannKHRestoreBackupButton(NeumannKHEntity, ButtonEntity):
         # cannot act on.
         backup = await async_check_restorable(self.hass, self._entry)
         self._armed_at = now
+        self._armed_backup = backup
         async_create_notification(
             self.hass,
             _localized(

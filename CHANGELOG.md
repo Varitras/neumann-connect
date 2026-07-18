@@ -5,6 +5,48 @@
 All notable changes to this integration are documented here.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.17.0b6] – Restore hardening and a protocol desync fix (pre-release)
+
+### Security
+- A restore now writes only paths on an explicit allowlist of settings.
+  Previously it replayed every leaf of the backup, which includes command
+  paths — among them `device/restore`, the factory reset. Relying on the
+  device to reject what it should not accept is no safeguard, because the
+  dangerous paths are exactly the writable ones
+- `ui/control_mode` is written last. Its values are NETWORK and LOCAL, so a
+  backup taken in LOCAL can cut network control off mid-restore; writing it
+  last means everything else has already landed
+- `device/identification/visual` is no longer restored — a captured "on" would
+  leave the speaker blinking
+
+### Fixed
+- A read returns as soon as the requested path arrives, so extra lines of that
+  answer stayed on the socket. The next request for the same path read one of
+  them and returned the previous answer. Leftovers are now discarded before
+  each request
+- A cancelled priority request could leave the lock-contention flag set
+  forever, after which the poll loop paused before every single path
+- The restore reported clamped or normalised values as restored; it now counts
+  them separately and says so
+- Losing the connection mid-restore reported only "unreachable"; it now says
+  how many values had already been written, since those stay on the device
+- A restore applied whatever backup existed at the second press, not the one
+  shown in the confirmation
+- The restore pushed one coordinator update per value — about 3,500 entity
+  state changes, and as many recorder rows, for a single press on a KH 750.
+  Now one update
+- Exports of two speakers whose masked serials collide overwrote each other
+- Exports are written atomically, so an interrupted write no longer leaves a
+  truncated file
+- `device/restore` is no longer stored in the backup at all
+
+### Changed
+- The `button.py` module docstring described a signed HTTP download and an
+  authenticated view that no longer exist, and claimed nothing is written to
+  disk — the opposite of the current behaviour
+- Config flow steps are annotated with `ConfigFlowResult`
+- The German README was missing the restore button
+
 ## [1.17.0b5] – Restore now reaches the UI (pre-release)
 
 ### Fixed

@@ -20,10 +20,10 @@ from typing import Any, NamedTuple
 
 import voluptuous as vol
 from homeassistant import config_entries
+from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.components import network
 from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PORT
 from homeassistant.core import HomeAssistant
-from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 
 from . import storage
@@ -204,12 +204,12 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     # --- Entry point: menu with the two paths ------------------------------
 
-    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         return self.async_show_menu(step_id="user", menu_options=["scan", "manual"])
 
     # --- Path 1: Manual input ----------------------------------------------
 
-    async def async_step_manual(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_manual(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
 
         if user_input is not None:
@@ -287,7 +287,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_reconfigure(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Change the connection details of an existing speaker.
 
         A link-local address depends on the interface and a speaker can move to
@@ -367,7 +367,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_unsupported(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Warn about a device that does not identify as Neumann, then proceed.
 
         The SSC protocol is not exclusive to Neumann, so such a device may well
@@ -394,7 +394,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     # --- Path 2: Active mDNS scan, then naming ------------------------------
 
-    async def async_step_scan(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_scan(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         # User selected something from the list.
         if user_input is not None and _SELECTED_DEVICE in user_input:
             selected_key = user_input[_SELECTED_DEVICE]
@@ -438,7 +438,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(step_id="scan", data_schema=self._build_scan_schema())
 
-    async def async_step_scan_confirm(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_scan_confirm(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Second step: assign a name (pre-filled if the device is known)."""
         errors: dict[str, str] = {}
         candidate = self._discovered.get(self._pending_key or "")

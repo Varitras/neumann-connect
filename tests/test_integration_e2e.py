@@ -265,6 +265,105 @@ async def test_restore_refreshes_slow_polled_values_too(hass, socket_enabled, tm
         )
 
 
+async def test_restore_updates_entities_once(hass, socket_enabled, tmp_path):
+    """One coordinator update for the whole restore, not one per value.
+
+    Each update copies the data tree and notifies every entity of the device,
+    so per-path updates produced thousands of state changes - and rows in the
+    recorder - for a single button press.
+    """
+    hass.config.config_dir = str(tmp_path)
+
+    async with _simulator(MODEL_KH_120_II) as port:
+        entry = await _setup_entry(hass, MODEL_KH_120_II, port, "SIM0001234")
+        await _press(hass, entry, "_create_backup")
+        await _enable(hass, entry, "_restore_backup")
+
+        coordinator = hass.data[DOMAIN][entry.entry_id]
+        updates = 0
+        original = coordinator.async_set_updated_data
+
+        def counting(data):
+            nonlocal updates
+            updates += 1
+            return original(data)
+
+        coordinator.async_set_updated_data = counting
+
+        await _press(hass, entry, "_restore_backup")
+        await _press(hass, entry, "_restore_backup")
+        await hass.async_block_till_done()
+
+        assert updates == 1, f"restore pushed {updates} updates instead of one"
+
+
+async def test_restore_writes_what_was_confirmed(hass, socket_enabled, tmp_path):
+    """A backup created between the two presses must not be restored instead.
+
+    The confirmation shows one snapshot's timestamp; silently applying another
+    would make the two-press confirmation meaningless.
+    """
+    hass.config.config_dir = str(tmp_path)
+
+    async with _simulator(MODEL_KH_120_II) as port:
+        entry = await _setup_entry(hass, MODEL_KH_120_II, port, "SIM0001234")
+        await _enable(hass, entry, "_device_name")
+        await _enable(hass, entry, "_restore_backup")
+
+        name_entity = next(
+            e.entity_id
+            for e in er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id)
+            if e.entity_id.startswith("text.")
+        )
+        original_name = hass.states.get(name_entity).state
+
+        await _press(hass, entry, "_create_backup")  # snapshot A
+        await _press(hass, entry, "_restore_backup")  # arms on A
+
+        # Change something, then take snapshot B before confirming.
+        await hass.services.async_call(
+            "text", "set_value", {"entity_id": name_entity, "value": "B"}, blocking=True
+        )
+        await hass.async_block_till_done()
+        await _press(hass, entry, "_create_backup")  # snapshot B
+
+        await _press(hass, entry, "_restore_backup")  # confirms - must apply A
+        await hass.async_block_till_done()
+
+        assert hass.states.get(name_entity).state == original_name, (
+            "the restore applied a newer backup than the one confirmed"
+        )
+
+
+async def test_restore_leaves_command_paths_alone(hass, socket_enabled, tmp_path):
+    """The factory reset path must never be written by a restore."""
+    hass.config.config_dir = str(tmp_path)
+
+    async with _simulator(MODEL_KH_120_II) as port:
+        entry = await _setup_entry(hass, MODEL_KH_120_II, port, "SIM0001234")
+        await _press(hass, entry, "_create_backup")
+        await _enable(hass, entry, "_restore_backup")
+
+        coordinator = hass.data[DOMAIN][entry.entry_id]
+        written_paths = []
+        original_set = coordinator.client.set
+
+        async def recording(path, value, **kwargs):
+            written_paths.append(path)
+            return await original_set(path, value, **kwargs)
+
+        coordinator.client.set = recording
+
+        await _press(hass, entry, "_restore_backup")
+        await _press(hass, entry, "_restore_backup")
+        await hass.async_block_till_done()
+
+        assert written_paths, "the restore wrote nothing at all"
+        for forbidden in (("device", "restore"), ("device", "save_settings"),
+                          ("device", "identification", "visual")):
+            assert forbidden not in written_paths, f"restore wrote {forbidden}"
+
+
 async def test_restore_without_a_backup_refuses(hass, socket_enabled, tmp_path):
     hass.config.config_dir = str(tmp_path)
     async with _simulator(MODEL_KH_120_II) as port:

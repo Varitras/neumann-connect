@@ -15,14 +15,8 @@ from homeassistant.exceptions import HomeAssistantError
 
 from . import storage
 from ._util import localized
-from .backup_export import async_build_backup
-from .const import (
-    CONF_MODEL,
-    CONF_SERIAL,
-    DOMAIN,
-    PATH_RESTORE,
-    PATH_SAVE_SETTINGS,
-)
+from .backup_export import async_build_backup, restorable_paths_for_model
+from .const import CONF_MODEL, CONF_SERIAL, DOMAIN
 from .discovery_export import async_discover_all_values
 from .export_file import async_write_export
 from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeoutError
@@ -31,14 +25,6 @@ _LOGGER = logging.getLogger(__name__)
 
 KIND_BACKUP = "backup"
 KIND_DISCOVERY = "discovery"
-
-# Never written back during a restore. These are commands, not settings: a
-# write to device/restore is the factory reset, and save_settings commits to
-# flash. Both devices return an empty string for device/restore, so writing it
-# back would be harmless today - but a value is a value, and a firmware that
-# starts reporting something else must not be able to wipe a device through a
-# restore.
-_NOT_RESTORABLE = frozenset({PATH_RESTORE, PATH_SAVE_SETTINGS})
 
 
 def mask_serial(serial: str) -> str:
@@ -108,7 +94,7 @@ async def async_run_backup(
         "values": values,
     }
     await storage.async_save_backup(hass, serial, record)
-    path = await async_write_export(hass, KIND_BACKUP, masked, record)
+    path = await async_write_export(hass, KIND_BACKUP, masked, record, entry.entry_id)
     _notify_written(hass, entry, KIND_BACKUP, path)
     return path
 
@@ -137,7 +123,7 @@ async def async_run_discovery(
         **discovery,
     }
     await storage.async_save_discovery(hass, serial, record)
-    path = await async_write_export(hass, KIND_DISCOVERY, masked, record)
+    path = await async_write_export(hass, KIND_DISCOVERY, masked, record, entry.entry_id)
     _notify_written(hass, entry, KIND_DISCOVERY, path)
     return path
 
@@ -145,18 +131,14 @@ async def async_run_discovery(
 # --- Restore ---------------------------------------------------------------
 
 
-def _leaf_paths(node: Any, prefix: tuple[str, ...] = ()) -> list[tuple[tuple[str, ...], Any]]:
-    """Flatten a stored value tree into (path, value) pairs.
-
-    A leaf is anything that is not a dict; EQ values are lists (one entry per
-    band) and are written back as a whole, exactly as they were read.
-    """
-    if not isinstance(node, dict):
-        return [(prefix, node)]
-    leaves: list[tuple[tuple[str, ...], Any]] = []
-    for key, value in node.items():
-        leaves.extend(_leaf_paths(value, prefix + (key,)))
-    return leaves
+def _value_at(values: dict[str, Any], path: tuple[str, ...]) -> Any:
+    """Read a single leaf out of a stored value tree, or None if absent."""
+    node: Any = values
+    for key in path:
+        if not isinstance(node, dict) or key not in node:
+            return None
+        node = node[key]
+    return node
 
 
 async def async_check_restorable(
@@ -196,53 +178,89 @@ async def async_check_restorable(
 
 
 async def async_run_restore(
-    hass: HomeAssistant, entry: ConfigEntry, coordinator: Any
-) -> tuple[int, int]:
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    coordinator: Any,
+    backup: dict[str, Any] | None = None,
+) -> tuple[int, int, int]:
     """Write a stored backup back to the device.
 
-    Returns (written, skipped). A backup also contains values that are not
-    writable (identity, diagnostics); the device rejects those with an SSC
-    error and they are counted as skipped rather than failing the whole
-    restore. A connection loss does abort - continuing would leave the device
-    half-restored without saying so.
+    Returns (written, adjusted, skipped). Only paths on the restore allowlist
+    are written - a backup also holds identity, diagnostics and command paths,
+    and relying on the device to reject those is no safeguard, because the
+    dangerous ones are exactly the writable ones.
+
+    `backup` is the record the user confirmed. The button passes the one it
+    loaded when arming, so a backup created between the two presses cannot
+    swap out what actually gets written.
 
     Takes the coordinator rather than the client because the entities have to
-    be refreshed afterwards: nothing else notices that the values changed, so
+    be updated afterwards: nothing else notices that the values changed, so
     the UI would keep showing the pre-restore state until the next poll.
     """
-    backup = await async_check_restorable(hass, entry)
+    if backup is None:
+        backup = await async_check_restorable(hass, entry)
     client = coordinator.client
+    values = backup["values"]
 
     written = 0
+    adjusted = 0
     skipped = 0
-    for path, value in _leaf_paths(backup["values"]):
-        if value is None or path in _NOT_RESTORABLE:
+    confirmed_values: list[tuple[tuple[str, ...], Any]] = []
+
+    for path in restorable_paths_for_model(entry.data.get(CONF_MODEL)):
+        value = _value_at(values, path)
+        if value is None:
             skipped += 1
             continue
         try:
             confirmed = await client.set(path, value)
         except SSCDeviceError:
-            # Read-only on this model - expected for identity and diagnostics.
+            # Not writable on this model or firmware.
             skipped += 1
         except (SSCConnectionError, SSCTimeoutError) as err:
+            # Everything written so far stays on the device. Say how far it
+            # got instead of leaving the user with a half-restored speaker and
+            # a bare "unreachable".
+            if confirmed_values:
+                coordinator.apply_confirmed_values(confirmed_values)
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
-                translation_key="device_unreachable",
-                translation_placeholders={"error": str(err)},
+                translation_key="restore_interrupted",
+                translation_placeholders={
+                    "written": str(written + adjusted),
+                    "error": str(err),
+                },
             ) from err
         else:
-            # Feed the confirmed value back the same way the entities do. A
-            # plain refresh is not enough: slow-poll paths (the device name
-            # among them) are only fetched every tenth cycle, so the next fast
-            # cycle would re-merge the stale cache and the restored value would
-            # snap back for up to five minutes. apply_confirmed_value() keeps
-            # that cache in step - see the 1.15.1 regression.
-            coordinator.apply_confirmed_value(path, confirmed)
-            written += 1
+            confirmed_values.append((path, confirmed))
+            if confirmed != value:
+                # The device clamped or normalised the value. Reporting it as
+                # restored would be a lie.
+                adjusted += 1
+            else:
+                written += 1
 
-    _LOGGER.debug("Restore for %s: %d written, %d skipped", entry.title, written, skipped)
+    # One update for the whole restore instead of one per path: each call
+    # copies the coordinator data and notifies every entity of the device, so
+    # per-path updates produced thousands of state changes for a single press.
+    # apply_confirmed_values() also maintains the slow-poll cache - without
+    # that, the next fast cycle would re-merge stale values and the restore
+    # would snap back (see the 1.15.1 regression).
+    if confirmed_values:
+        coordinator.apply_confirmed_values(confirmed_values)
+
+    _LOGGER.debug(
+        "Restore for %s: %d written, %d adjusted, %d skipped",
+        entry.title,
+        written,
+        adjusted,
+        skipped,
+    )
 
     language = hass.config.language
+    adjusted_de = f", {adjusted} vom Gerät angepasst" if adjusted else ""
+    adjusted_en = f", {adjusted} adjusted by the device" if adjusted else ""
     _notify(
         hass,
         entry,
@@ -254,10 +272,10 @@ async def async_run_restore(
         ),
         localized(
             language,
-            f"Backup für **{entry.title}** zurückgespielt: {written} Werte geschrieben, "
-            f"{skipped} übersprungen (nicht schreibbar auf diesem Modell).",
-            f"Backup restored for **{entry.title}**: {written} values written, "
-            f"{skipped} skipped (not writable on this model).",
+            f"Backup für **{entry.title}** zurückgespielt: {written} Werte "
+            f"geschrieben{adjusted_de}, {skipped} übersprungen.",
+            f"Backup restored for **{entry.title}**: {written} values "
+            f"written{adjusted_en}, {skipped} skipped.",
         ),
     )
-    return written, skipped
+    return written, adjusted, skipped

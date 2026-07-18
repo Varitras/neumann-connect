@@ -37,6 +37,11 @@ _MAX_LINE_BYTES = 1_048_576  # 1 MiB
 _MAX_RESPONSE_LINES = 256
 _MAX_READ_SECONDS = 10.0
 
+# How long to look for leftovers from a previous answer before sending a new
+# request. Anything still queued arrived long ago, so this only has to be long
+# enough to notice a full line already sitting in the buffer.
+_STALE_DRAIN_SECONDS = 0.01
+
 
 class SSCConnectionError(Exception):
     """Raised when no connection to the speaker can be established."""
@@ -143,6 +148,34 @@ class SSCClient:
             # caller drops the socket instead of waiting for a reply that can
             # never arrive.
             raise SSCConnectionError(f"Writing to {self._host} failed: {err}") from err
+
+    async def _discard_stale_lines(self) -> None:
+        """Drop anything the previous answer left on the socket.
+
+        A read returns as soon as the requested path has arrived, so a device
+        that sends more lines for that answer leaves them buffered. Without
+        this, the next request would read one of them as its own reply and
+        every following answer would be off by one. Measured against real
+        hardware a leaf query is answered with exactly one line, so this
+        normally finds nothing and costs one short timeout.
+        """
+        if self._reader is None:
+            return
+        while True:
+            try:
+                leftover = await asyncio.wait_for(
+                    self._reader.readuntil(_MESSAGE_TERMINATOR),
+                    timeout=_STALE_DRAIN_SECONDS,
+                )
+            except (asyncio.TimeoutError, asyncio.IncompleteReadError):
+                return
+            except (asyncio.LimitOverrunError, OSError):
+                # Broken or flooded connection - let the actual request fail.
+                self._drop_connection()
+                return
+            _LOGGER.debug(
+                "Discarded a stale line from %s: %s", self._host, leftover[:200]
+            )
 
     async def _read_lines_until_settled(
         self, expect_path: tuple[str, ...] | None = None
@@ -255,39 +288,53 @@ class SSCClient:
         """
         if priority:
             self._priority_waiting.set()
-        async with self._lock:
+        try:
+            async with self._lock:
+                if priority:
+                    self._priority_waiting.clear()
+                return await self._locked_request(payload, expect_path)
+        finally:
+            # Cancellation while waiting for the lock would otherwise leave the
+            # event set forever, and the poll loop sleeps before every single
+            # path while it is (see coordinator._poll_all_paths).
             if priority:
                 self._priority_waiting.clear()
-            await self._ensure_connected()
-            try:
-                await self._send_raw(payload)
-                merged = await self._read_lines_until_settled(expect_path)
-            except (SSCConnectionError, SSCTimeoutError):
-                # Drop the connection so the next attempt reconnects
-                self._drop_connection()
-                raise
-            except asyncio.CancelledError:
-                # External cancellation (e.g. cycle time limit in the
-                # coordinator): an unanswered request may be pending on the
-                # socket. Drop the connection so its late response is not
-                # attributed to the next request (wrong value/error mapping).
-                self._drop_connection()
-                raise
 
-            osc_error = extract(merged, ("osc", "error"))
-            if osc_error:
-                # Format per test result: [400, {"desc": "message not understood"}]
-                description = ""
-                if isinstance(osc_error, list):
-                    for part in osc_error:
-                        if isinstance(part, dict) and "desc" in part:
-                            description = part["desc"]
-                raise SSCDeviceError(
-                    f"Device {self._host} rejected the request: "
-                    f"{description or osc_error}"
-                )
+    async def _locked_request(
+        self, payload: dict, expect_path: tuple[str, ...] | None
+    ) -> dict:
+        """Send one message and read its answer. Caller holds the lock."""
+        await self._ensure_connected()
+        await self._discard_stale_lines()
+        try:
+            await self._send_raw(payload)
+            merged = await self._read_lines_until_settled(expect_path)
+        except (SSCConnectionError, SSCTimeoutError):
+            # Drop the connection so the next attempt reconnects
+            self._drop_connection()
+            raise
+        except asyncio.CancelledError:
+            # External cancellation (e.g. cycle time limit in the
+            # coordinator): an unanswered request may be pending on the
+            # socket. Drop the connection so its late response is not
+            # attributed to the next request (wrong value/error mapping).
+            self._drop_connection()
+            raise
 
-            return merged
+        osc_error = extract(merged, ("osc", "error"))
+        if osc_error:
+            # Format per test result: [400, {"desc": "message not understood"}]
+            description = ""
+            if isinstance(osc_error, list):
+                for part in osc_error:
+                    if isinstance(part, dict) and "desc" in part:
+                        description = part["desc"]
+            raise SSCDeviceError(
+                f"Device {self._host} rejected the request: "
+                f"{description or osc_error}"
+            )
+
+        return merged
 
     async def get(self, path: tuple[str, ...], priority: bool = False) -> Any:
         """Queries a single value (get = request with JSON null)."""
