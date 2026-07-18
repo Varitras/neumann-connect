@@ -5,6 +5,18 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
+## [1.17.2b1] – Buchführung beim Zurückspielen
+
+### Behoben
+- Ein zurückgespielter Wert, den das Gerät nicht bestätigt hat, wurde als
+  „angepasst" gezählt und als aktueller Wert übernommen. Die betroffene Entität
+  fiel dadurch auf „unbekannt", bei langsam abgefragten Pfaden bis zum nächsten
+  langsamen Zyklus. Solche Werte zählen jetzt als übersprungen
+- Auto-Standby ist auf den Monitoren schreibbar und auf dem Subwoofer nur
+  lesbar, weshalb es dort als Sensor statt als Schalter erscheint. Die
+  Positivliste beim Zurückspielen übersah das und schrieb den Wert auf jedem
+  Modell, sodass ein KH 750 dafür stets eine Ablehnung kassierte
+
 ## [1.17.1] – Verbindungs-Invariante bei Abbruch eingehalten
 
 ### Behoben

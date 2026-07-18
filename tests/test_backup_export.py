@@ -145,6 +145,19 @@ def test_read_only_paths_are_not_restorable(model):
         assert getattr(const, name) not in restorable, f"{name} is read-only"
 
 
+def test_auto_standby_is_only_restorable_where_it_is_writable():
+    """Writable on the monitors, read-only on the subwoofer.
+
+    That split is already reflected in the entities - a switch on one model,
+    a binary sensor on the other. The restore allowlist wrote it everywhere,
+    so a KH 750 restore always earned one rejection for it.
+    """
+    from custom_components.neumann_kh import const  # noqa: PLC0415
+
+    assert const.PATH_STANDBY_ENABLED in restorable_paths_for_model(_KH_120_II)
+    assert const.PATH_STANDBY_ENABLED not in restorable_paths_for_model(_KH_750)
+
+
 @pytest.mark.parametrize("model", [_KH_120_II, _KH_750])
 def test_control_mode_is_written_last(model):
     """LOCAL would cut network control - so write it after everything else."""

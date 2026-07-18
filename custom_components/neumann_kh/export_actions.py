@@ -233,6 +233,15 @@ async def async_run_restore(
                 },
             ) from err
         else:
+            if confirmed is None:
+                # The device answered, but not for this path (the settle window
+                # can end after an unrelated line). Nothing was confirmed:
+                # counting it as adjusted would misreport it, and handing None
+                # to the coordinator would drop the entity to unknown - and for
+                # a slow-polled path that sticks in the cache until the next
+                # slow cycle, up to five minutes.
+                skipped += 1
+                continue
             confirmed_values.append((path, confirmed))
             if confirmed != value:
                 # The device clamped or normalised the value. Reporting it as

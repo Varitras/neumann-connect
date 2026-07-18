@@ -93,7 +93,6 @@ _RESTORABLE_COMMON = (
     PATH_OUTPUT_DELAY,
     PATH_OUTPUT_MUTE,
     PATH_OUTPUT_PHASE_INVERSION,
-    PATH_STANDBY_ENABLED,
     PATH_STANDBY_AUTO_TIME,
     PATH_STANDBY_LEVEL,
     PATH_INPUT_INTERFACE_TYPE,
@@ -119,6 +118,12 @@ def restorable_paths_for_model(model: str | None) -> list[tuple[str, ...]]:
     everything else has already landed even if that cuts us off.
     """
     paths = list(_RESTORABLE_COMMON)
+    if model not in MODELS_WITH_SUBWOOFER_FEATURES:
+        # Auto standby is writable on the monitors and read-only on the
+        # subwoofer, which is why it is a switch on one and a binary sensor on
+        # the other (see switch.py / binary_sensor.py). Writing it there only
+        # earns a rejection.
+        paths.append(PATH_STANDBY_ENABLED)
     if model in MODELS_WITH_LOGO_AND_SAVE:
         paths.append(PATH_LOGO_BRIGHTNESS)
     if model in MODELS_WITH_SUBWOOFER_FEATURES:

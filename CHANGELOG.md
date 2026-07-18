@@ -5,6 +5,18 @@
 All notable changes to this integration are documented here.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.17.2b1] – Restore bookkeeping
+
+### Fixed
+- A restored value the device did not confirm was counted as "adjusted" and
+  passed on as the current value. The affected entity dropped to unknown, and
+  for a slow-polled path it stayed that way until the next slow cycle. Such a
+  value now counts as skipped
+- Auto standby is writable on the monitors and read-only on the subwoofer,
+  which is why it appears as a switch on one and a sensor on the other. The
+  restore allowlist ignored that split and wrote it on every model, so a
+  KH 750 restore always earned one rejection for it
+
 ## [1.17.1] – Keep the connection invariant on cancellation
 
 ### Fixed
