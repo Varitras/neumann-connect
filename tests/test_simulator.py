@@ -86,6 +86,8 @@ async def test_get_and_set_roundtrip(kh120):
     client = _client(kh120.port)
     try:
         assert await client.get(("device", "identity", "product")) == MODEL_KH_120_II
+        # The config flow uses the vendor to spot devices of other makers.
+        assert await client.get(("device", "identity", "vendor")) == "Georg Neumann GmbH"
         assert await client.get(("audio", "out", "level")) == 100.0
         assert await client.set(("audio", "out", "level"), 85.5) == 85.5
         assert await client.get(("audio", "out", "level")) == 85.5

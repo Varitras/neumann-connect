@@ -10,7 +10,14 @@ DOMAIN = "neumann_kh"
 CONF_INTERFACE = "interface"  # Network interface for IPv6 link-local scope ID
 CONF_SERIAL = "serial"  # Serial number, used as unique ID
 CONF_MODEL = "model"  # Product name (e.g. "KH 120 II", "KH 750")
+CONF_VENDOR = "vendor"  # Manufacturer as reported by the device
 CONF_FIRMWARE_VERSION = "firmware_version"  # e.g. "1_7_3", informational only (sw_version)
+
+# Both test devices report this verbatim as device/identity/vendor (KH 120 II
+# on firmware 1_7_3, KH 750 on 2_1_2). Used as the fallback for devices that
+# do not expose the field, and to recognise a Neumann device during setup.
+DEFAULT_VENDOR = "Georg Neumann GmbH"
+VENDOR_MARKER_NEUMANN = "neumann"
 
 # --- Default values --------------------------------------------------------
 DEFAULT_PORT = 45  # SSC default port
@@ -53,6 +60,7 @@ SCAN_DURATION_SECONDS = 4.0
 
 # --- SSC address paths (tuple of keys, for nested JSON) ---------------------
 PATH_IDENTITY_PRODUCT = ("device", "identity", "product")
+PATH_IDENTITY_VENDOR = ("device", "identity", "vendor")
 PATH_IDENTITY_SERIAL = ("device", "identity", "serial")
 PATH_IDENTITY_VERSION = ("device", "identity", "version")
 

@@ -25,6 +25,10 @@
           "selected_device": "Gefundenes Gerät"
         }
       },
+      "unsupported": {
+        "title": "Gerät eines anderen Herstellers",
+        "description": "Dieses Gerät meldet sich als \"{product}\" von \"{vendor}\" und ist kein Neumann-Lautsprecher. Es spricht SSC, die Integration kann es also steuern – alles Modellspezifische (Subwoofer-Entitäten, EQ-Aufbau, Werksreset) ist aber geraten und passt womöglich nicht. Zum Hinzufügen trotzdem bestätigen."
+      },
       "scan_confirm": {
         "title": "Lautsprecher benennen",
         "description": "Gerät: {device}. Vorausgefüllt, falls dieses Gerät schon einmal einen Namen hatte.",
@@ -50,85 +54,215 @@
   },
   "entity": {
     "number": {
-      "output_level": { "name": "Ausgangspegel" },
-      "output_dimm": { "name": "Dimm" },
-      "output_delay": { "name": "Verzögerung" },
-      "logo_brightness": { "name": "Logo-Helligkeit" },
-      "standby_auto_time": { "name": "Auto-Standby-Zeit" },
-      "standby_level": { "name": "Standby-Schwellwert" },
-      "out1_level": { "name": "Ausgang 1 Pegel" },
-      "out1_delay": { "name": "Ausgang 1 Verzögerung" },
-      "out2_level": { "name": "Ausgang 2 Pegel" },
-      "out2_delay": { "name": "Ausgang 2 Verzögerung" }
+      "output_level": {
+        "name": "Ausgangspegel"
+      },
+      "output_dimm": {
+        "name": "Dimm"
+      },
+      "output_delay": {
+        "name": "Verzögerung"
+      },
+      "logo_brightness": {
+        "name": "Logo-Helligkeit"
+      },
+      "standby_auto_time": {
+        "name": "Auto-Standby-Zeit"
+      },
+      "standby_level": {
+        "name": "Standby-Schwellwert"
+      },
+      "out1_level": {
+        "name": "Ausgang 1 Pegel"
+      },
+      "out1_delay": {
+        "name": "Ausgang 1 Verzögerung"
+      },
+      "out2_level": {
+        "name": "Ausgang 2 Pegel"
+      },
+      "out2_delay": {
+        "name": "Ausgang 2 Verzögerung"
+      }
     },
     "select": {
-      "control_mode": { "name": "Steuerungsmodus" },
-      "input_interface": { "name": "Eingangs-Interface" }
+      "control_mode": {
+        "name": "Steuerungsmodus"
+      },
+      "input_interface": {
+        "name": "Eingangs-Interface"
+      }
     },
     "switch": {
-      "mute": { "name": "Stummschaltung" },
-      "identify": { "name": "Identifizieren" },
-      "phase_invert": { "name": "Phasenumkehr" },
-      "auto_standby": { "name": "Auto-Standby" },
-      "out1_mute": { "name": "Ausgang 1 Stumm" },
-      "out2_mute": { "name": "Ausgang 2 Stumm" },
-      "eq_enabled": { "name": "{container} aktiv" }
+      "mute": {
+        "name": "Stummschaltung"
+      },
+      "identify": {
+        "name": "Identifizieren"
+      },
+      "phase_invert": {
+        "name": "Phasenumkehr"
+      },
+      "auto_standby": {
+        "name": "Auto-Standby"
+      },
+      "out1_mute": {
+        "name": "Ausgang 1 Stumm"
+      },
+      "out2_mute": {
+        "name": "Ausgang 2 Stumm"
+      },
+      "eq_enabled": {
+        "name": "{container} aktiv"
+      }
     },
     "sensor": {
-      "input_level_meter": { "name": "Eingangspegel (live)" },
-      "standby_countdown": { "name": "Standby-Countdown" },
-      "hw_version": { "name": "Hardware-Version" },
-      "input_current": { "name": "Aktueller Eingang" },
-      "device_temperature": { "name": "Gerätetemperatur" },
-      "output_level_meter": { "name": "Ausgangspegel (live)" },
-      "out1_label": { "name": "Ausgang 1 Bezeichnung" },
-      "out1_loudspeaker": { "name": "Ausgang 1 Lautsprecher" },
-      "out2_label": { "name": "Ausgang 2 Bezeichnung" },
-      "out2_loudspeaker": { "name": "Ausgang 2 Lautsprecher" },
-      "output_label": { "name": "Ausgangsbezeichnung" },
-      "input_gain": { "name": "Eingangsverstärkung" },
-      "input_select": { "name": "Eingangsauswahl" },
-      "bass_gain": { "name": "Bass" },
-      "mid_gain": { "name": "Mitten" },
-      "treble_gain": { "name": "Höhen" },
-      "output_level_select": { "name": "Ausgangspegel (SPL)" },
-      "bass_management": { "name": "Bass-Management" },
-      "channel_b_input_mode": { "name": "Kanal-B-Eingangsmodus" },
-      "subwoofer_input_gain": { "name": "Subwoofer-Eingangsverstärkung" },
-      "subwoofer_low_cut": { "name": "Subwoofer Low-Cut" },
-      "subwoofer_output_level": { "name": "Subwoofer-Ausgangspegel" },
-      "subwoofer_phase": { "name": "Subwoofer-Phase" },
-      "subwoofer_phase_inversion": { "name": "Subwoofer-Phaseninversion" }
+      "input_level_meter": {
+        "name": "Eingangspegel (live)"
+      },
+      "standby_countdown": {
+        "name": "Standby-Countdown"
+      },
+      "hw_version": {
+        "name": "Hardware-Version"
+      },
+      "input_current": {
+        "name": "Aktueller Eingang"
+      },
+      "device_temperature": {
+        "name": "Gerätetemperatur"
+      },
+      "output_level_meter": {
+        "name": "Ausgangspegel (live)"
+      },
+      "out1_label": {
+        "name": "Ausgang 1 Bezeichnung"
+      },
+      "out1_loudspeaker": {
+        "name": "Ausgang 1 Lautsprecher"
+      },
+      "out2_label": {
+        "name": "Ausgang 2 Bezeichnung"
+      },
+      "out2_loudspeaker": {
+        "name": "Ausgang 2 Lautsprecher"
+      },
+      "output_label": {
+        "name": "Ausgangsbezeichnung"
+      },
+      "input_gain": {
+        "name": "Eingangsverstärkung"
+      },
+      "input_select": {
+        "name": "Eingangsauswahl"
+      },
+      "bass_gain": {
+        "name": "Bass"
+      },
+      "mid_gain": {
+        "name": "Mitten"
+      },
+      "treble_gain": {
+        "name": "Höhen"
+      },
+      "output_level_select": {
+        "name": "Ausgangspegel (SPL)"
+      },
+      "bass_management": {
+        "name": "Bass-Management"
+      },
+      "channel_b_input_mode": {
+        "name": "Kanal-B-Eingangsmodus"
+      },
+      "subwoofer_input_gain": {
+        "name": "Subwoofer-Eingangsverstärkung"
+      },
+      "subwoofer_low_cut": {
+        "name": "Subwoofer Low-Cut"
+      },
+      "subwoofer_output_level": {
+        "name": "Subwoofer-Ausgangspegel"
+      },
+      "subwoofer_phase": {
+        "name": "Subwoofer-Phase"
+      },
+      "subwoofer_phase_inversion": {
+        "name": "Subwoofer-Phaseninversion"
+      }
     },
     "binary_sensor": {
-      "input_clip": { "name": "Eingang übersteuert" },
-      "warning": { "name": "Warnung" },
-      "auto_standby": { "name": "Auto-Standby" },
-      "output_clip": { "name": "Ausgang übersteuert" },
-      "digital_bypass": { "name": "Digitaler Bypass" }
+      "input_clip": {
+        "name": "Eingang übersteuert"
+      },
+      "warning": {
+        "name": "Warnung"
+      },
+      "auto_standby": {
+        "name": "Auto-Standby"
+      },
+      "output_clip": {
+        "name": "Ausgang übersteuert"
+      },
+      "digital_bypass": {
+        "name": "Digitaler Bypass"
+      }
     },
     "button": {
-      "save_settings": { "name": "Einstellungen speichern" },
-      "restore_factory_defaults": { "name": "Werkseinstellungen wiederherstellen" },
-      "create_backup": { "name": "Backup erstellen" },
-      "run_discovery": { "name": "Geräte-Discovery ausführen" },
-      "eq_reset": { "name": "{container}: auf neutral zurücksetzen" }
+      "save_settings": {
+        "name": "Einstellungen speichern"
+      },
+      "restore_factory_defaults": {
+        "name": "Werkseinstellungen wiederherstellen"
+      },
+      "create_backup": {
+        "name": "Backup erstellen"
+      },
+      "run_discovery": {
+        "name": "Geräte-Discovery ausführen"
+      },
+      "eq_reset": {
+        "name": "{container}: auf neutral zurücksetzen"
+      }
     },
     "text": {
-      "device_name": { "name": "Gerätename" }
+      "device_name": {
+        "name": "Gerätename"
+      }
     }
   },
   "exceptions": {
-    "device_unreachable": { "message": "Der Lautsprecher ist nicht erreichbar: {error}" },
-    "change_rejected": { "message": "Der Lautsprecher hat diese Änderung abgelehnt (evtl. von diesem Modell/dieser Firmware nicht unterstützt): {error}" },
-    "selection_rejected": { "message": "Der Lautsprecher hat diese Auswahl abgelehnt (evtl. von diesem Modell/dieser Firmware nicht unterstützt): {error}" },
-    "save_settings_rejected": { "message": "Der Lautsprecher hat 'Einstellungen speichern' abgelehnt: {error}" },
-    "factory_reset_rejected": { "message": "Der Lautsprecher hat den Werksreset abgelehnt: {error}" },
-    "eq_reset_rejected": { "message": "Der Lautsprecher hat den EQ-Reset abgelehnt: {error}" },
-    "name_rejected": { "message": "Der Lautsprecher hat den neuen Namen abgelehnt: {error}" },
-    "backup_in_progress": { "message": "Ein Backup läuft bereits, bitte warten." },
-    "discovery_in_progress": { "message": "Eine Discovery läuft bereits, bitte warten." },
-    "backup_failed": { "message": "Backup fehlgeschlagen: {error}" },
-    "discovery_failed": { "message": "Discovery fehlgeschlagen: {error}" }
+    "device_unreachable": {
+      "message": "Der Lautsprecher ist nicht erreichbar: {error}"
+    },
+    "change_rejected": {
+      "message": "Der Lautsprecher hat diese Änderung abgelehnt (evtl. von diesem Modell/dieser Firmware nicht unterstützt): {error}"
+    },
+    "selection_rejected": {
+      "message": "Der Lautsprecher hat diese Auswahl abgelehnt (evtl. von diesem Modell/dieser Firmware nicht unterstützt): {error}"
+    },
+    "save_settings_rejected": {
+      "message": "Der Lautsprecher hat 'Einstellungen speichern' abgelehnt: {error}"
+    },
+    "factory_reset_rejected": {
+      "message": "Der Lautsprecher hat den Werksreset abgelehnt: {error}"
+    },
+    "eq_reset_rejected": {
+      "message": "Der Lautsprecher hat den EQ-Reset abgelehnt: {error}"
+    },
+    "name_rejected": {
+      "message": "Der Lautsprecher hat den neuen Namen abgelehnt: {error}"
+    },
+    "backup_in_progress": {
+      "message": "Ein Backup läuft bereits, bitte warten."
+    },
+    "discovery_in_progress": {
+      "message": "Eine Discovery läuft bereits, bitte warten."
+    },
+    "backup_failed": {
+      "message": "Backup fehlgeschlagen: {error}"
+    },
+    "discovery_failed": {
+      "message": "Discovery fehlgeschlagen: {error}"
+    }
   }
 }

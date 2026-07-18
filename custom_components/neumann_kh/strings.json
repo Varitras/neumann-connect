@@ -25,6 +25,10 @@
           "selected_device": "Discovered device"
         }
       },
+      "unsupported": {
+        "title": "Device of another manufacturer",
+        "description": "This device reports itself as \"{product}\" by \"{vendor}\" and is not a Neumann speaker. It speaks SSC, so the integration can control it, but anything model-specific (subwoofer entities, EQ layout, factory reset) is a guess and may not match. Submit to add it anyway."
+      },
       "scan_confirm": {
         "title": "Name the speaker",
         "description": "Device: {device}. Pre-filled if this device had a name before.",

@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import ipaddress
 import logging
-from typing import Any
+from typing import Any, NamedTuple
 
 import voluptuous as vol
 from homeassistant import config_entries
@@ -32,12 +32,15 @@ from .const import (
     CONF_INTERFACE,
     CONF_MODEL,
     CONF_SERIAL,
+    CONF_VENDOR,
     DEFAULT_PORT,
     DEFAULT_TIMEOUT,
     DOMAIN,
     PATH_IDENTITY_PRODUCT,
     PATH_IDENTITY_SERIAL,
+    PATH_IDENTITY_VENDOR,
     PATH_IDENTITY_VERSION,
+    VENDOR_MARKER_NEUMANN,
 )
 from .discovery import DiscoveredSpeaker, async_scan_for_speakers
 from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeoutError
@@ -110,30 +113,57 @@ def _already_configured_serials(hass: HomeAssistant) -> set[str]:
     }
 
 
-async def _async_test_connection(
-    host: str, port: int, interface: str | None
-) -> tuple[str | None, str | None, str | None, str | None]:
-    """Test the SSC connection and read out model + serial number + firmware version.
+class DeviceIdentity(NamedTuple):
+    """Result of a connection test: what the device reports about itself."""
 
-    Return: (product, serial, firmware_version, error_key). error_key is
-    None on success.
+    product: str | None = None
+    serial: str | None = None
+    version: str | None = None
+    vendor: str | None = None
+    error_key: str | None = None
+
+    @property
+    def is_neumann(self) -> bool:
+        """Whether the device identifies itself as a Neumann product.
+
+        Both test devices report "Georg Neumann GmbH" as
+        device/identity/vendor. A device that does not expose the field at all
+        is not treated as foreign - the field is verified on the KH 120 II and
+        KH 750 only, so absence is inconclusive rather than a negative.
+        """
+        if self.vendor is None:
+            return True
+        return VENDOR_MARKER_NEUMANN in self.vendor.lower()
+
+
+async def _async_test_connection(host: str, port: int, interface: str | None) -> DeviceIdentity:
+    """Test the SSC connection and read out the device identity.
+
+    `error_key` is None on success.
     """
     client = SSCClient(host=host, port=port, interface=interface, timeout=DEFAULT_TIMEOUT)
     try:
         product = await client.get(PATH_IDENTITY_PRODUCT)
         serial = await client.get(PATH_IDENTITY_SERIAL)
         version = await client.get(PATH_IDENTITY_VERSION)
+        try:
+            vendor = await client.get(PATH_IDENTITY_VENDOR)
+        except SSCDeviceError:
+            # Verified present on the KH 120 II and KH 750, but not on every
+            # model - a rejection here must not fail the whole setup.
+            _LOGGER.debug("Device %s does not expose device/identity/vendor", host)
+            vendor = None
     except SSCConnectionError:
-        return None, None, None, "cannot_connect"
+        return DeviceIdentity(error_key="cannot_connect")
     except SSCTimeoutError:
-        return None, None, None, "timeout"
+        return DeviceIdentity(error_key="timeout")
     except SSCDeviceError:
-        return None, None, None, "cannot_connect"
+        return DeviceIdentity(error_key="cannot_connect")
     except Exception:  # noqa: BLE001 - catch unexpected errors cleanly
         _LOGGER.exception("Unexpected error while testing the connection to %s", host)
-        return None, None, None, "unknown"
+        return DeviceIdentity(error_key="unknown")
     else:
-        return product, serial, version, None
+        return DeviceIdentity(product=product, serial=serial, version=version, vendor=vendor)
     finally:
         await client.close()
 
@@ -146,8 +176,10 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def __init__(self) -> None:
         # Temporary storage, lives only within this flow.
         self._discovered: dict[str, DiscoveredSpeaker] = {}
-        self._discovery_info: dict[str, dict[str, str | None]] = {}
+        self._discovery_info: dict[str, DeviceIdentity] = {}
         self._pending_key: str | None = None
+        self._pending_entry: dict[str, Any] | None = None
+        self._pending_identity: DeviceIdentity | None = None
 
     # --- Entry point: menu with the two paths ------------------------------
 
@@ -183,33 +215,41 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 except ValueError:
                     errors["base"] = "invalid_ipv6"
                 else:
-                    if host.lower().startswith("fe80") and not interface:
+                    if SSCClient._is_link_local(host) and not interface:  # noqa: SLF001
                         errors["base"] = "interface_required_for_link_local"
                     else:
-                        product, serial, version, error_key = await _async_test_connection(
-                            host, port, interface
-                        )
-                        if error_key:
-                            errors["base"] = error_key
+                        identity = await _async_test_connection(host, port, interface)
+                        if identity.error_key:
+                            errors["base"] = identity.error_key
                         else:
-                            unique_id = serial or f"{host}_{port}"
+                            unique_id = identity.serial or f"{host}_{port}"
                             await self.async_set_unique_id(str(unique_id))
                             self._abort_if_unique_id_configured()
-                            if serial:
-                                await storage.async_remember_name(self.hass, serial, name)
+                            if identity.serial:
+                                await storage.async_remember_name(
+                                    self.hass, identity.serial, name
+                                )
 
-                            return self.async_create_entry(
-                                title=name,
-                                data={
-                                    CONF_NAME: name,
-                                    CONF_HOST: host,
-                                    CONF_INTERFACE: interface or "",
-                                    CONF_PORT: port,
-                                    CONF_MODEL: product or "KH DSP",
-                                    CONF_SERIAL: serial or "",
-                                    CONF_FIRMWARE_VERSION: version or "",
-                                },
-                            )
+                            entry_data = {
+                                CONF_NAME: name,
+                                CONF_HOST: host,
+                                CONF_INTERFACE: interface or "",
+                                CONF_PORT: port,
+                                CONF_MODEL: identity.product or "KH DSP",
+                                CONF_SERIAL: identity.serial or "",
+                                CONF_VENDOR: identity.vendor or "",
+                                CONF_FIRMWARE_VERSION: identity.version or "",
+                            }
+                            if not identity.is_neumann:
+                                # Setup is not blocked - the integration talks
+                                # plain SSC and stays usable on other vendors'
+                                # devices. The user just gets to see what was
+                                # actually found before confirming.
+                                self._pending_entry = entry_data
+                                self._pending_identity = identity
+                                return await self.async_step_unsupported()
+
+                            return self.async_create_entry(title=name, data=entry_data)
 
         interface_options = await _async_get_interface_options(self.hass)
         schema = _build_manual_schema(interface_options)
@@ -221,6 +261,35 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             schema = self.add_suggested_values_to_schema(schema, user_input)
 
         return self.async_show_form(step_id="manual", data_schema=schema, errors=errors)
+
+    # --- Shared: confirmation for devices of another vendor ------------------
+
+    async def async_step_unsupported(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Warn about a device that does not identify as Neumann, then proceed.
+
+        The SSC protocol is not exclusive to Neumann, so such a device may well
+        work - only the model-specific parts (subwoofer entities, EQ layout)
+        are guesses. Setup therefore continues on confirmation instead of being
+        rejected.
+        """
+        if self._pending_entry is None or self._pending_identity is None:
+            return self.async_abort(reason="unknown")
+
+        if user_input is not None:
+            return self.async_create_entry(
+                title=self._pending_entry[CONF_NAME], data=self._pending_entry
+            )
+
+        return self.async_show_form(
+            step_id="unsupported",
+            data_schema=vol.Schema({}),
+            description_placeholders={
+                "product": self._pending_identity.product or "?",
+                "vendor": self._pending_identity.vendor or "?",
+            },
+        )
 
     # --- Path 2: Active mDNS scan, then naming ------------------------------
 
@@ -247,20 +316,18 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._discovery_info = {}
 
         for speaker in speakers:
-            product, serial, version, error_key = await _async_test_connection(
-                speaker.host, speaker.port, interface=None
-            )
-            if error_key:
+            identity = await _async_test_connection(speaker.host, speaker.port, interface=None)
+            if identity.error_key:
                 _LOGGER.debug(
                     "Discovered device %s (%s) did not respond to SSC requests: %s",
                     speaker.mdns_name,
                     speaker.host,
-                    error_key,
+                    identity.error_key,
                 )
                 continue
-            key = serial or speaker.mdns_name
+            key = identity.serial or speaker.mdns_name
             self._discovered[key] = speaker
-            self._discovery_info[key] = {"product": product, "serial": serial, "version": version}
+            self._discovery_info[key] = identity
 
         if not self._discovered:
             # Empty schema = only a submit button that triggers the scan again.
@@ -274,9 +341,9 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Second step: assign a name (pre-filled if the device is known)."""
         errors: dict[str, str] = {}
         candidate = self._discovered.get(self._pending_key or "")
-        info = self._discovery_info.get(self._pending_key or "")
+        identity = self._discovery_info.get(self._pending_key or "")
 
-        if candidate is None or info is None:
+        if candidate is None or identity is None:
             # Discovery result expired (e.g. flow open too long) -> rescan.
             return self.async_show_form(
                 step_id="scan", data_schema=vol.Schema({}), errors={"base": "discovery_expired"}
@@ -287,29 +354,33 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if not name:
                 errors["base"] = "name_required"
             else:
-                unique_id = info.get("serial") or f"{candidate.host}_{candidate.port}"
+                unique_id = identity.serial or f"{candidate.host}_{candidate.port}"
                 await self.async_set_unique_id(str(unique_id))
                 self._abort_if_unique_id_configured()
-                if info.get("serial"):
-                    await storage.async_remember_name(self.hass, info["serial"], name)
+                if identity.serial:
+                    await storage.async_remember_name(self.hass, identity.serial, name)
 
-                return self.async_create_entry(
-                    title=name,
-                    data={
-                        CONF_NAME: name,
-                        CONF_HOST: candidate.host,
-                        # Scope ID is already contained in candidate.host (%<scope>).
-                        CONF_INTERFACE: "",
-                        CONF_PORT: candidate.port,
-                        CONF_MODEL: info.get("product") or "KH DSP",
-                        CONF_SERIAL: info.get("serial") or "",
-                        CONF_FIRMWARE_VERSION: info.get("version") or "",
-                    },
-                )
+                entry_data = {
+                    CONF_NAME: name,
+                    CONF_HOST: candidate.host,
+                    # Scope ID is already contained in candidate.host (%<scope>).
+                    CONF_INTERFACE: "",
+                    CONF_PORT: candidate.port,
+                    CONF_MODEL: identity.product or "KH DSP",
+                    CONF_SERIAL: identity.serial or "",
+                    CONF_VENDOR: identity.vendor or "",
+                    CONF_FIRMWARE_VERSION: identity.version or "",
+                }
+                if not identity.is_neumann:
+                    self._pending_entry = entry_data
+                    self._pending_identity = identity
+                    return await self.async_step_unsupported()
+
+                return self.async_create_entry(title=name, data=entry_data)
 
         remembered_name = None
-        if info.get("serial"):
-            remembered_name = await storage.async_get_remembered_name(self.hass, info["serial"])
+        if identity.serial:
+            remembered_name = await storage.async_get_remembered_name(self.hass, identity.serial)
 
         schema = vol.Schema({vol.Required(CONF_NAME): str})
         if remembered_name:
@@ -320,7 +391,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=schema,
             errors=errors,
             description_placeholders={
-                "device": f"{info.get('product') or 'KH DSP'} – {candidate.host}"
+                "device": f"{identity.product or 'KH DSP'} – {candidate.host}"
             },
         )
 
@@ -334,12 +405,20 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 label="🔄 Erneut suchen" if de else "🔄 Search again",
             )
         ]
-        for key, info in self._discovery_info.items():
-            label = f"{info.get('product') or 'KH DSP'} – {self._discovered[key].host}"
-            if info.get("serial"):
-                label += f" (Serial: {info['serial']})"
-            if info.get("serial") in configured_serials:
+        for key, identity in self._discovery_info.items():
+            label = f"{identity.product or 'KH DSP'} – {self._discovered[key].host}"
+            if identity.serial:
+                label += f" (Serial: {identity.serial})"
+            if identity.serial in configured_serials:
                 label += " — ✓ bereits verbunden" if de else " — ✓ already connected"
+            if not identity.is_neumann:
+                # Kept selectable on purpose: SSC is not Neumann-exclusive, so
+                # the device may still work - the label just says what it is.
+                label += (
+                    f" — ⚠ kein Neumann-Gerät ({identity.vendor})"
+                    if de
+                    else f" — ⚠ not a Neumann device ({identity.vendor})"
+                )
             options.append(selector.SelectOptionDict(value=key, label=label))
 
         return vol.Schema(

@@ -68,6 +68,7 @@ _EQ_SUBWOOFER = (
 _READ_ONLY_COMMON = frozenset(
     {
         ("device", "identity", "product"),
+        ("device", "identity", "vendor"),
         ("device", "identity", "serial"),
         ("device", "identity", "version"),
         ("device", "identity", "hw_version"),
@@ -149,6 +150,8 @@ def _build_state(model: str) -> dict[str, Any]:
         "device": {
             "identity": {
                 "product": model,
+                # Verified verbatim on both test devices.
+                "vendor": "Georg Neumann GmbH",
                 "serial": "SIM0001234" if not is_subwoofer else "SIM0007500",
                 "version": "2_1_2" if is_subwoofer else "1_7_3",
                 "hw_version": "1.0",
