@@ -5,7 +5,7 @@
 All notable changes to this integration are documented here.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [1.18.0b1] – Speakers that move to a new address
+## [1.18.0] – Speakers that move to a new address
 
 A global IPv6 address is built from the prefix the internet provider hands
 out, and many connections are given a new one on the daily forced reconnect.

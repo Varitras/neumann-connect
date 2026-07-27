@@ -5,7 +5,7 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
-## [1.18.0b1] – Lautsprecher, die ihre Adresse wechseln
+## [1.18.0] – Lautsprecher, die ihre Adresse wechseln
 
 Eine globale IPv6-Adresse enthält das Präfix, das der Internetanbieter zuteilt,
 und viele Anschlüsse bekommen bei der täglichen Zwangstrennung ein neues. Jede
