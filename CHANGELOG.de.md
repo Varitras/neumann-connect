@@ -5,6 +5,31 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
+## [1.18.0b1] – Lautsprecher, die ihre Adresse wechseln
+
+Eine globale IPv6-Adresse enthält das Präfix, das der Internetanbieter zuteilt,
+und viele Anschlüsse bekommen bei der täglichen Zwangstrennung ein neues. Jede
+gespeicherte globale Adresse zeigt danach ins Leere, und die betroffenen
+Lautsprecher bleiben nicht verfügbar, bis jeder Eintrag von Hand neu
+konfiguriert wird. Drei Änderungen gehen das von verschiedenen Seiten an.
+
+### Hinzugefügt
+- Home Assistant reicht mDNS-Ankündigungen jetzt direkt an die Integration
+  weiter. Bei einem bereits eingerichteten Lautsprecher wird die gespeicherte
+  Adresse still korrigiert und der Eintrag neu geladen; ein noch nicht
+  eingerichteter erscheint als gefundenes Gerät
+- Nach einem fehlgeschlagenen Setup sucht die Integration den Lautsprecher
+  selbst im Netzwerk und speichert die Adresse, unter der er antwortet, sodass
+  der ohnehin geplante erneute Versuch ihn findet. Übernommen wird nur ein
+  Gerät, dessen Seriennummer zum Eintrag passt; ein Eintrag ohne gespeicherte
+  Seriennummer bleibt unangetastet
+
+### Geändert
+- Die Gerätesuche bevorzugt jetzt die Link-Local-Adresse eines Lautsprechers
+  gegenüber der globalen. Eine Link-Local-Adresse leitet sich aus der
+  Hardware-Adresse ab und bleibt gültig, solange der Lautsprecher im selben
+  Netzsegment hängt
+
 ## [1.17.2] – Buchführung beim Zurückspielen
 
 ### Behoben

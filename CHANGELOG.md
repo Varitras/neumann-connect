@@ -5,6 +5,28 @@
 All notable changes to this integration are documented here.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.18.0b1] – Speakers that move to a new address
+
+A global IPv6 address is built from the prefix the internet provider hands
+out, and many connections are given a new one on the daily forced reconnect.
+Every stored global address then points nowhere, and the affected speakers stay
+unavailable until each entry is reconfigured by hand. Three changes address
+this from different sides.
+
+### Added
+- Home Assistant now passes mDNS announcements to the integration directly.
+  A speaker that is already set up has its stored address corrected silently
+  and reloads; one that is not yet set up appears as a discovered device
+- After a failed setup the integration searches the network for the speaker
+  itself and stores the address it answers on, so the retry that is already
+  scheduled finds it. Only a device whose serial number matches the entry is
+  followed, and an entry without a stored serial number is left untouched
+
+### Changed
+- Device discovery now prefers a speaker's link-local address over its global
+  one. A link-local address is derived from the hardware address and stays
+  valid for as long as the speaker sits on the same network segment
+
 ## [1.17.2] – Restore bookkeeping
 
 ### Fixed

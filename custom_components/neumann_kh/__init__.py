@@ -11,13 +11,26 @@ corresponding buttons (see button.py), not automatically.
 
 from __future__ import annotations
 
+import logging
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PORT, Platform
 from homeassistant.core import HomeAssistant
 
-from .const import CONF_INTERFACE, CONF_MODEL, DEFAULT_PORT, DEFAULT_TIMEOUT, DOMAIN
+from .const import (
+    CONF_INTERFACE,
+    CONF_MODEL,
+    CONF_SERIAL,
+    DEFAULT_PORT,
+    DEFAULT_TIMEOUT,
+    DOMAIN,
+    PATH_IDENTITY_SERIAL,
+)
 from .coordinator import NeumannKHCoordinator
-from .ssc_client import SSCClient
+from .discovery import async_scan_for_speakers
+from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeoutError
+
+_LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [
     Platform.NUMBER,
@@ -28,6 +41,73 @@ PLATFORMS: list[Platform] = [
     Platform.BUTTON,
     Platform.TEXT,
 ]
+
+
+async def _async_relocate(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Look for this speaker on the network and store its current address.
+
+    Runs only after a setup attempt already failed. A stored address can go
+    stale on its own: a global IPv6 address carries the prefix the ISP
+    delegates, and a forced reconnect hands out a new one, after which the
+    entry retries into the void every ten minutes forever.
+
+    Home Assistant's own zeroconf discovery covers this too, but not quickly:
+    the speakers never announce unsolicited (measured), their address records
+    live 120 s and are not refreshed on their own, so the address is only
+    re-read when the pointer record is refreshed at 75 % of its 4500 s TTL -
+    roughly an hour. This shortens that to the next setup retry.
+
+    Returns True if the address changed, meaning a retry is worth it.
+    """
+    serial = entry.data.get(CONF_SERIAL)
+    if not serial:
+        # Entries created before serials were stored. Matching on anything
+        # else would risk pointing this entry - and its history - at a
+        # different speaker.
+        return False
+
+    try:
+        speakers = await async_scan_for_speakers(hass)
+    except Exception:  # noqa: BLE001 - a failed scan must not mask the setup error
+        _LOGGER.debug("Could not search for %s after a failed setup", entry.title, exc_info=True)
+        return False
+
+    for speaker in speakers:
+        if speaker.host == entry.data.get(CONF_HOST):
+            # Already where we looked, so the address is not the problem -
+            # and rewriting it would schedule a reload that changes nothing.
+            continue
+        client = SSCClient(host=speaker.host, port=speaker.port, timeout=DEFAULT_TIMEOUT)
+        try:
+            found = await client.get(PATH_IDENTITY_SERIAL)
+        except (SSCConnectionError, SSCTimeoutError, SSCDeviceError):
+            continue
+        finally:
+            await client.close()
+
+        if str(found) != str(serial):
+            continue
+
+        _LOGGER.info(
+            "Speaker %s answers at %s now instead of %s, updating the entry",
+            entry.title,
+            speaker.host,
+            entry.data.get(CONF_HOST),
+        )
+        hass.config_entries.async_update_entry(
+            entry,
+            data={
+                **entry.data,
+                CONF_HOST: speaker.host,
+                CONF_PORT: speaker.port,
+                # The scope ID travels inside a discovered link-local address,
+                # so a separately stored interface would contradict it.
+                CONF_INTERFACE: "" if "%" in speaker.host else entry.data.get(CONF_INTERFACE, ""),
+            },
+        )
+        return True
+
+    return False
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -50,6 +130,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # with a new client - without close() half-open connections
         # would accumulate until then.
         await client.close()
+        # The speaker may simply have moved to a different address. Correcting
+        # it here means the retry that HA has already scheduled finds it,
+        # instead of the entry failing every ten minutes indefinitely.
+        await _async_relocate(hass, entry)
         raise
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator

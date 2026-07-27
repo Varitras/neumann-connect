@@ -33,16 +33,23 @@ class DiscoveredSpeaker:
     port: int
 
 
-def _pick_host(addresses: list[str]) -> str | None:
+def pick_host(addresses: list[str]) -> str | None:
     """Choose the address to connect to from an mDNS record.
 
     SSC on these speakers is IPv6-only and the config flow rejects IPv4, so an
     IPv4 record must not be picked - it would fail later with a confusing
-    "not a valid IPv6 address". A global IPv6 address is preferred over a
-    link-local one because it needs no scope ID. Returns None if the record
-    holds no IPv6 address at all.
+    "not a valid IPv6 address". Returns None if the record holds no IPv6
+    address at all.
+
+    Link-local wins over global. A global address is convenient because it
+    needs no scope ID, but it is built from the prefix the ISP delegates, and
+    that prefix changes - German providers force a reconnect roughly daily.
+    Every stored global address then points nowhere and each entry has to be
+    reconfigured by hand. A link-local address is derived from the MAC and
+    stays valid for as long as the speaker sits on the same segment, which is
+    the only assumption this integration makes anyway.
     """
-    link_local: str | None = None
+    global_address: str | None = None
     for address in addresses:
         # parsed_scoped_addresses() appends "%<scope_id>" to link-local entries.
         bare, _, _ = address.partition("%")
@@ -52,11 +59,11 @@ def _pick_host(addresses: list[str]) -> str | None:
             continue
         if parsed.version != 6:
             continue
-        if not parsed.is_link_local:
+        if parsed.is_link_local:
             return address
-        if link_local is None:
-            link_local = address
-    return link_local
+        if global_address is None:
+            global_address = address
+    return global_address
 
 
 async def async_scan_for_speakers(
@@ -96,7 +103,7 @@ async def async_scan_for_speakers(
         if not resolved or info.port is None:
             continue
 
-        host = _pick_host(info.parsed_scoped_addresses())
+        host = pick_host(info.parsed_scoped_addresses())
         if host is None:
             _LOGGER.debug("mDNS service %s announced no IPv6 address", mdns_name)
             continue

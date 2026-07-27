@@ -9,6 +9,10 @@ Pure UI setup (no YAML needed). The starting point is a menu with two paths:
 - "manual": Classic manual input (IP address, interface dropdown, port, name)
   - fallback for devices that the automatic search does not find.
 
+Home Assistant also passes in mDNS announcements on its own (see the
+"zeroconf" key in manifest.json), which keeps the stored address correct
+without anyone having to notice that it went stale - see async_step_zeroconf.
+
 A separate config entry is created for each speaker.
 """
 
@@ -25,6 +29,10 @@ from homeassistant.components import network
 from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PORT
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import selector
+from homeassistant.helpers.service_info.zeroconf import (
+    ATTR_PROPERTIES_ID,
+    ZeroconfServiceInfo,
+)
 
 from . import storage
 from .const import (
@@ -42,7 +50,7 @@ from .const import (
     PATH_IDENTITY_VERSION,
     VENDOR_MARKER_NEUMANN,
 )
-from .discovery import DiscoveredSpeaker, async_scan_for_speakers
+from .discovery import DiscoveredSpeaker, async_scan_for_speakers, pick_host
 from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeoutError
 
 _LOGGER = logging.getLogger(__name__)
@@ -389,6 +397,108 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             description_placeholders={
                 "product": self._pending_identity.product or "?",
                 "vendor": self._pending_identity.vendor or "?",
+            },
+        )
+
+    # --- Passive: mDNS announcement handed in by Home Assistant --------------
+
+    async def async_step_zeroconf(
+        self, discovery_info: ZeroconfServiceInfo
+    ) -> ConfigFlowResult:
+        """Keep a known speaker's address current, or offer an unknown one.
+
+        A global IPv6 address is built from the prefix the ISP delegates and
+        dies with the next forced reconnect; the entry then fails to set up
+        until someone reconfigures it by hand. The announcement carries the
+        serial number in its TXT record, which is what this integration uses
+        as the unique ID, so a known speaker can be recognised and corrected
+        without contacting it at all.
+
+        Only an unknown speaker is contacted - to confirm it really speaks SSC
+        before it is offered for setup.
+        """
+        serial = discovery_info.properties.get(ATTR_PROPERTIES_ID)
+        if not serial:
+            # Without the serial there is no safe way to tell which entry this
+            # belongs to, and guessing by address is what got us here.
+            return self.async_abort(reason="no_serial")
+
+        host = pick_host(discovery_info.addresses)
+        if host is None:
+            return self.async_abort(reason="no_ipv6")
+
+        port = discovery_info.port or DEFAULT_PORT
+        updates: dict[str, Any] = {CONF_HOST: host, CONF_PORT: port}
+        if "%" in host:
+            # The scope ID travels inside the address, so a separately stored
+            # interface would be dead weight - and a stale one is misleading.
+            updates[CONF_INTERFACE] = _NO_INTERFACE_VALUE
+
+        await self.async_set_unique_id(str(serial))
+        # Known speaker: address is updated in place and the entry reloads.
+        # This is the whole point of the step and ends the flow.
+        self._abort_if_unique_id_configured(updates=updates)
+
+        identity = await _async_test_connection(host, port, interface=None)
+        if identity.error_key:
+            return self.async_abort(reason="cannot_connect")
+
+        self._pending_identity = identity
+        self._pending_entry = {
+            CONF_NAME: "",
+            CONF_HOST: host,
+            CONF_INTERFACE: _NO_INTERFACE_VALUE,
+            CONF_PORT: port,
+            CONF_MODEL: identity.product or "KH DSP",
+            CONF_SERIAL: identity.serial or str(serial),
+            CONF_VENDOR: identity.vendor or "",
+            CONF_FIRMWARE_VERSION: identity.version or "",
+        }
+        # Shown on the discovery card in the integrations panel.
+        self.context["title_placeholders"] = {
+            "name": f"{identity.product or 'KH DSP'} ({serial})"
+        }
+        return await self.async_step_zeroconf_confirm()
+
+    async def async_step_zeroconf_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Name a speaker that mDNS turned up and that is not configured yet."""
+        errors: dict[str, str] = {}
+        entry_data = self._pending_entry
+        identity = self._pending_identity
+        if entry_data is None or identity is None:
+            return self.async_abort(reason="discovery_expired")
+
+        if user_input is not None:
+            name = user_input.get(CONF_NAME, "").strip()
+            if not name:
+                errors["base"] = "name_required"
+            else:
+                entry_data = {**entry_data, CONF_NAME: name}
+                if identity.serial:
+                    await storage.async_remember_name(self.hass, identity.serial, name)
+                if not identity.is_neumann:
+                    self._pending_entry = entry_data
+                    return await self.async_step_unsupported()
+                return self.async_create_entry(title=name, data=entry_data)
+
+        suggested = None
+        if identity.serial:
+            suggested = await storage.async_get_remembered_name(
+                self.hass, identity.serial
+            )
+
+        schema = vol.Schema({vol.Required(CONF_NAME): str})
+        if suggested:
+            schema = self.add_suggested_values_to_schema(schema, {CONF_NAME: suggested})
+
+        return self.async_show_form(
+            step_id="zeroconf_confirm",
+            data_schema=schema,
+            errors=errors,
+            description_placeholders={
+                "device": f"{identity.product or 'KH DSP'} – {entry_data[CONF_HOST]}"
             },
         )
 

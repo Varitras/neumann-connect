@@ -44,6 +44,13 @@
         "data": {
           "name": "Name (e.g. \"KH 120 II Left\")"
         }
+      },
+      "zeroconf_confirm": {
+        "title": "Speaker found on the network",
+        "description": "Device: {device}. Pre-filled if this device had a name before.",
+        "data": {
+          "name": "Name (e.g. \"KH 120 II Left\")"
+        }
       }
     },
     "error": {
@@ -60,7 +67,11 @@
     "abort": {
       "already_configured": "This speaker is already configured.",
       "wrong_device": "A different speaker answered at that address (serial number does not match). Nothing was changed.",
-      "reconfigure_successful": "Connection details updated."
+      "reconfigure_successful": "Connection details updated.",
+      "no_serial": "The device announced itself without a serial number and cannot be identified.",
+      "no_ipv6": "The device announced no IPv6 address. Neumann KH speakers only support IPv6.",
+      "cannot_connect": "The discovered device did not respond to SSC requests.",
+      "discovery_expired": "The discovery result has expired, please search again."
     }
   },
   "entity": {

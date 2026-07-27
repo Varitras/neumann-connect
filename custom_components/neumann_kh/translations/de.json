@@ -44,6 +44,13 @@
         "data": {
           "name": "Name (z. B. \"KH 120 II Links\")"
         }
+      },
+      "zeroconf_confirm": {
+        "title": "Lautsprecher im Netzwerk gefunden",
+        "description": "Gerät: {device}. Vorbelegt, falls dieses Gerät schon einmal einen Namen hatte.",
+        "data": {
+          "name": "Name (z. B. „KH 120 II Links“)"
+        }
       }
     },
     "error": {
@@ -60,7 +67,11 @@
     "abort": {
       "already_configured": "Dieser Lautsprecher ist bereits konfiguriert.",
       "wrong_device": "Unter dieser Adresse hat ein anderer Lautsprecher geantwortet (Seriennummer passt nicht). Es wurde nichts geändert.",
-      "reconfigure_successful": "Verbindungsdaten aktualisiert."
+      "reconfigure_successful": "Verbindungsdaten aktualisiert.",
+      "no_serial": "Das Gerät hat sich ohne Seriennummer gemeldet und lässt sich nicht zuordnen.",
+      "no_ipv6": "Das Gerät hat keine IPv6-Adresse gemeldet. Neumann-KH-Lautsprecher unterstützen nur IPv6.",
+      "cannot_connect": "Das gefundene Gerät hat nicht auf SSC-Anfragen geantwortet.",
+      "discovery_expired": "Das Suchergebnis ist abgelaufen, bitte erneut suchen."
     }
   },
   "entity": {

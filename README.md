@@ -91,6 +91,13 @@ the scope ID automatically (e.g. `fe80::...%3`) – for automatically
 discovered devices you do **not** need to specify the network interface
 manually.
 
+The search deliberately prefers the link-local address even when a speaker
+also announces a global one. A global IPv6 address carries the prefix the
+ISP delegates, and many connections are assigned a new one on the daily
+forced reconnect – every stored global address then points nowhere. The
+link-local address is derived from the MAC and stays valid for as long as
+the speaker sits on the same network segment.
+
 **If nothing is found:** simply submit the form again without a selection to
 repeat the search – or go back to the menu and choose "Enter manually". mDNS
 only works reliably if HA is in the same network segment as the loudspeakers

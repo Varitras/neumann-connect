@@ -94,6 +94,14 @@ Scope-ID bereits automatisch (z. B. `fe80::...%3`) – bei automatisch
 gefundenen Geräten musst du das Netzwerk-Interface **nicht** manuell
 angeben.
 
+Die Suche bevorzugt bewusst die Link-Local-Adresse, auch wenn ein
+Lautsprecher zusätzlich eine globale meldet. Eine globale IPv6-Adresse
+enthält das Präfix, das der Provider zuteilt, und viele Anschlüsse bekommen
+bei der täglichen Zwangstrennung ein neues – jede gespeicherte globale
+Adresse zeigt danach ins Leere. Die Link-Local-Adresse leitet sich aus der
+MAC ab und bleibt gültig, solange der Lautsprecher im selben Netzsegment
+hängt.
+
 **Wird nichts gefunden:** Formular einfach ohne Auswahl erneut absenden,
 um die Suche zu wiederholen – oder zurück ins Menü gehen und "Manuell
 eingeben" wählen. mDNS funktioniert nur zuverlässig, wenn HA multicast-mäßig
