@@ -135,4 +135,4 @@ async def test_rejected_path_does_not_break_cycle(coordinator, fake_client):
 async def test_all_slow_paths_registered_in_slow_set(coordinator):
     """Safeguard for the membership test of apply_confirmed_value()."""
     for path in SLOW_POLL_PATHS:
-        assert path in coordinator._slow_path_set  # noqa: SLF001
+        assert path in coordinator._slow_path_set

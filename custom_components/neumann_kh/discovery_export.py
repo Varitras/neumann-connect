@@ -53,7 +53,7 @@ async def _async_query_known_paths(
             continue
         except (SSCConnectionError, SSCTimeoutError):
             raise
-        except Exception:  # noqa: BLE001 - a bug at one path should not abort the discovery
+        except Exception:
             _LOGGER.exception("Unexpected error at discovery path %s, skipping", path)
             continue
         if value is not None:
@@ -84,7 +84,7 @@ async def _async_discover_via_schema(client: SSCClient) -> dict[str, Any]:
             # cost us the known values already collected.
             _LOGGER.debug("osc/schema for path %s failed", path, exc_info=True)
             return
-        except Exception:  # noqa: BLE001 - discovery is best-effort, never abort
+        except Exception:
             _LOGGER.debug("osc/schema for path %s failed", path, exc_info=True)
             return
 
@@ -124,7 +124,7 @@ async def _async_discover_via_schema(client: SSCClient) -> dict[str, Any]:
             "osc/schema discovery aborted after %.0fs (using partial result)",
             _SCHEMA_DISCOVERY_TIMEOUT,
         )
-    except Exception:  # noqa: BLE001 - best-effort, must never crash the discovery
+    except Exception:
         # Includes connection loss: the guaranteed part has already been
         # collected and is worth keeping.
         _LOGGER.debug("osc/schema discovery aborted", exc_info=True)
@@ -137,7 +137,7 @@ async def _async_query_limits(client: SSCClient, path: tuple[str, ...]) -> Any:
     request = {"osc": {"limits": [build_nested(path, None)]}}
     try:
         response = await client.request(request)
-    except Exception:  # noqa: BLE001 - best-effort, incl. connection loss
+    except Exception:
         _LOGGER.debug("osc/limits for path %s failed", path, exc_info=True)
         return None
 

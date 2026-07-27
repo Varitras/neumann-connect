@@ -22,10 +22,11 @@ from __future__ import annotations
 
 import time
 
-
 from homeassistant.components.button import ButtonEntity, ButtonEntityDescription
 from homeassistant.components.persistent_notification import (
     async_create as async_create_notification,
+)
+from homeassistant.components.persistent_notification import (
     async_dismiss as async_dismiss_notification,
 )
 from homeassistant.config_entries import ConfigEntry
@@ -44,13 +45,13 @@ from .const import (
 )
 from .coordinator import NeumannKHCoordinator
 from .entity import NeumannKHEntity
+from .eq import build_eq_reset_buttons
 from .export_actions import (
     async_check_restorable,
     async_run_backup,
     async_run_discovery,
     async_run_restore,
 )
-from .eq import build_eq_reset_buttons
 from .ssc_client import SSCConnectionError, SSCDeviceError, SSCTimeoutError
 
 # Time window within which a second press of "factory reset" actually

@@ -24,8 +24,8 @@ from typing import Any, NamedTuple
 
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.components import network
+from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PORT
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import selector
@@ -76,7 +76,7 @@ async def _async_get_interface_options(hass: HomeAssistant) -> list[selector.Sel
     ]
     try:
         adapters = await network.async_get_adapters(hass)
-    except Exception:  # noqa: BLE001 - network component should always be present, but stay defensive
+    except Exception:
         _LOGGER.debug("Could not determine network interfaces", exc_info=True)
         return options
 
@@ -188,7 +188,7 @@ async def _async_test_connection(host: str, port: int, interface: str | None) ->
         return DeviceIdentity(error_key="timeout")
     except SSCDeviceError:
         return DeviceIdentity(error_key="cannot_connect")
-    except Exception:  # noqa: BLE001 - catch unexpected errors cleanly
+    except Exception:
         _LOGGER.exception("Unexpected error while testing the connection to %s", host)
         return DeviceIdentity(error_key="unknown")
     else:
@@ -244,7 +244,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 except ValueError:
                     errors["base"] = "invalid_ipv6"
                 else:
-                    if SSCClient._is_link_local(host) and not interface:  # noqa: SLF001
+                    if SSCClient._is_link_local(host) and not interface:
                         errors["base"] = "interface_required_for_link_local"
                     else:
                         identity = await _async_test_connection(host, port, interface)
@@ -322,7 +322,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             except ValueError:
                 errors["base"] = "invalid_ipv6"
             else:
-                if SSCClient._is_link_local(host) and not interface:  # noqa: SLF001
+                if SSCClient._is_link_local(host) and not interface:
                     errors["base"] = "interface_required_for_link_local"
                 else:
                     identity = await _async_test_connection(host, port, interface)
@@ -517,7 +517,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # discovery result: actively search the network.
         try:
             speakers = await async_scan_for_speakers(self.hass)
-        except Exception:  # noqa: BLE001 - scan should fail clearly on errors, not crash
+        except Exception:
             _LOGGER.exception("Unexpected error during the mDNS scan")
             return self.async_show_form(
                 step_id="scan", data_schema=vol.Schema({}), errors={"base": "scan_failed"}

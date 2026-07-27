@@ -13,13 +13,13 @@ import pytest
 
 pytest.importorskip("homeassistant")
 
-from custom_components.neumann_kh._util import build_nested, deep_merge  # noqa: E402
-from custom_components.neumann_kh.backup_export import (  # noqa: E402
+from custom_components.neumann_kh import export_actions
+from custom_components.neumann_kh._util import build_nested, deep_merge
+from custom_components.neumann_kh.backup_export import (
     restorable_paths_for_model,
 )
-from custom_components.neumann_kh.const import CONF_MODEL  # noqa: E402
-from custom_components.neumann_kh import export_actions  # noqa: E402
-from custom_components.neumann_kh.export_actions import async_run_restore  # noqa: E402
+from custom_components.neumann_kh.const import CONF_MODEL
+from custom_components.neumann_kh.export_actions import async_run_restore
 
 _KH_120_II = "KH 120 II"
 

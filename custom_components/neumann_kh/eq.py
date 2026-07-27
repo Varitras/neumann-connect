@@ -30,7 +30,7 @@ from .ssc_client import SSCConnectionError, SSCDeviceError, SSCTimeoutError
 
 def build_eq_switches(
     coordinator: NeumannKHCoordinator, entry: ConfigEntry, model: str | None
-) -> list["NeumannKHEQContainerSwitch"]:
+) -> list[NeumannKHEQContainerSwitch]:
     """Builds one on/off switch per matching EQ container."""
     return [
         NeumannKHEQContainerSwitch(coordinator, entry, container)
@@ -102,7 +102,7 @@ class NeumannKHEQContainerSwitch(NeumannKHEntity, SwitchEntity):
 
 def build_eq_reset_buttons(
     coordinator: NeumannKHCoordinator, entry: ConfigEntry, model: str | None
-) -> list["NeumannKHEQResetButton"]:
+) -> list[NeumannKHEQResetButton]:
     """Builds one reset button per matching EQ container."""
     return [
         NeumannKHEQResetButton(coordinator, entry, container)

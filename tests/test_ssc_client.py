@@ -237,7 +237,7 @@ async def test_timeout_raises_and_drops_connection(server):
     try:
         with pytest.raises(SSCTimeoutError):
             await client.get(("device", "name"))
-        assert client._writer is None  # noqa: SLF001 - deliberate whitebox test
+        assert client._writer is None
     finally:
         await client.close()
 
@@ -268,7 +268,7 @@ async def test_cancelled_request_drops_connection_no_stale_bleed(server):
             await task
 
         # Connection must have been dropped.
-        assert client._writer is None  # noqa: SLF001
+        assert client._writer is None
 
         # Let the stale answer out now - it must not reach the next request.
         server.release.set()
@@ -295,7 +295,7 @@ async def test_cancellation_in_the_drain_window_drops_the_connection(server, mon
     """
     in_drain = asyncio.Event()
 
-    async def _hanging_drain(self) -> None:  # noqa: ANN001
+    async def _hanging_drain(self) -> None:
         in_drain.set()
         await asyncio.sleep(60)  # hold the request inside the drain window
 
@@ -309,7 +309,7 @@ async def test_cancellation_in_the_drain_window_drops_the_connection(server, mon
         with pytest.raises(asyncio.CancelledError):
             await task
 
-        assert client._writer is None, (  # noqa: SLF001
+        assert client._writer is None, (
             "cancellation during the drain window kept the connection"
         )
     finally:
@@ -360,7 +360,7 @@ async def test_connection_is_dropped_after_a_safety_limit(socket_enabled, monkey
     client = SSCClient(host="127.0.0.1", port=port, timeout=5.0, settle_time=_SETTLE)
     try:
         await client.get(("device", "name"))
-        assert client._writer is None, "the connection survived a safety limit"  # noqa: SLF001
+        assert client._writer is None, "the connection survived a safety limit"
     finally:
         await client.close()
         raw_server.close()
@@ -384,11 +384,11 @@ async def test_write_failure_becomes_a_connection_error(server):
             def close(self):
                 pass
 
-        client._writer = _DeadWriter()  # noqa: SLF001
+        client._writer = _DeadWriter()
         with pytest.raises(SSCConnectionError):
             await client.get(("device", "name"))
     finally:
-        client._writer = None  # noqa: SLF001
+        client._writer = None
         await client.close()
 
 
@@ -453,16 +453,16 @@ async def test_cancelled_priority_request_does_not_wedge_the_poll_loop(server):
 
 
 def test_is_link_local():
-    assert SSCClient._is_link_local("fe80::1")  # noqa: SLF001
-    assert SSCClient._is_link_local("FE80::1")  # noqa: SLF001
-    assert SSCClient._is_link_local("febf::1")  # noqa: SLF001
-    assert not SSCClient._is_link_local("fec0::1")  # noqa: SLF001
-    assert not SSCClient._is_link_local("2001:db8::1")  # noqa: SLF001
-    assert not SSCClient._is_link_local("127.0.0.1")  # noqa: SLF001
+    assert SSCClient._is_link_local("fe80::1")
+    assert SSCClient._is_link_local("FE80::1")
+    assert SSCClient._is_link_local("febf::1")
+    assert not SSCClient._is_link_local("fec0::1")
+    assert not SSCClient._is_link_local("2001:db8::1")
+    assert not SSCClient._is_link_local("127.0.0.1")
 
 
 def test_connect_host_appends_scope_for_link_local():
     client = SSCClient(host="fe80::1", port=45, interface="eth0")
-    assert client._connect_host == "fe80::1%eth0"  # noqa: SLF001
+    assert client._connect_host == "fe80::1%eth0"
     client2 = SSCClient(host="2001:db8::1", port=45, interface="eth0")
-    assert client2._connect_host == "2001:db8::1"  # noqa: SLF001
+    assert client2._connect_host == "2001:db8::1"

@@ -77,7 +77,7 @@ async def async_run_backup(
 
     try:
         values = await async_build_backup(client, model)
-    except Exception as err:  # noqa: BLE001 - backup is best-effort
+    except Exception as err:
         raise HomeAssistantError(
             translation_domain=DOMAIN,
             translation_key="backup_failed",
@@ -108,7 +108,7 @@ async def async_run_discovery(
 
     try:
         discovery = await async_discover_all_values(client, model)
-    except Exception as err:  # noqa: BLE001 - discovery is best-effort
+    except Exception as err:
         raise HomeAssistantError(
             translation_domain=DOMAIN,
             translation_key="discovery_failed",

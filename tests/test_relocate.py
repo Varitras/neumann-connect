@@ -15,19 +15,19 @@ import pytest
 
 pytest.importorskip("homeassistant")
 
-from homeassistant.config_entries import ConfigEntryState  # noqa: E402
-from homeassistant.const import CONF_HOST, CONF_PORT  # noqa: E402
-from homeassistant.exceptions import ConfigEntryNotReady  # noqa: E402
-from pytest_homeassistant_custom_component.common import MockConfigEntry  # noqa: E402
+from homeassistant.config_entries import ConfigEntryState
+from homeassistant.const import CONF_HOST, CONF_PORT
+from homeassistant.exceptions import ConfigEntryNotReady
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.neumann_kh import _async_relocate  # noqa: E402
-from custom_components.neumann_kh.const import (  # noqa: E402
+from custom_components.neumann_kh import _async_relocate
+from custom_components.neumann_kh.const import (
     CONF_INTERFACE,
     CONF_MODEL,
     CONF_SERIAL,
     DOMAIN,
 )
-from custom_components.neumann_kh.discovery import DiscoveredSpeaker  # noqa: E402
+from custom_components.neumann_kh.discovery import DiscoveredSpeaker
 
 _SERIAL = "SIM0001234"
 _OLD_HOST = "2003:db8:old::1"

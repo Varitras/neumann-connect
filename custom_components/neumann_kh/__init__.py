@@ -68,7 +68,7 @@ async def _async_relocate(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     try:
         speakers = await async_scan_for_speakers(hass)
-    except Exception:  # noqa: BLE001 - a failed scan must not mask the setup error
+    except Exception:
         _LOGGER.debug("Could not search for %s after a failed setup", entry.title, exc_info=True)
         return False
 

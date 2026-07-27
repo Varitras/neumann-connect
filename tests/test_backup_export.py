@@ -11,11 +11,11 @@ import pytest
 
 pytest.importorskip("homeassistant")
 
-from custom_components.neumann_kh.backup_export import (  # noqa: E402
+from custom_components.neumann_kh.backup_export import (
     known_paths_for_model,
     restorable_paths_for_model,
 )
-from custom_components.neumann_kh.const import (  # noqa: E402
+from custom_components.neumann_kh.const import (
     PATH_LOGO_BRIGHTNESS,
     POLL_PATHS,
     SLOW_POLL_PATHS,
@@ -97,7 +97,7 @@ def test_every_writable_path_is_backed_up(model):
     This is the guarantee behind "all known values": whatever an entity can
     write has to come back out of the export.
     """
-    from custom_components.neumann_kh import const  # noqa: PLC0415
+    from custom_components.neumann_kh import const
 
     covered = set(known_paths_for_model(model))
     missing = [
@@ -126,7 +126,7 @@ def test_commands_are_never_restorable(model):
     reject them is no safeguard - these are writable, that is the point of
     them.
     """
-    from custom_components.neumann_kh import const  # noqa: PLC0415
+    from custom_components.neumann_kh import const
 
     restorable = set(restorable_paths_for_model(model))
     for name in ("PATH_RESTORE", "PATH_SAVE_SETTINGS", "PATH_IDENTIFY"):
@@ -137,7 +137,7 @@ def test_commands_are_never_restorable(model):
 def test_read_only_paths_are_not_restorable(model):
     # Confirmed read-only on real hardware; writing them would only produce
     # rejections and inflate the "skipped" count.
-    from custom_components.neumann_kh import const  # noqa: PLC0415
+    from custom_components.neumann_kh import const
 
     restorable = set(restorable_paths_for_model(model))
     for name in ("PATH_INPUT_GAIN", "PATH_UI_OUTPUT_LEVEL", "PATH_WARNINGS",
@@ -152,7 +152,7 @@ def test_auto_standby_is_only_restorable_where_it_is_writable():
     a binary sensor on the other. The restore allowlist wrote it everywhere,
     so a KH 750 restore always earned one rejection for it.
     """
-    from custom_components.neumann_kh import const  # noqa: PLC0415
+    from custom_components.neumann_kh import const
 
     assert const.PATH_STANDBY_ENABLED in restorable_paths_for_model(_KH_120_II)
     assert const.PATH_STANDBY_ENABLED not in restorable_paths_for_model(_KH_750)
@@ -161,7 +161,7 @@ def test_auto_standby_is_only_restorable_where_it_is_writable():
 @pytest.mark.parametrize("model", [_KH_120_II, _KH_750])
 def test_control_mode_is_written_last(model):
     """LOCAL would cut network control - so write it after everything else."""
-    from custom_components.neumann_kh import const  # noqa: PLC0415
+    from custom_components.neumann_kh import const
 
     paths = restorable_paths_for_model(model)
     assert paths[-1] == const.PATH_UI_CONTROL_MODE

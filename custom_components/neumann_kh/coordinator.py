@@ -152,7 +152,7 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     # every remaining path and starting a new (also
                     # failing) connection attempt.
                     raise
-                except Exception:  # noqa: BLE001 - a bug on one path should not drag down all values
+                except Exception:
                     _LOGGER.exception(
                         "Unexpected error while querying path %s, skipping", path
                     )

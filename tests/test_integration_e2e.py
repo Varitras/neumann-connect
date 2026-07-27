@@ -27,7 +27,12 @@ from custom_components.neumann_kh.const import (
     DOMAIN,
 )
 from custom_components.neumann_kh.export_file import EXPORT_DIR_NAME
-from tools.ssc_simulator import MODEL_KH_120_II, MODEL_KH_750, SSCSimulator, _handle_client
+from tools.ssc_simulator import (
+    MODEL_KH_120_II,
+    MODEL_KH_750,
+    SSCSimulator,
+    _handle_client,
+)
 
 # Deselected by default (see pytest.ini) because each test boots a full Home
 # Assistant instance. The global 30 s hang guard is too tight for that - the

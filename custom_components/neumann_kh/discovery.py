@@ -77,7 +77,7 @@ async def async_scan_for_speakers(
     aiozc = await ha_zeroconf.async_get_async_instance(hass)
     found_names: set[str] = set()
 
-    def _on_change(zeroconf, service_type, name, state_change) -> None:  # noqa: ANN001
+    def _on_change(zeroconf, service_type, name, state_change) -> None:
         # Parameter names must be exactly these - zeroconf calls with keyword
         # arguments, renaming breaks the callback (see 1.8.1).
         if state_change is ServiceStateChange.Added:
@@ -96,7 +96,7 @@ async def async_scan_for_speakers(
         info = AsyncServiceInfo(SSC_ZEROCONF_SERVICE_TYPE, mdns_name)
         try:
             resolved = await info.async_request(aiozc.zeroconf, _RESOLVE_TIMEOUT_MS)
-        except Exception:  # noqa: BLE001 - defensive, a single service should not abort the scan
+        except Exception:
             _LOGGER.debug("Could not resolve mDNS service %s", mdns_name, exc_info=True)
             continue
 

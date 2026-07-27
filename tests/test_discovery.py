@@ -10,7 +10,7 @@ import pytest
 
 pytest.importorskip("homeassistant")
 
-from custom_components.neumann_kh.discovery import pick_host  # noqa: E402
+from custom_components.neumann_kh.discovery import pick_host
 
 
 def test_ipv4_is_never_picked():

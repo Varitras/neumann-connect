@@ -5,6 +5,7 @@ not a meaningful part of a settings snapshot).
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from ._util import build_nested, deep_merge
@@ -42,6 +43,8 @@ from .const import (
 )
 from .eq_containers import eq_leaf_paths
 from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeoutError
+
+_LOGGER = logging.getLogger(__name__)
 
 # Live readings: intentionally not included in the backup.
 _EXCLUDED_PATHS = {
@@ -145,7 +148,11 @@ async def async_build_backup(client: SSCClient, model: str | None) -> dict[str, 
             continue
         except (SSCConnectionError, SSCTimeoutError):
             raise
-        except Exception:  # noqa: BLE001 - a bug on one path should not abort the backup
+        except Exception:
+            # A bug on one path should not abort the backup, but swallowing it
+            # silently would leave a value missing from the file with nothing
+            # to explain it. Same handling as the poll cycle in coordinator.py.
+            _LOGGER.exception("Unexpected error while reading path %s for the backup", path)
             continue
         if value is not None:
             deep_merge(result, build_nested(path, value))
