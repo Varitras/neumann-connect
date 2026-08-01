@@ -84,6 +84,15 @@ async def async_run_backup(
             translation_placeholders={"error": str(err)},
         ) from err
 
+    if not values:
+        # Individual paths may legitimately be rejected, but a run that read
+        # nothing at all is a failed backup, not an empty one. Storing it would
+        # replace the last good snapshot with a file that can restore nothing.
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="backup_empty",
+        )
+
     # The exported content carries a masked serial only; the store stays keyed
     # by the real one for mapping and retrieval.
     masked = mask_serial(serial)
@@ -93,8 +102,18 @@ async def async_run_backup(
         "serial": masked,
         "values": values,
     }
+    # File first, store second. The restore button reads the store, so saving
+    # it before the file exists would leave the two disagreeing about what the
+    # last backup is - with the user looking at the older file.
+    try:
+        path = await async_write_export(hass, KIND_BACKUP, masked, record, entry.entry_id)
+    except Exception as err:
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="backup_failed",
+            translation_placeholders={"error": str(err)},
+        ) from err
     await storage.async_save_backup(hass, serial, record)
-    path = await async_write_export(hass, KIND_BACKUP, masked, record, entry.entry_id)
     _notify_written(hass, entry, KIND_BACKUP, path)
     return path
 

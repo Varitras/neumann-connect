@@ -4,10 +4,10 @@
   "codeowners": ["@Varitras"],
   "config_flow": true,
   "dependencies": ["network", "zeroconf"],
-  "documentation": "https://github.com/Varitras/Neumann-Connect",
+  "documentation": "https://github.com/Varitras/neumann-connect",
   "integration_type": "device",
   "iot_class": "local_polling",
-  "issue_tracker": "https://github.com/Varitras/Neumann-Connect/issues",
+  "issue_tracker": "https://github.com/Varitras/neumann-connect/issues",
   "requirements": [],
   "version": "1.18.0",
   "zeroconf": ["_ssc._tcp.local."]

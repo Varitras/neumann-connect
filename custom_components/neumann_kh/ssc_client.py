@@ -36,11 +36,22 @@ _MAX_LINE_BYTES = 1_048_576  # 1 MiB
 # these bounds only ever fire on a misbehaving device.
 _MAX_RESPONSE_LINES = 256
 _MAX_READ_SECONDS = 10.0
+# Line count times line size would allow a quarter of a gigabyte through, which
+# matters on the small machines Home Assistant often runs on. A real answer is
+# a few hundred bytes.
+_MAX_RESPONSE_BYTES = 4 * _MAX_LINE_BYTES
 
 # How long to look for leftovers from a previous answer before sending a new
 # request. Anything still queued arrived long ago, so this only has to be long
 # enough to notice a full line already sitting in the buffer.
 _STALE_DRAIN_SECONDS = 0.01
+
+# Upper bounds for the drain as a whole. Without them a device that keeps
+# sending complete lines within the window above would stall every request
+# before it is even written. Generous against the real case (a leaf query is
+# answered with one line, so the drain normally finds nothing at all).
+_MAX_STALE_DRAIN_LINES = 256
+_MAX_STALE_DRAIN_SECONDS = 2.0
 
 
 class SSCConnectionError(Exception):
@@ -158,14 +169,24 @@ class SSCClient:
         every following answer would be off by one. Measured against real
         hardware a leaf query is answered with exactly one line, so this
         normally finds nothing and costs one short timeout.
+
+        Bounded on purpose. Only the per-line wait is short: an endpoint that
+        keeps producing complete lines inside that window would hold this loop
+        forever and the actual request would never be sent. The poll cycle has
+        its own time limit, but a button press or a config flow does not - so
+        the bound belongs here.
         """
         if self._reader is None:
             return
-        while True:
+        deadline = asyncio.get_running_loop().time() + _MAX_STALE_DRAIN_SECONDS
+        for _ in range(_MAX_STALE_DRAIN_LINES):
+            remaining = deadline - asyncio.get_running_loop().time()
+            if remaining <= 0:
+                break
             try:
                 leftover = await asyncio.wait_for(
                     self._reader.readuntil(_MESSAGE_TERMINATOR),
-                    timeout=_STALE_DRAIN_SECONDS,
+                    timeout=min(_STALE_DRAIN_SECONDS, remaining),
                 )
             except (asyncio.TimeoutError, asyncio.IncompleteReadError):
                 return
@@ -176,6 +197,14 @@ class SSCClient:
             _LOGGER.debug(
                 "Discarded a stale line from %s: %s", self._host, leftover[:200]
             )
+
+        # Still talking after the bound: whatever is on this socket cannot be
+        # told apart from the next answer any more, so start over.
+        _LOGGER.warning(
+            "Device %s kept sending while draining stale lines, dropping the connection",
+            self._host,
+        )
+        self._drop_connection()
 
     async def _read_lines_until_settled(
         self, expect_path: tuple[str, ...] | None = None
@@ -197,6 +226,7 @@ class SSCClient:
         received = False
         limit_hit = False
         lines = 0
+        total_bytes = 0
         deadline = asyncio.get_running_loop().time() + _MAX_READ_SECONDS
         while True:
             wait = self._settle_time if received else self._timeout
@@ -258,11 +288,22 @@ class SSCClient:
                 break
 
             lines += 1
+            total_bytes += len(raw_line)
             if lines >= _MAX_RESPONSE_LINES:
                 _LOGGER.warning(
                     "Device %s sent more than %d response lines, dropping the connection",
                     self._host,
                     _MAX_RESPONSE_LINES,
+                )
+                limit_hit = True
+                break
+            if total_bytes >= _MAX_RESPONSE_BYTES:
+                # The line count alone bounds nothing useful: 256 lines of the
+                # maximum size would be a quarter of a gigabyte held in memory.
+                _LOGGER.warning(
+                    "Device %s sent more than %d bytes in one response, dropping the connection",
+                    self._host,
+                    _MAX_RESPONSE_BYTES,
                 )
                 limit_hit = True
                 break

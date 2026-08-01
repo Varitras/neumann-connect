@@ -23,6 +23,12 @@ _LOGGER = logging.getLogger(__name__)
 
 _RESOLVE_TIMEOUT_MS = 3000
 
+# Bounds for the resolution pass as a whole. Records are resolved one at a
+# time with the timeout above, so without these a segment full of stale
+# announcements would stall whatever is waiting on the scan.
+_MAX_RESOLVE_SERVICES = 32
+_MAX_RESOLVE_SECONDS = 20.0
+
 
 @dataclass
 class DiscoveredSpeaker:
@@ -73,6 +79,12 @@ async def async_scan_for_speakers(
 
     Returns only address + port; the identity query (model/serial number) is
     handled afterwards by the config flow via the normal SSCClient.
+
+    Resolution is bounded as a whole. Each record is resolved separately with
+    its own timeout, so a segment carrying many stale or broken records could
+    otherwise hold a config flow - or the setup repair, which runs on every
+    failed retry - for minutes. What is dropped is logged rather than silently
+    left out.
     """
     aiozc = await ha_zeroconf.async_get_async_instance(hass)
     found_names: set[str] = set()
@@ -92,7 +104,17 @@ async def async_scan_for_speakers(
         await browser.async_cancel()
 
     speakers: list[DiscoveredSpeaker] = []
-    for mdns_name in found_names:
+    deadline = asyncio.get_running_loop().time() + _MAX_RESOLVE_SECONDS
+    for index, mdns_name in enumerate(sorted(found_names)):
+        if index >= _MAX_RESOLVE_SERVICES or asyncio.get_running_loop().time() >= deadline:
+            _LOGGER.warning(
+                "Stopped resolving mDNS records after %d of %d - the rest is not "
+                "in this result",
+                index,
+                len(found_names),
+            )
+            break
+
         info = AsyncServiceInfo(SSC_ZEROCONF_SERVICE_TYPE, mdns_name)
         try:
             resolved = await info.async_request(aiozc.zeroconf, _RESOLVE_TIMEOUT_MS)

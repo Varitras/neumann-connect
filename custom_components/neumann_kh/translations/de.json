@@ -303,6 +303,9 @@
     },
     "restore_interrupted": {
       "message": "Die Verbindung brach ab, nachdem bereits {written} Werte geschrieben waren; der Lautsprecher ist nur teilweise zurückgespielt. Erneut drücken, sobald er wieder erreichbar ist. ({error})"
+    },
+    "backup_empty": {
+      "message": "Der Lautsprecher hat auf keine Abfrage geantwortet, es gibt also nichts zu sichern. Das vorherige Backup bleibt erhalten."
     }
   }
 }

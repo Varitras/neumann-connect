@@ -303,6 +303,9 @@
     },
     "restore_interrupted": {
       "message": "The connection dropped after {written} values had already been written; the speaker is only partly restored. Press again once it is reachable. ({error})"
+    },
+    "backup_empty": {
+      "message": "The speaker answered none of the queries, so there is nothing to back up. The previous backup was kept."
     }
   }
 }

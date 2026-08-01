@@ -13,12 +13,14 @@ import pytest
 
 pytest.importorskip("homeassistant")
 
+from homeassistant.exceptions import HomeAssistantError
+
 from custom_components.neumann_kh import export_actions
 from custom_components.neumann_kh._util import build_nested, deep_merge
 from custom_components.neumann_kh.backup_export import (
     restorable_paths_for_model,
 )
-from custom_components.neumann_kh.const import CONF_MODEL
+from custom_components.neumann_kh.const import CONF_MODEL, CONF_SERIAL
 from custom_components.neumann_kh.export_actions import async_run_restore
 
 _KH_120_II = "KH 120 II"
@@ -115,3 +117,91 @@ async def test_confirmed_values_still_reach_the_coordinator():
     assert written == len(paths)
     assert (adjusted, skipped) == (0, 0)
     assert len(coordinator.applied) == len(paths)
+
+
+# --- Backup bookkeeping -----------------------------------------------------
+
+
+class _FakeEntryWithSerial(_FakeEntry):
+    def __init__(self, model: str = _KH_120_II) -> None:
+        super().__init__(model)
+        self.data = {**self.data, CONF_SERIAL: "SIM0001234"}
+        self.entry_id = "entry1"
+
+
+async def _run_backup(hass, monkeypatch, values, write=None):
+    saved: list[Any] = []
+    written: list[Any] = []
+
+    async def _build(client, model):
+        return values
+
+    async def _save(hass_, serial, record):
+        saved.append(record)
+
+    async def _write(hass_, kind, masked, record, entry_id):
+        written.append(record)
+        if write is not None:
+            return write()
+        return "/config/neumann_kh/backup.json"
+
+    monkeypatch.setattr(export_actions, "async_build_backup", _build)
+    monkeypatch.setattr(export_actions.storage, "async_save_backup", _save)
+    monkeypatch.setattr(export_actions, "async_write_export", _write)
+    monkeypatch.setattr(export_actions, "_notify_written", lambda *a, **k: None)
+
+    return saved, written
+
+
+async def test_an_empty_backup_does_not_replace_the_last_good_one(monkeypatch):
+    """A run that read nothing is a failed backup, not an empty one.
+
+    Storing it would swap the last usable snapshot for a file that can restore
+    nothing, while the notification still said "saved".
+    """
+    saved, _ = await _run_backup(None, monkeypatch, values={})
+
+    with pytest.raises(HomeAssistantError) as err:
+        await export_actions.async_run_backup(
+            _FakeHass(), _FakeEntryWithSerial(), _FakeClient(answers_none=set())
+        )
+
+    assert err.value.translation_key == "backup_empty"
+    assert not saved, "an empty backup was stored anyway"
+
+
+async def test_a_failed_file_write_leaves_the_store_untouched(monkeypatch):
+    """Restore reads the store, so it must not move ahead of the file.
+
+    Otherwise the store points at a snapshot the user cannot see, while the
+    file on disk is the older one.
+    """
+    def _boom():
+        raise OSError("disk full")
+
+    saved, written = await _run_backup(
+        None, monkeypatch, values={"device": {"name": "x"}}, write=_boom
+    )
+
+    with pytest.raises(HomeAssistantError) as err:
+        await export_actions.async_run_backup(
+            _FakeHass(), _FakeEntryWithSerial(), _FakeClient(answers_none=set())
+        )
+
+    assert err.value.translation_key == "backup_failed"
+    assert written, "the file write was not even attempted"
+    assert not saved, "the store was updated even though the file failed"
+
+
+async def test_a_good_backup_reaches_both(monkeypatch):
+    saved, written = await _run_backup(
+        None, monkeypatch, values={"device": {"name": "x"}}
+    )
+
+    path = await export_actions.async_run_backup(
+        _FakeHass(), _FakeEntryWithSerial(), _FakeClient(answers_none=set())
+    )
+
+    assert path.endswith("backup.json")
+    assert len(saved) == 1
+    assert len(written) == 1

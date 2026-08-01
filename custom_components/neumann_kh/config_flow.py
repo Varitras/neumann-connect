@@ -165,6 +165,22 @@ class DeviceIdentity(NamedTuple):
         return VENDOR_MARKER_NEUMANN in self.vendor.lower()
 
 
+def _as_identity_text(value: Any) -> str | None:
+    """Coerce an identity field to text, or None if it carries nothing usable.
+
+    SSC answers are plain JSON, so a field can arrive as a list, a number or a
+    dict - from a firmware quirk or simply from a device that is not a Neumann
+    speaker. Passing those on unchecked reaches code that assumes text: the
+    vendor check calls .lower(), the serial becomes a unique ID and a dict key,
+    and mask_serial() slices it. Coercing here keeps that guesswork out of
+    every later caller.
+    """
+    if value is None or isinstance(value, (list, dict, bool)):
+        return None
+    text = str(value).strip()
+    return text or None
+
+
 async def _async_test_connection(host: str, port: int, interface: str | None) -> DeviceIdentity:
     """Test the SSC connection and read out the device identity.
 
@@ -192,7 +208,12 @@ async def _async_test_connection(host: str, port: int, interface: str | None) ->
         _LOGGER.exception("Unexpected error while testing the connection to %s", host)
         return DeviceIdentity(error_key="unknown")
     else:
-        return DeviceIdentity(product=product, serial=serial, version=version, vendor=vendor)
+        return DeviceIdentity(
+            product=_as_identity_text(product),
+            serial=_as_identity_text(serial),
+            version=_as_identity_text(version),
+            vendor=_as_identity_text(vendor),
+        )
     finally:
         await client.close()
 
@@ -409,13 +430,15 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         A global IPv6 address is built from the prefix the ISP delegates and
         dies with the next forced reconnect; the entry then fails to set up
-        until someone reconfigures it by hand. The announcement carries the
+        until someone reconfigures it by hand. The announcement carries a
         serial number in its TXT record, which is what this integration uses
-        as the unique ID, so a known speaker can be recognised and corrected
-        without contacting it at all.
+        as the unique ID, so it tells us which entry an announcement is about.
 
-        Only an unknown speaker is contacted - to confirm it really speaks SSC
-        before it is offered for setup.
+        What it does NOT do is prove anything: mDNS is unauthenticated, and
+        any host on the segment can claim any serial. So the announcement
+        selects the entry, and the device itself confirms the move before an
+        address is written. An announcement that changes nothing costs no
+        contact at all, which is the common case by far.
         """
         serial = discovery_info.properties.get(ATTR_PROPERTIES_ID)
         if not serial:
@@ -435,13 +458,46 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             updates[CONF_INTERFACE] = _NO_INTERFACE_VALUE
 
         await self.async_set_unique_id(str(serial))
-        # Known speaker: address is updated in place and the entry reloads.
-        # This is the whole point of the step and ends the flow.
-        self._abort_if_unique_id_configured(updates=updates)
+
+        known = next(
+            (
+                entry
+                for entry in self.hass.config_entries.async_entries(DOMAIN)
+                if entry.unique_id == str(serial)
+            ),
+            None,
+        )
+        if known is not None and all(
+            known.data.get(key) == value for key, value in updates.items()
+        ):
+            # Nothing would change - the overwhelmingly common case. Leave
+            # without touching the network.
+            return self.async_abort(reason="already_configured")
 
         identity = await _async_test_connection(host, port, interface=None)
         if identity.error_key:
             return self.async_abort(reason="cannot_connect")
+
+        if known is not None:
+            # Repointing an entry moves its history and its stored backups to
+            # whatever answers there, so the device has to confirm who it is.
+            if str(identity.serial) != str(serial):
+                _LOGGER.warning(
+                    "Ignoring an announcement for %s: %s answered with serial %s",
+                    serial,
+                    host,
+                    identity.serial,
+                )
+                return self.async_abort(reason="wrong_device")
+            self._abort_if_unique_id_configured(updates=updates)
+
+        if identity.serial and str(identity.serial) != str(serial):
+            # Unknown speaker whose announcement disagrees with the device.
+            # The device is the authority, so anchor on what it reports -
+            # otherwise the entry would carry one serial as its unique ID and
+            # another in its data.
+            await self.async_set_unique_id(str(identity.serial))
+            self._abort_if_unique_id_configured(updates=updates)
 
         self._pending_identity = identity
         self._pending_entry = {
@@ -450,13 +506,14 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             CONF_INTERFACE: _NO_INTERFACE_VALUE,
             CONF_PORT: port,
             CONF_MODEL: identity.product or "KH DSP",
-            CONF_SERIAL: identity.serial or str(serial),
+            # Whatever ends up as the unique ID above, so the two cannot drift.
+            CONF_SERIAL: str(self.unique_id or ""),
             CONF_VENDOR: identity.vendor or "",
             CONF_FIRMWARE_VERSION: identity.version or "",
         }
         # Shown on the discovery card in the integrations panel.
         self.context["title_placeholders"] = {
-            "name": f"{identity.product or 'KH DSP'} ({serial})"
+            "name": f"{identity.product or 'KH DSP'} ({self.unique_id})"
         }
         return await self.async_step_zeroconf_confirm()
 

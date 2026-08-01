@@ -235,11 +235,21 @@ async def _run_zeroconf(hass, info, identity=None):
 
 
 async def test_zeroconf_corrects_a_stale_address(hass, _custom_integration):
-    """The whole point: a changed address is adopted without asking."""
+    """The whole point: a changed address is adopted without asking.
+
+    The speaker at the new address confirms its serial first - see
+    test_zeroconf_verifies_before_repointing_an_entry for why.
+    """
     entry = _entry(hass)
     assert entry.data[CONF_HOST] == "fe80::1"
 
-    result = await _run_zeroconf(hass, _zeroconf_info())
+    result = await _run_zeroconf(
+        hass,
+        _zeroconf_info(),
+        identity=DeviceIdentity(
+            product="KH 120 II", serial=_EXISTING_SERIAL, vendor="Georg Neumann GmbH"
+        ),
+    )
     await hass.async_block_till_done()
 
     assert result["type"] is FlowResultType.ABORT
@@ -349,3 +359,100 @@ def test_manifest_declares_the_zeroconf_type():
         ).read_text(encoding="utf-8")
     )
     assert manifest.get("zeroconf") == [SSC_ZEROCONF_SERVICE_TYPE]
+
+
+async def test_zeroconf_verifies_before_repointing_an_entry(hass, _custom_integration):
+    """mDNS is unauthenticated - any host can claim any serial.
+
+    Repointing an entry hands its history and its stored backups to whatever
+    sits at the announced address, so the device has to confirm who it is
+    before the address is written.
+    """
+    entry = _entry(hass)
+
+    result = await _run_zeroconf(
+        hass,
+        _zeroconf_info(),  # claims the configured serial
+        identity=DeviceIdentity(
+            product="KH 120 II", serial="SIM0007500", vendor="Georg Neumann GmbH"
+        ),
+    )
+    await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "wrong_device"
+    assert entry.data[CONF_HOST] == "fe80::1", "the entry was repointed on an unverified claim"
+
+
+async def test_zeroconf_does_not_contact_a_speaker_that_has_not_moved(
+    hass, _custom_integration
+):
+    """The common case by far: an announcement that changes nothing."""
+    entry = _entry(hass)
+    hass.config_entries.async_update_entry(
+        entry, data={**entry.data, CONF_HOST: _PICKED_HOST, CONF_INTERFACE: ""}
+    )
+
+    with patch(
+        "custom_components.neumann_kh.config_flow._async_test_connection"
+    ) as connect:
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": SOURCE_ZEROCONF}, data=_zeroconf_info()
+        )
+        await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.ABORT
+    assert not connect.called, "an unchanged announcement cost a network round trip"
+
+
+async def test_zeroconf_anchors_on_the_serial_the_device_reports(hass, _custom_integration):
+    """A record can be stale or wrong; the device is the authority.
+
+    Storing the announced serial as the unique ID while the data carries the
+    one the device reported would leave the entry contradicting itself.
+    """
+    identity = DeviceIdentity(
+        product="KH 120 II", serial="SIM0009999", vendor="Georg Neumann GmbH"
+    )
+
+    result = await _run_zeroconf(
+        hass, _zeroconf_info(serial="SIM0001111"), identity=identity
+    )
+    assert result["type"] is FlowResultType.FORM
+
+    with patch("custom_components.neumann_kh.async_setup_entry", return_value=True):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {CONF_NAME: "New speaker"}
+        )
+        await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"][CONF_SERIAL] == "SIM0009999"
+    assert result["result"].unique_id == "SIM0009999"
+
+
+# --- Identity values arrive as plain JSON, not necessarily as text ----------
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [[], {}, True, None, "", "   "],
+)
+def test_unusable_identity_values_become_none(raw):
+    """A list or a dict reaches code that assumes text.
+
+    The vendor check calls .lower(), the serial becomes a unique ID and a dict
+    key, and mask_serial() slices it - each of which raises on the wrong type
+    rather than reporting an unusable device.
+    """
+    from custom_components.neumann_kh.config_flow import _as_identity_text
+
+    assert _as_identity_text(raw) is None
+
+
+def test_a_numeric_serial_is_kept_as_text():
+    """Real records carry the serial as a string, but a number still means one."""
+    from custom_components.neumann_kh.config_flow import _as_identity_text
+
+    assert _as_identity_text(1234567890) == "1234567890"
+    assert _as_identity_text("  KH 120 II  ") == "KH 120 II"

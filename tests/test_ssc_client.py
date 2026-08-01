@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
+import logging
 
 import pytest
 
@@ -466,3 +467,83 @@ def test_connect_host_appends_scope_for_link_local():
     assert client._connect_host == "fe80::1%eth0"
     client2 = SSCClient(host="2001:db8::1", port=45, interface="eth0")
     assert client2._connect_host == "2001:db8::1"
+
+
+async def test_stale_drain_gives_up_instead_of_stalling_a_request(
+    socket_enabled, monkeypatch
+):
+    """An endpoint talking inside the drain window must not block the request.
+
+    Only the per-line wait was short, so an endpoint producing complete lines
+    faster than that could hold the drain loop and the request would never be
+    written. A poll cycle has its own time limit; a button press does not.
+
+    Driven by the line cap rather than the clock: the server queues everything
+    up front, so the drain meets a full buffer with no timing to race.
+    """
+    monkeypatch.setattr(ssc_client, "_MAX_STALE_DRAIN_LINES", 5)
+
+    async def _handle(reader, writer):
+        await reader.readline()
+        # The answer, followed by more than the drain is willing to discard.
+        writer.write(json.dumps({"device": {"name": "first"}}).encode() + b"\r\n")
+        for _ in range(50):
+            writer.write(json.dumps({"noise": {"value": 1}}).encode() + b"\r\n")
+        await writer.drain()
+        await asyncio.sleep(1)
+
+    raw_server = await asyncio.start_server(_handle, "127.0.0.1", 0)
+    port = raw_server.sockets[0].getsockname()[1]
+    client = _client(port)
+    try:
+        assert await client.get(("device", "name")) == "first"
+
+        # Second request: the drain hits its cap and drops the connection
+        # rather than reading on forever.
+        with pytest.raises(SSCConnectionError):
+            await asyncio.wait_for(client.get(("device", "name")), timeout=5)
+        assert client._writer is None
+    finally:
+        await client.close()
+        raw_server.close()
+        with contextlib.suppress(asyncio.TimeoutError):
+            await asyncio.wait_for(raw_server.wait_closed(), timeout=1)
+
+
+async def test_a_response_is_bounded_by_total_size(socket_enabled, monkeypatch, caplog):
+    """The line count alone bounds nothing useful.
+
+    256 lines of the maximum size would be a quarter of a gigabyte held in
+    memory, which matters on the machines Home Assistant usually runs on.
+    """
+    # Leave the line cap at its default: the point is that the size limit
+    # fires FIRST, so asserting "connection dropped" alone would pass either
+    # way. The log line says which bound actually ended the read.
+    monkeypatch.setattr(ssc_client, "_MAX_RESPONSE_BYTES", 4096)
+
+    async def _handle(reader, writer):
+        await reader.readline()
+        try:
+            while True:
+                # Never the requested path, so only a limit can end this.
+                writer.write(json.dumps({"noise": {"value": "x" * 500}}).encode() + b"\r\n")
+                await writer.drain()
+                await asyncio.sleep(0.001)
+        except (ConnectionResetError, BrokenPipeError, asyncio.CancelledError):
+            pass
+
+    raw_server = await asyncio.start_server(_handle, "127.0.0.1", 0)
+    port = raw_server.sockets[0].getsockname()[1]
+    client = SSCClient(host="127.0.0.1", port=port, timeout=5.0, settle_time=_SETTLE)
+    try:
+        with caplog.at_level(logging.WARNING, logger="custom_components.neumann_kh.ssc_client"):
+            await asyncio.wait_for(client.get(("device", "name")), timeout=5)
+        assert client._writer is None, "the connection survived the size limit"
+        assert any("bytes in one response" in r.message for r in caplog.records), (
+            "the read ended on the line cap, not the size limit"
+        )
+    finally:
+        await client.close()
+        raw_server.close()
+        with contextlib.suppress(asyncio.TimeoutError):
+            await asyncio.wait_for(raw_server.wait_closed(), timeout=1)

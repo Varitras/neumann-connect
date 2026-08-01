@@ -46,3 +46,52 @@ def test_ipv4_only_record_is_rejected():
 def test_empty_and_malformed_records_are_rejected():
     assert pick_host([]) is None
     assert pick_host(["not-an-address"]) is None
+
+
+async def test_resolution_stops_at_a_bound(monkeypatch):
+    """A segment full of stale records must not stall whatever waits on it.
+
+    Records resolve one at a time with their own timeout, so an unbounded pass
+    can hold a config flow - or the setup repair, which runs on every failed
+    retry - for minutes.
+    """
+    from unittest.mock import AsyncMock, patch
+
+    from custom_components.neumann_kh import discovery
+
+    monkeypatch.setattr(discovery, "_MAX_RESOLVE_SERVICES", 3)
+    resolved: list[str] = []
+
+    class _FakeInfo:
+        port = 45
+
+        def __init__(self, service_type, name):
+            self.name = name
+
+        async def async_request(self, zeroconf, timeout_ms):
+            resolved.append(self.name)
+            return True
+
+        def parsed_scoped_addresses(self):
+            return ["fe80::1%2"]
+
+    class _FakeBrowser:
+        def __init__(self, *args, **kwargs):
+            handlers = kwargs.get("handlers") or args[2]
+            for index in range(10):
+                handlers[0](
+                    None, "_ssc._tcp.local.", f"s{index}._ssc._tcp.local.",
+                    discovery.ServiceStateChange.Added,
+                )
+
+        async def async_cancel(self):
+            return None
+
+    hass = AsyncMock()
+    with patch.object(discovery, "AsyncServiceBrowser", _FakeBrowser), patch.object(
+        discovery, "AsyncServiceInfo", _FakeInfo
+    ), patch.object(discovery.ha_zeroconf, "async_get_async_instance", AsyncMock()):
+        speakers = await discovery.async_scan_for_speakers(hass, duration=0)
+
+    assert len(resolved) == 3, "the resolution pass was not bounded"
+    assert len(speakers) == 3
