@@ -96,7 +96,7 @@ async def test_get_and_set_roundtrip(kh120):
 
 
 async def test_missing_path_is_rejected(kh120):
-    """"dimm" does not exist on the KH 120 II -> the device reports 404."""
+    """"dimm" exists on neither test model -> the device reports 404."""
     client = _client(kh120.port)
     try:
         with pytest.raises(SSCDeviceError):

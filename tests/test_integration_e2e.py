@@ -155,9 +155,21 @@ async def test_integration_creates_entities(hass, socket_enabled, model, serial)
         ]
         assert states, "entities were registered but none reached the state machine"
 
-        # Values must come from the simulator, not be unknown across the board.
-        known = [s for s in states if s.state not in ("unknown", "unavailable")]
-        assert known, "every entity stayed unknown - polling did not work"
+        # Every enabled entity has to carry a value, not just one of them.
+        # The weaker "at least one is known" version passed while three
+        # numeric sensors were unknown throughout, because the simulator
+        # answered them with a string the integration cannot parse - the
+        # exact mismatch this test exists to catch.
+        #
+        # Buttons are excluded on purpose: their state is the timestamp of
+        # the last press, so an untouched button is unknown by design.
+        unknown = sorted(
+            state.entity_id
+            for state in states
+            if state.state in ("unknown", "unavailable")
+            and not state.entity_id.startswith("button.")
+        )
+        assert not unknown, f"these entities never got a value: {unknown}"
 
         assert await hass.config_entries.async_unload(entry.entry_id)
         await hass.async_block_till_done()

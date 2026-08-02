@@ -217,7 +217,7 @@ def _zeroconf_info(
         port=port,
         hostname="KH120-SIMULATED.local.",
         type="_ssc._tcp.local.",
-        name=f"KH120 II Right-{serial}._ssc._tcp.local.",
+        name=f"KH120-SIMULATED-{serial}._ssc._tcp.local.",
         properties=properties,
     )
 

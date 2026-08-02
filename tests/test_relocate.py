@@ -58,7 +58,7 @@ def _entry(hass, serial=_SERIAL, host=_OLD_HOST) -> MockConfigEntry:
 
 
 def _found(host=_NEW_HOST, port=45):
-    return [DiscoveredSpeaker(mdns_name="KH120 II Right._ssc._tcp.local.", host=host, port=port)]
+    return [DiscoveredSpeaker(mdns_name="KH120-SIMULATED._ssc._tcp.local.", host=host, port=port)]
 
 
 async def _run(hass, entry, speakers, serial_answer):
