@@ -10,11 +10,15 @@ Home Assistants eingebaute Zeroconf-Komponente.
 
 Änderungshistorie: siehe [CHANGELOG.de.md](./CHANGELOG.de.md).
 
+**Benötigt Home Assistant 2025.2 oder neuer.**
+
 Eigenes Icon/Logo unter `custom_components/neumann_kh/brand/` (eigenständiges
-Design, keine Kopie des offiziellen Neumann-Firmenlogos). Benötigt **Home
-Assistant 2026.3 oder neuer** (erst ab dieser Version lesen Custom
-Integrations ihre Marken-Bilder direkt aus einem eigenen `brand/`-Ordner,
-siehe [HA Developer Blog](https://developers.home-assistant.io/blog/2026/02/24/brands-proxy-api/)). Bei älteren Versionen wird stattdessen ein generisches Icon angezeigt.
+Design, keine Kopie des offiziellen Neumann-Firmenlogos). Das Icon selbst
+braucht **2026.3 oder neuer** – erst ab dieser Version lesen Custom
+Integrations ihre Marken-Bilder direkt aus einem eigenen `brand/`-Ordner
+(siehe [HA Developer Blog](https://developers.home-assistant.io/blog/2026/02/24/brands-proxy-api/)).
+Alles andere läuft ab 2025.2; ältere Versionen zeigen lediglich ein
+generisches Icon.
 
 Basiert auf den SSC-Adresspfaden, die im
 [khtool-Projekt](https://github.com/schwinn/khtool) dokumentiert sind.
@@ -171,10 +175,10 @@ Grenzen"), sind deshalb bewusst als `sensor`/`binary_sensor` statt als
 `number`/`select`/`switch` umgesetzt - nicht weil HA das technisch
 verlangt, sondern weil ein Schreibversuch dort ohnehin fehlschlägt.
 
-**Standard-Aktivierung (Nicht-Subwoofer-Modelle wie KH 120 II):** Alle
-Entities sind standardmäßig aktiviert, **außer** "Dimm" (existiert dort
-nicht), "Steuerungsmodus" (Sicherheits-Ausnahme) und "Einstellungen
-speichern" (nicht funktional).
+**Standardmäßig aktiviert:** die meisten Entities. Die Ausnahmen sind in den
+Tabellen unten mit „Default: deaktiviert" gekennzeichnet – hier bewusst nicht
+noch einmal aufgezählt, weil eine zweite Liste genau die ist, die mit der
+ersten auseinanderläuft.
 
 | Entity | Typ | Bereich | SSC-Pfad |
 |---|---|---|---|

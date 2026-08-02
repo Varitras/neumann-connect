@@ -18,6 +18,7 @@ A separate config entry is created for each speaker.
 
 from __future__ import annotations
 
+import asyncio
 import ipaddress
 import logging
 from typing import Any, NamedTuple
@@ -58,6 +59,10 @@ _LOGGER = logging.getLogger(__name__)
 _NO_INTERFACE_VALUE = ""  # "no interface specified" (e.g. for a global, non-link-local IPv6 address)
 _SELECTED_DEVICE = "selected_device"
 _RESCAN_VALUE = "__rescan__"
+# How many candidates are contacted at once while identifying a scan
+# result. Enough to keep a stale segment from dragging, few enough not
+# to open dozens of sockets on a small machine.
+_MAX_PARALLEL_IDENTITY_QUERIES = 8
 
 
 async def _async_get_interface_options(hass: HomeAssistant) -> list[selector.SelectOptionDict]:
@@ -216,6 +221,27 @@ async def _async_test_connection(host: str, port: int, interface: str | None) ->
         )
     finally:
         await client.close()
+
+
+async def _async_identify_all(
+    speakers: list[DiscoveredSpeaker],
+) -> list[tuple[DeviceIdentity, DiscoveredSpeaker]]:
+    """Ask every candidate who it is, a few at a time.
+
+    Serially this cost one connection timeout per silent candidate, which adds
+    up to minutes on a segment carrying stale announcements - paid by a config
+    flow the user is watching, and by the setup repair on every failed retry.
+    """
+    semaphore = asyncio.Semaphore(_MAX_PARALLEL_IDENTITY_QUERIES)
+
+    async def _one(speaker: DiscoveredSpeaker) -> tuple[DeviceIdentity, DiscoveredSpeaker]:
+        async with semaphore:
+            identity = await _async_test_connection(
+                speaker.host, speaker.port, interface=None
+            )
+        return identity, speaker
+
+    return list(await asyncio.gather(*(_one(speaker) for speaker in speakers)))
 
 
 class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -434,11 +460,17 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         serial number in its TXT record, which is what this integration uses
         as the unique ID, so it tells us which entry an announcement is about.
 
-        What it does NOT do is prove anything: mDNS is unauthenticated, and
-        any host on the segment can claim any serial. So the announcement
-        selects the entry, and the device itself confirms the move before an
-        address is written. An announcement that changes nothing costs no
-        contact at all, which is the common case by far.
+        The announcement selects the entry; the device at the announced
+        address then has to report that same serial before anything is
+        written. An announcement that changes nothing costs no contact at all,
+        which is the common case by far.
+
+        That check catches a stale or plain wrong record, not a deliberate
+        one. The same host controls both the unauthenticated announcement and
+        an unauthenticated SSC server, so it can simply repeat the serial it
+        claimed. Nothing here can close that: SSC offers no authentication at
+        all, and anyone able to run it on the segment can already talk to the
+        real speaker directly.
         """
         serial = discovery_info.properties.get(ATTR_PROPERTIES_ID)
         if not serial:
@@ -595,8 +627,11 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._discovered = {}
         self._discovery_info = {}
 
-        for speaker in speakers:
-            identity = await _async_test_connection(speaker.host, speaker.port, interface=None)
+        # Identified concurrently, a few at a time. One after another this cost
+        # the connection timeout per silent candidate, so a segment with a
+        # handful of stale records left the user staring at a spinner for
+        # minutes. The cap keeps it from opening dozens of sockets at once.
+        for identity, speaker in await _async_identify_all(speakers):
             if identity.error_key:
                 _LOGGER.debug(
                     "Discovered device %s (%s) did not respond to SSC requests: %s",

@@ -110,6 +110,11 @@ _READ_ONLY_KH_750 = frozenset(
         ("audio", "out", "label"),
         ("audio", "out1", "label"),
         ("audio", "out2", "label"),
+        # Modelled as sensors, so a write has to be refused here too -
+        # otherwise a test could pass against the simulator that the hardware
+        # answers with a 405.
+        ("audio", "out1", "loudspeaker"),
+        ("audio", "out2", "loudspeaker"),
         # Writable on the monitors, read-only here - which is why it is a
         # switch on one model and a binary sensor on the other. Accepting the
         # write would let a test pass that real hardware answers with a 405.

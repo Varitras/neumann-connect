@@ -6,6 +6,12 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Nothing here writes to the repository, so no job gets more than read access.
+# Without this the default token permissions apply, which are broader than
+# anything this workflow needs.
+permissions:
+  contents: read
+
 jobs:
   hassfest:
     name: Hassfest-Validierung
@@ -50,3 +56,30 @@ jobs:
       # the end-to-end tests as well. They cost ~50 s, which is irrelevant here
       # and makes every push a full check.
       - run: python -m pytest tests/ -q -m ""
+
+  minimum-ha:
+    # The full suite runs against the newest stable Home Assistant. That says
+    # nothing about the version hacs.json promises, and the gap is not
+    # theoretical: 1.18.0 shipped an import that only exists from 2025.2 while
+    # the manifest still claimed 2024.11. Importing every module is enough to
+    # catch that class of mistake and costs a fraction of a test run.
+    name: Import auf der Mindestversion
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          # 2025.2 predates Python 3.14.
+          python-version: "3.13"
+      - run: pip install "homeassistant==2025.2.0"
+      - name: Import every module of the integration
+        run: |
+          python - <<'PY'
+          import importlib, pathlib, sys
+          sys.path.insert(0, ".")
+          package = pathlib.Path("custom_components/neumann_kh")
+          for path in sorted(package.glob("*.py")):
+              name = f"custom_components.neumann_kh.{path.stem}"
+              importlib.import_module(name)
+              print("ok", name)
+          PY

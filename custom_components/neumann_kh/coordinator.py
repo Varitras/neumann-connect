@@ -116,11 +116,19 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             # Slow values polled freshly and successfully - refresh cache for
             # the next fast cycles, clear the catch-up flag.
             self._slow_poll_pending = False
-            self._slow_data = {}
+            # Updated in place rather than rebuilt. Emptying it first meant a
+            # single path that happened to fail this round lost its value
+            # everywhere - the entity dropped to unknown and stayed there
+            # until the next slow cycle, up to five minutes later, over one
+            # missed answer.
             for path in self._slow_poll_paths:
                 value = SSCClient.extract(merged, path)
                 if value is not None:
                     deep_merge(self._slow_data, build_nested(path, value))
+            # Fill in whatever did not answer this round. Every value that did
+            # is already in the cache above, so this cannot overwrite a fresh
+            # one with a stale one.
+            deep_merge(merged, self._slow_data)
         else:
             # Fast cycle: merge the last known slow values back in.
             deep_merge(merged, self._slow_data)

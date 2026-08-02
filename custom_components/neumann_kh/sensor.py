@@ -55,6 +55,13 @@ from .entity import NeumannKHEntity
 
 _LOGGER = logging.getLogger(__name__)
 
+# What a subwoofer output reports while nothing is assigned, and the state it
+# is exposed as. The mapping exists because Home Assistant only translates
+# states matching [a-z0-9-_]+ - "UNKNOWN" is rejected by hassfest, and a plain
+# lowercase "unknown" would collide with Home Assistant's own reserved state.
+_UNASSIGNED_RAW = "UNKNOWN"
+_UNASSIGNED_STATE = "not_assigned"
+
 
 @dataclass(frozen=True, kw_only=True)
 class NeumannKHSensorDescription(SensorEntityDescription):
@@ -321,11 +328,20 @@ class NeumannKHSensor(NeumannKHEntity, SensorEntity):
         if value is None:
             return None
         if not self.entity_description.numeric:
-            # Reported verbatim. A translated string here would be stored as the
-            # state, so history would break on a language change and automations
-            # comparing against it would only work in one language. The
-            # "UNKNOWN" a subwoofer output reports while unassigned is
-            # translated for display through the "state" block in strings.json.
+            # Reported verbatim, with one exception. A translated string here
+            # would be stored as the state, so history would break on a
+            # language change and automations comparing against it would only
+            # work in one language.
+            #
+            # The exception is the sentinel a subwoofer output reports while
+            # nothing is assigned. It is mapped to a slug so it can carry a
+            # "state" translation: Home Assistant only translates states that
+            # match [a-z0-9-_]+, and hassfest rejects anything else outright.
+            # The device's own "UNKNOWN" would also collide with Home
+            # Assistant's reserved "unknown" if merely lowercased. Everything
+            # else here is a loudspeaker model name and passes through.
+            if value == _UNASSIGNED_RAW:
+                return _UNASSIGNED_STATE
             return value
 
         # Live levels return a LIST (one value per channel) - show the loudest channel.

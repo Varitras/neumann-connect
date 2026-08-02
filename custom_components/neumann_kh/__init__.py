@@ -11,6 +11,7 @@ corresponding buttons (see button.py), not automatically.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from homeassistant.config_entries import ConfigEntry
@@ -33,6 +34,10 @@ from .discovery import async_scan_for_speakers
 from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeoutError
 
 _LOGGER = logging.getLogger(__name__)
+
+# Mirrors the config flow: enough parallelism to keep a stale segment from
+# dragging, few enough not to open dozens of sockets at once.
+_MAX_PARALLEL_IDENTITY_QUERIES = 8
 
 PLATFORMS: list[Platform] = [
     Platform.NUMBER,
@@ -74,26 +79,34 @@ async def _async_relocate(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER.debug("Could not search for %s after a failed setup", entry.title, exc_info=True)
         return False
 
-    for speaker in speakers:
-        if (speaker.host, speaker.port) == (
-            entry.data.get(CONF_HOST),
-            entry.data.get(CONF_PORT, DEFAULT_PORT),
-        ):
-            # Already exactly where we looked, so the address is not the
-            # problem - and rewriting it would schedule a reload that changes
-            # nothing. The port belongs in this comparison: a speaker that
-            # kept its address but moved to another port is precisely the case
-            # this repair exists for.
-            continue
-        client = SSCClient(host=speaker.host, port=speaker.port, timeout=DEFAULT_TIMEOUT)
-        try:
-            found = await client.get(PATH_IDENTITY_SERIAL)
-        except (SSCConnectionError, SSCTimeoutError, SSCDeviceError):
-            continue
-        finally:
-            await client.close()
+    # Already exactly where we looked means the address is not the problem -
+    # and rewriting it would schedule a reload that changes nothing. The port
+    # belongs in that comparison: a speaker that kept its address but moved to
+    # another port is precisely the case this repair exists for.
+    current = (entry.data.get(CONF_HOST), entry.data.get(CONF_PORT, DEFAULT_PORT))
+    candidates = [s for s in speakers if (s.host, s.port) != current]
 
-        if str(found) != str(serial):
+    # Asked concurrently, a few at a time. One after another this cost the
+    # connection timeout per silent candidate, and this runs on every failed
+    # setup retry.
+    semaphore = asyncio.Semaphore(_MAX_PARALLEL_IDENTITY_QUERIES)
+
+    async def _serial_of(speaker):
+        async with semaphore:
+            client = SSCClient(
+                host=speaker.host, port=speaker.port, timeout=DEFAULT_TIMEOUT
+            )
+            try:
+                return await client.get(PATH_IDENTITY_SERIAL)
+            except (SSCConnectionError, SSCTimeoutError, SSCDeviceError):
+                return None
+            finally:
+                await client.close()
+
+    found_serials = await asyncio.gather(*(_serial_of(s) for s in candidates))
+
+    for speaker, found in zip(candidates, found_serials, strict=True):
+        if found is None or str(found) != str(serial):
             continue
 
         _LOGGER.info(

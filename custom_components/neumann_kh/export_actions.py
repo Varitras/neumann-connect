@@ -27,6 +27,16 @@ KIND_BACKUP = "backup"
 KIND_DISCOVERY = "discovery"
 
 
+def _value_at(values: dict[str, Any], path: tuple[str, ...]) -> Any:
+    """Read a single leaf out of a stored value tree, or None if absent."""
+    node: Any = values
+    for key in path:
+        if not isinstance(node, dict) or key not in node:
+            return None
+        node = node[key]
+    return node
+
+
 def mask_serial(serial: str) -> str:
     """Mask a serial number, leaving only the last 3 characters visible."""
     if len(serial) <= 3:
@@ -84,10 +94,15 @@ async def async_run_backup(
             translation_placeholders={"error": str(err)},
         ) from err
 
-    if not values:
-        # Individual paths may legitimately be rejected, but a run that read
-        # nothing at all is a failed backup, not an empty one. Storing it would
-        # replace the last good snapshot with a file that can restore nothing.
+    # What makes a backup worth keeping is not that it read *something* - a
+    # single diagnostic value would satisfy that while every setting is
+    # missing - but that it can restore something. Anything less would replace
+    # the last usable snapshot with one that restores nothing, and still
+    # report success.
+    if not any(
+        _value_at(values, path) is not None
+        for path in restorable_paths_for_model(model)
+    ):
         raise HomeAssistantError(
             translation_domain=DOMAIN,
             translation_key="backup_empty",
@@ -113,7 +128,18 @@ async def async_run_backup(
             translation_key="backup_failed",
             translation_placeholders={"error": str(err)},
         ) from err
-    await storage.async_save_backup(hass, serial, record)
+    try:
+        await storage.async_save_backup(hass, serial, record)
+    except Exception as err:
+        # The file is already on disk at this point. Say so in a
+        # readable way instead of letting a raw store error out - the
+        # export is usable, only the restore button will still offer
+        # the previous snapshot.
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="backup_failed",
+            translation_placeholders={"error": str(err)},
+        ) from err
     _notify_written(hass, entry, KIND_BACKUP, path)
     return path
 
@@ -155,22 +181,23 @@ async def async_run_discovery(
             translation_key="discovery_failed",
             translation_placeholders={"error": str(err)},
         ) from err
-    await storage.async_save_discovery(hass, serial, record)
+    try:
+        await storage.async_save_discovery(hass, serial, record)
+    except Exception as err:
+        # The file is already on disk at this point. Say so in a
+        # readable way instead of letting a raw store error out - the
+        # export is usable, only the restore button will still offer
+        # the previous snapshot.
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="discovery_failed",
+            translation_placeholders={"error": str(err)},
+        ) from err
     _notify_written(hass, entry, KIND_DISCOVERY, path)
     return path
 
 
 # --- Restore ---------------------------------------------------------------
-
-
-def _value_at(values: dict[str, Any], path: tuple[str, ...]) -> Any:
-    """Read a single leaf out of a stored value tree, or None if absent."""
-    node: Any = values
-    for key in path:
-        if not isinstance(node, dict) or key not in node:
-            return None
-        node = node[key]
-    return node
 
 
 async def async_check_restorable(

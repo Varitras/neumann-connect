@@ -7,6 +7,7 @@ has to mean the same thing regardless of the interface language.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -56,19 +57,21 @@ def _sensor(key, value, language="de"):
 
 
 @pytest.mark.parametrize("key", ["out1_loudspeaker", "out2_loudspeaker"])
-def test_an_unassigned_output_reports_the_raw_value(key):
+def test_an_unassigned_output_reports_a_language_independent_state(key):
     """The state used to be the translated text, which the recorder then kept.
 
     Switching the interface language would have split the history in two and
-    broken every automation comparing against the old wording.
+    broken every automation comparing against the old wording. The device's
+    own "UNKNOWN" cannot be the state either: Home Assistant only translates
+    states matching [a-z0-9-_]+, and "unknown" is reserved.
     """
-    assert _sensor(key, "UNKNOWN", language="de").native_value == "UNKNOWN"
-    assert _sensor(key, "UNKNOWN", language="en").native_value == "UNKNOWN"
+    assert _sensor(key, "UNKNOWN", language="de").native_value == "not_assigned"
+    assert _sensor(key, "UNKNOWN", language="en").native_value == "not_assigned"
 
 
 @pytest.mark.parametrize("key", ["out1_loudspeaker", "out2_loudspeaker"])
 def test_the_unassigned_state_is_translated_for_display(key):
-    """Raw state, translated presentation - both languages have to carry it."""
+    """Stable state, translated presentation - both languages have to carry it."""
     for name, expected in (
         ("strings.json", "Not assigned"),
         ("translations/en.json", "Not assigned"),
@@ -76,7 +79,26 @@ def test_the_unassigned_state_is_translated_for_display(key):
     ):
         data = json.loads((_COMPONENT / name).read_text(encoding="utf-8"))
         states = data["entity"]["sensor"][key].get("state", {})
-        assert states.get("UNKNOWN") == expected, f"{name} is missing the state text"
+        assert states.get("not_assigned") == expected, f"{name} is missing the state text"
+
+
+def test_every_state_key_passes_the_hassfest_rule():
+    """The previous version of this file only compared the three JSON files.
+
+    That made a wrong key consistent rather than correct: "UNKNOWN" was
+    identical everywhere and would still have failed the hassfest job on push,
+    because Home Assistant requires [a-z0-9-_]+ for a translated state.
+    """
+    pattern = re.compile(r"^(?!.+[_-]{2})(?![_-])[a-z0-9-_]+(?<![_-])$")
+    for name in ("strings.json", "translations/en.json", "translations/de.json"):
+        data = json.loads((_COMPONENT / name).read_text(encoding="utf-8"))
+        for domain, entities in data.get("entity", {}).items():
+            for entity, body in entities.items():
+                for state in body.get("state", {}):
+                    assert pattern.match(state), (
+                        f"{name}: entity.{domain}.{entity}.state.{state} "
+                        "is not a valid translation key"
+                    )
 
 
 def test_an_assigned_loudspeaker_passes_through_unchanged():

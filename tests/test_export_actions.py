@@ -239,3 +239,55 @@ async def test_a_failed_discovery_file_write_leaves_the_store_untouched(monkeypa
     assert err.value.translation_key == "discovery_failed"
     assert written, "the file write was not even attempted"
     assert not saved, "the store was updated even though the file failed"
+
+
+async def test_a_backup_without_any_restorable_value_is_refused(monkeypatch):
+    """"Read something" is not the bar - "can restore something" is.
+
+    A run that only picked up a diagnostic value would otherwise count as a
+    success and replace the last usable snapshot with one that restores
+    nothing.
+    """
+    saved, _ = await _run_backup(
+        None,
+        monkeypatch,
+        # Read-only diagnostics, not a single path the restore may write.
+        values={"device": {"identity": {"hw_version": "1.0"}}},
+    )
+
+    with pytest.raises(HomeAssistantError) as err:
+        await export_actions.async_run_backup(
+            _FakeHass(), _FakeEntryWithSerial(), _FakeClient(answers_none=set())
+        )
+
+    assert err.value.translation_key == "backup_empty"
+    assert not saved, "a backup that restores nothing was stored anyway"
+
+
+async def test_a_backup_with_one_restorable_value_is_kept(monkeypatch):
+    """Guard against the check above rejecting a partial but usable backup."""
+    saved, _ = await _run_backup(
+        None, monkeypatch, values={"device": {"name": "Speaker"}}
+    )
+
+    await export_actions.async_run_backup(
+        _FakeHass(), _FakeEntryWithSerial(), _FakeClient(answers_none=set())
+    )
+
+    assert len(saved) == 1
+
+
+async def test_a_failing_store_is_reported_readably(monkeypatch):
+    """The file is already written by then; the error must still be legible."""
+    async def _boom(hass_, serial, record):
+        raise OSError("store is locked")
+
+    await _run_backup(None, monkeypatch, values={"device": {"name": "x"}})
+    monkeypatch.setattr(export_actions.storage, "async_save_backup", _boom)
+
+    with pytest.raises(HomeAssistantError) as err:
+        await export_actions.async_run_backup(
+            _FakeHass(), _FakeEntryWithSerial(), _FakeClient(answers_none=set())
+        )
+
+    assert err.value.translation_key == "backup_failed"

@@ -165,3 +165,34 @@ async def test_a_plain_refresh_still_uses_the_slow_cache(coordinator, fake_clien
     await coordinator.async_refresh()  # fast cycle
 
     assert _value(coordinator, PATH_DEVICE_NAME) == "Links"
+
+
+async def test_one_failed_slow_path_does_not_wipe_the_others(coordinator, fake_client):
+    """The cache used to be emptied and rebuilt from this round's answers only.
+
+    A single path that happened to be rejected therefore lost its value
+    everywhere - the entity dropped to unknown and stayed there until the next
+    slow cycle, up to five minutes later, over one missed answer.
+    """
+    await coordinator.async_refresh()  # cycle 0: slow, everything cached
+    assert _value(coordinator, PATH_DEVICE_NAME) == "Links"
+
+    # The device rejects just this one path on the next slow round.
+    fake_client.rejected_paths.add(PATH_DEVICE_NAME)
+    coordinator._slow_poll_pending = True
+    await coordinator.async_refresh()
+
+    assert _value(coordinator, PATH_DEVICE_NAME) == "Links", (
+        "a single missed answer emptied the value"
+    )
+
+
+async def test_a_fresh_slow_value_still_wins_over_the_cache(coordinator, fake_client):
+    """Guard against the fix above pinning the cache in place."""
+    await coordinator.async_refresh()  # cycle 0: slow
+    fake_client.values[PATH_DEVICE_NAME] = "Renamed"
+
+    coordinator._slow_poll_pending = True
+    await coordinator.async_refresh()
+
+    assert _value(coordinator, PATH_DEVICE_NAME) == "Renamed"

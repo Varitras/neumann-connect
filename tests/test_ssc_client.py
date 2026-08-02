@@ -559,3 +559,28 @@ async def test_a_response_is_bounded_by_total_size(socket_enabled, monkeypatch, 
         raw_server.close()
         with contextlib.suppress(asyncio.TimeoutError):
             await asyncio.wait_for(raw_server.wait_closed(), timeout=1)
+
+
+async def test_a_line_that_is_not_utf8_is_skipped(socket_enabled):
+    """json.loads decodes the bytes itself, so invalid UTF-8 raises before it.
+
+    Only JSONDecodeError was caught, so a device emitting a stray byte took
+    the whole request down instead of the one unusable line.
+    """
+    async def _handle(reader, writer):
+        await reader.readline()
+        writer.write(b"\xff\xfe not utf-8 at all\r\n")
+        writer.write(json.dumps({"device": {"name": "ok"}}).encode() + b"\r\n")
+        await writer.drain()
+        await asyncio.sleep(0.5)
+
+    raw_server = await asyncio.start_server(_handle, "127.0.0.1", 0)
+    port = raw_server.sockets[0].getsockname()[1]
+    client = _client(port)
+    try:
+        assert await client.get(("device", "name")) == "ok"
+    finally:
+        await client.close()
+        raw_server.close()
+        with contextlib.suppress(asyncio.TimeoutError):
+            await asyncio.wait_for(raw_server.wait_closed(), timeout=1)

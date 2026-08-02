@@ -199,3 +199,21 @@ async def test_auto_standby_is_read_only_on_the_subwoofer(kh750):
             await client.set(("device", "standby", "enabled"), False)
     finally:
         await client.close()
+
+
+@pytest.mark.parametrize("path", [
+    ("audio", "out1", "loudspeaker"),
+    ("audio", "out2", "loudspeaker"),
+])
+async def test_output_loudspeaker_is_read_only(kh750, path):
+    """Modelled as sensors, so the simulator has to refuse a write.
+
+    Accepting it would let a test pass here that real hardware answers with a
+    405, which is exactly what the simulator exists to prevent.
+    """
+    client = _client(kh750.port)
+    try:
+        with pytest.raises(SSCDeviceError):
+            await client.set(path, "KH 120 II")
+    finally:
+        await client.close()

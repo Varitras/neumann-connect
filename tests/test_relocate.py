@@ -225,3 +225,42 @@ async def test_an_unchanged_firmware_version_is_not_rewritten(hass, _custom_inte
 
     assert dict(entry.data) == before
     assert entry.data[CONF_FIRMWARE_VERSION] == "1_7_3"
+
+
+async def test_silent_candidates_are_asked_concurrently(hass, _custom_integration):
+    """One after another this cost a connection timeout per silent candidate.
+
+    A segment with a handful of stale announcements then held the repair for
+    minutes - on every failed setup retry.
+    """
+    import asyncio
+    import time
+
+    entry = _entry(hass)
+    found = [
+        DiscoveredSpeaker(mdns_name=f"s{i}._ssc._tcp.local.", host=f"fe80::{i}%2", port=45)
+        for i in range(8)
+    ]
+
+    class _SlowClient:
+        """Every candidate takes a while and none of them answers usefully."""
+
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def get(self, path):
+            await asyncio.sleep(0.2)
+            return "SIM0009999"  # never the entry's serial
+
+        async def close(self):
+            return None
+
+    with patch(
+        "custom_components.neumann_kh.async_scan_for_speakers", return_value=found
+    ), patch("custom_components.neumann_kh.SSCClient", _SlowClient):
+        start = time.monotonic()
+        assert await _async_relocate(hass, entry) is False
+        elapsed = time.monotonic() - start
+
+    # Serially this would be 8 x 0.2 s; concurrently it is one round.
+    assert elapsed < 0.8, f"the candidates were queried one after another ({elapsed:.2f}s)"
