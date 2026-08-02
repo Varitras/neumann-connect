@@ -67,7 +67,6 @@ class NeumannKHSensorDescription(SensorEntityDescription):
     ssc_path: tuple[str, ...] = ()
     numeric: bool = True
     kelvin_to_celsius: bool = False
-    translate_unknown: bool = False  # "UNKNOWN" -> localized "Not assigned"
 
 
 COMMON_SENSOR_DESCRIPTIONS: tuple[NeumannKHSensorDescription, ...] = (
@@ -197,7 +196,6 @@ SUBWOOFER_SENSOR_DESCRIPTIONS: tuple[NeumannKHSensorDescription, ...] = (
         entity_registry_enabled_default=False,
         ssc_path=PATH_OUT1_LOUDSPEAKER,
         numeric=False,
-        translate_unknown=True,
     ),
     NeumannKHSensorDescription(
         key="out2_label",
@@ -216,7 +214,6 @@ SUBWOOFER_SENSOR_DESCRIPTIONS: tuple[NeumannKHSensorDescription, ...] = (
         entity_registry_enabled_default=False,
         ssc_path=PATH_OUT2_LOUDSPEAKER,
         numeric=False,
-        translate_unknown=True,
     ),
     NeumannKHSensorDescription(
         key="output_label",
@@ -324,9 +321,11 @@ class NeumannKHSensor(NeumannKHEntity, SensorEntity):
         if value is None:
             return None
         if not self.entity_description.numeric:
-            if self.entity_description.translate_unknown and value == "UNKNOWN":
-                de = (self.hass.config.language or "en").startswith("de")
-                return "Nicht zugewiesen" if de else "Not assigned"
+            # Reported verbatim. A translated string here would be stored as the
+            # state, so history would break on a language change and automations
+            # comparing against it would only work in one language. The
+            # "UNKNOWN" a subwoofer output reports while unassigned is
+            # translated for display through the "state" block in strings.json.
             return value
 
         # Live levels return a LIST (one value per channel) - show the loudest channel.

@@ -1,5 +1,12 @@
 # Test dependencies. The plugin pins pytest, pytest-asyncio and the matching
-# Home Assistant version itself: 0.13.346 pins Home Assistant 2026.7.2 and
-# therefore requires Python >= 3.14.
-pytest-homeassistant-custom-component==0.13.346
+# Home Assistant version itself.
+#
+# Pick the newest release that pins a STABLE Home Assistant, not simply the
+# newest release: the plugin publishes daily and follows Home Assistant's beta
+# releases as well, so "latest" regularly means testing against a beta. Check
+# what a candidate pins before bumping - 0.13.349 and later already track the
+# 2026.8 betas.
+#
+# 0.13.348 pins Home Assistant 2026.7.4 and therefore requires Python >= 3.14.
+pytest-homeassistant-custom-component==0.13.348
 ruff

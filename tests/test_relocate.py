@@ -22,6 +22,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.neumann_kh import _async_relocate
 from custom_components.neumann_kh.const import (
+    CONF_FIRMWARE_VERSION,
     CONF_INTERFACE,
     CONF_MODEL,
     CONF_SERIAL,
@@ -160,3 +161,67 @@ async def test_a_working_setup_does_not_search(hass, _custom_integration):
         await hass.async_block_till_done()
 
     assert not relocate.called
+
+
+async def test_a_speaker_that_only_changed_port_is_followed(hass, _custom_integration):
+    """Same address, different port - exactly what this repair is for.
+
+    Comparing the address alone treated that as "nothing to do", so the entry
+    kept retrying against the old port for good.
+    """
+    entry = _entry(hass)
+
+    assert await _run(hass, entry, _found(host=_OLD_HOST, port=4545), _SERIAL) is True
+    assert entry.data[CONF_HOST] == _OLD_HOST
+    assert entry.data[CONF_PORT] == 4545
+
+
+# --- Firmware version -------------------------------------------------------
+
+
+async def _run_setup(hass, entry, version, stored=None):
+    """Drive a successful setup with a client reporting `version`."""
+    if stored is not None:
+        hass.config_entries.async_update_entry(
+            entry, data={**entry.data, CONF_FIRMWARE_VERSION: stored}
+        )
+    client = AsyncMock()
+    client.get = AsyncMock(return_value=version)
+    client.close = AsyncMock()
+    with patch(
+        "custom_components.neumann_kh.NeumannKHCoordinator.async_config_entry_first_refresh",
+        return_value=None,
+    ), patch("custom_components.neumann_kh.SSCClient", return_value=client), patch(
+        "homeassistant.config_entries.ConfigEntries.async_forward_entry_setups",
+        return_value=True,
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id) is True
+        await hass.async_block_till_done()
+
+
+async def test_a_firmware_update_is_picked_up(hass, _custom_integration):
+    """The version was only ever read while adding the entry.
+
+    After updating a speaker the device info kept advertising whatever was
+    installed back then.
+    """
+    entry = _entry(hass)
+
+    await _run_setup(hass, entry, version="2_0_0", stored="1_7_3")
+
+    assert entry.data[CONF_FIRMWARE_VERSION] == "2_0_0"
+
+
+async def test_an_unchanged_firmware_version_is_not_rewritten(hass, _custom_integration):
+    """Rewriting on every start would reload the entry on every start."""
+    entry = _entry(hass)
+
+    await _run_setup(hass, entry, version="1_7_3", stored="1_7_3")
+    before = dict(entry.data)
+
+    # A second setup must not touch the entry either.
+    await hass.config_entries.async_unload(entry.entry_id)
+    await _run_setup(hass, entry, version="1_7_3")
+
+    assert dict(entry.data) == before
+    assert entry.data[CONF_FIRMWARE_VERSION] == "1_7_3"

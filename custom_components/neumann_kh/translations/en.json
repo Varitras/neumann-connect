@@ -161,13 +161,19 @@
         "name": "Output 1 label"
       },
       "out1_loudspeaker": {
-        "name": "Output 1 loudspeaker"
+        "name": "Output 1 loudspeaker",
+        "state": {
+          "UNKNOWN": "Not assigned"
+        }
       },
       "out2_label": {
         "name": "Output 2 label"
       },
       "out2_loudspeaker": {
-        "name": "Output 2 loudspeaker"
+        "name": "Output 2 loudspeaker",
+        "state": {
+          "UNKNOWN": "Not assigned"
+        }
       },
       "output_label": {
         "name": "Output label"

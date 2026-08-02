@@ -181,6 +181,10 @@ class NeumannKHRestoreButton(NeumannKHEntity, ButtonEntity):
                     translation_key="device_unreachable",
                     translation_placeholders={"error": str(err)},
                 ) from err
+            # A reset rewrites everything at once, so every cached value is
+            # stale - including the slow-polled ones, which would otherwise
+            # keep showing pre-reset settings for up to five minutes.
+            await self.coordinator.async_invalidate_and_refresh()
             return
 
         # First press (or time window elapsed) -> only "arm" and warn.

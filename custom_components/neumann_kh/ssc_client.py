@@ -219,6 +219,20 @@ class SSCClient:
 
         The settle window still applies while the answer is incomplete, so a
         firmware that splits a response across lines is still handled.
+
+        Known limitation, accepted deliberately. Returning early can leave a
+        trailing line of that answer in flight. _discard_stale_lines() catches
+        one that is already queued when the next request goes out, but not one
+        that lands after the drain and before the real reply - and since SSC
+        carries no transaction id, a trailing line for the requested path is
+        indistinguishable from a fresh answer to it.
+
+        There is no cheap fix: waiting out the settle window every time is
+        what the early return exists to avoid, reconnecting per request costs
+        more, and learning from what the drain found does not help because in
+        exactly this case the drain sees nothing. Measured against both test
+        devices a leaf query is answered with exactly one line, so this is a
+        risk for other firmware rather than for the hardware in use.
         """
         if self._reader is None:
             raise SSCConnectionError(f"No active connection to {self._host}")

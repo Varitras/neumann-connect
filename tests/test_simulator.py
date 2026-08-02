@@ -176,3 +176,26 @@ async def test_subwoofer_model_reports_kh_750(kh750):
             await client.set(("ui", "bass_management"), "2.1")
     finally:
         await client.close()
+
+
+async def test_auto_standby_is_writable_on_a_monitor(kh120):
+    """The split the entities rely on: switch here, binary sensor on the sub."""
+    client = _client(kh120.port)
+    try:
+        assert await client.set(("device", "standby", "enabled"), False) is False
+    finally:
+        await client.close()
+
+
+async def test_auto_standby_is_read_only_on_the_subwoofer(kh750):
+    """Hardware answers 405 here, so the simulator has to as well.
+
+    Accepting it would let a test pass against the simulator that real
+    hardware refuses - the restore allowlist depends on exactly this split.
+    """
+    client = _client(kh750.port)
+    try:
+        with pytest.raises(SSCDeviceError):
+            await client.set(("device", "standby", "enabled"), False)
+    finally:
+        await client.close()

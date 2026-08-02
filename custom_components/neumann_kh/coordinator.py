@@ -200,6 +200,19 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 deep_merge(self._slow_data, build_nested(path, value))
         self.async_set_updated_data(new_data)
 
+    async def async_invalidate_and_refresh(self) -> None:
+        """Drop every cached value and poll again, slow paths included.
+
+        For changes that rewrite the whole device at once - a factory reset -
+        rather than a single confirmed value. Without dropping the slow cache
+        the next fast cycle would merge the pre-change values back in, and the
+        rarely polled entities would show the old state for up to five minutes
+        while the device had already moved on.
+        """
+        self._slow_data = {}
+        self._slow_poll_pending = True
+        await self.async_request_refresh()
+
     def value(self, path: tuple[str, ...]) -> Any:
         """Convenient access to a value from the last polled data."""
         if self.data is None:

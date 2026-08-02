@@ -183,7 +183,7 @@ entities are enabled by default, **except** "Dimm" (does not exist there),
 | Identify device (on/off) | `switch` | – | `device/identification/visual` |
 | Phase inversion (non-subwoofer only) | `switch` | – | `audio/out/phaseinversion` |
 | Auto standby (non-subwoofer only; `binary_sensor` on the KH 750 DSP instead) | `switch` | – | `device/standby/enabled` |
-| Input interface (default: disabled on subwoofer, otherwise enabled; writability unverified) | `select` | ANALOG ONLY/DIGITAL ONLY/DIGITAL DISCARDS ANALOG | `audio/in/interface` |
+| Input interface (writable, confirmed on KH 120 II and KH 750 DSP) | `select` | ANALOG ONLY/DIGITAL ONLY/DIGITAL DISCARDS ANALOG | `audio/in/interface` |
 | Control mode (default: **always** disabled, see warning below) | `select` | NETWORK/LOCAL | `ui/control_mode` |
 | Device name (default: disabled) | `text` | max. 52 characters | `device/name` |
 | Input level (live) | `sensor` | dB | `m/in/level` |
@@ -246,19 +246,35 @@ stack and stops responding to SSC requests. All entities then correctly become
 **"unavailable"** – this is the behaviour recommended by Home Assistant
 (`CoordinatorEntity` automatically marks entities as unavailable as soon as a
 poll cycle fails) and is not a bug in the integration. As soon as the device
-wakes from standby, Home Assistant detects this again automatically – the
-waiting time for that is dictated by HA's built-in retry mechanism: 5s → 10s →
-20s → 40s → 80s between the first attempts, and every 80 seconds after that
-(or, with a very long standby and HA ≥ 2026.6, up to every 10 minutes). This
-is not a behaviour of this integration but Home Assistant's core mechanism for
-`ConfigEntryNotReady`.
+wakes from standby, Home Assistant picks it up again on its own. How quickly
+depends on which of two mechanisms is running.
+
+If the speaker was already unavailable when Home Assistant started, the config
+entry never finished setting up and Home Assistant retries it with a widening
+gap: 5s, 10s, 20s, 40s, 80s, 160s, 320s, then every 10 minutes for as long as
+it takes. It never gives up.
+
+If the entry was up and running when the speaker went to sleep, the poll cycle
+simply keeps going at its normal 30 second interval and picks the speaker up
+on the first cycle that succeeds.
+
+Either way this is Home Assistant's own behaviour, not something this
+integration decides.
 
 ## Known limitations
 
 - Auto standby is only non-writable on the KH 750 DSP (it works on the
   KH 120 II). Hence: KH 120 II → `switch`, KH 750 DSP → `binary_sensor`.
-- Input switching (KH 120 II, `ui/input_select` and `audio/in/interface`)
-  remains of unverified writability – disabled by default or read-only.
+- `ui/input_select` stays read-only. The writable path is
+  `audio/in/interface`, confirmed on both the KH 120 II and the KH 750 DSP and
+  enabled by default there.
+- A speaker that answers a single query with more than one line can, in a
+  narrow case, have a trailing line of one answer returned as the next one.
+  The protocol carries no transaction id, so a trailing line for the path
+  just requested cannot be told apart from a fresh reply to it. Lines already
+  waiting on the socket are discarded before the next request; only one that
+  lands in between is affected. Both test devices answer with exactly one
+  line, so this concerns other firmware rather than the hardware in use.
 - Control mode (`ui/control_mode`) always remains disabled: switching to
   `LOCAL` could cut network control off from the device.
 - Factory reset (`device/restore`) has a two-step safety confirmation: the

@@ -188,7 +188,7 @@ speichern" (nicht funktional).
 | Gerät identifizieren (An/Aus) | `switch` | – | `device/identification/visual` |
 | Phasenumkehr (nur Nicht-Subwoofer) | `switch` | – | `audio/out/phaseinversion` |
 | Auto-Standby (nur Nicht-Subwoofer; auf KH 750 DSP stattdessen `binary_sensor`) | `switch` | – | `device/standby/enabled` |
-| Eingangs-Interface (Default: deaktiviert bei Subwoofer, sonst aktiviert, Schreibbarkeit unverifiziert) | `select` | ANALOG ONLY/DIGITAL ONLY/DIGITAL DISCARDS ANALOG | `audio/in/interface` |
+| Eingangs-Interface (schreibbar, bestätigt auf KH 120 II und KH 750 DSP) | `select` | ANALOG ONLY/DIGITAL ONLY/DIGITAL DISCARDS ANALOG | `audio/in/interface` |
 | Steuerungsmodus (Default: **immer** deaktiviert, siehe Warnung unten) | `select` | NETWORK/LOCAL | `ui/control_mode` |
 | Gerätename (Default: deaktiviert) | `text` | max. 52 Zeichen | `device/name` |
 | Eingangspegel live | `sensor` | dB | `m/in/level` |
@@ -254,20 +254,36 @@ korrekterweise **"nicht verfügbar"** - das ist das von Home Assistant
 empfohlene Verhalten (`CoordinatorEntity` markiert Entities automatisch als
 unavailable, sobald ein Poll-Zyklus fehlschlägt), kein Fehler der
 Integration. Sobald das Gerät aus dem Standby aufwacht, erkennt Home
-Assistant das automatisch wieder - die Wartezeit dafür ist durch HAs
-eingebauten Wiederholungsmechanismus vorgegeben: 5s → 10s → 20s → 40s → 80s
-zwischen den ersten Versuchen, danach alle 80 Sekunden (bzw. bei sehr langem
-Standby und HA ≥ 2026.6 bis zu alle 10 Minuten). Das ist kein Verhalten
-dieser Integration, sondern Home Assistants Kernmechanismus für
-`ConfigEntryNotReady`.
+Assistant das von selbst wieder. Wie schnell, hängt davon ab, welcher der
+beiden Mechanismen greift.
+
+War der Lautsprecher schon beim Start von Home Assistant nicht erreichbar, kam
+der Eintrag nie zustande und Home Assistant versucht es mit wachsendem Abstand
+erneut: 5s, 10s, 20s, 40s, 80s, 160s, 320s, danach alle 10 Minuten, solange es
+dauert. Aufgegeben wird nie.
+
+Lief der Eintrag bereits, als der Lautsprecher einschlief, läuft der
+Abfragezyklus einfach in seinem normalen 30-Sekunden-Takt weiter und greift den
+Lautsprecher beim ersten erfolgreichen Zyklus wieder auf.
+
+Beides ist Verhalten von Home Assistant selbst, nicht eine Entscheidung dieser
+Integration.
 
 ## Bekannte Grenzen
 
 - Auto-Standby ist nur auf der KH 750 DSP nicht schreibbar (auf der KH 120 II
   funktioniert es). Deshalb: KH 120 II → `switch`, KH 750 DSP → `binary_sensor`.
-- Eingangsumschaltung (KH 120 II, `ui/input_select` bzw.
-  `audio/in/interface`) bleibt unverifiziert schreibbar - standardmäßig
-  deaktiviert bzw. nur lesend.
+- `ui/input_select` bleibt nur lesend. Der schreibbare Pfad ist
+  `audio/in/interface`, bestätigt auf KH 120 II und KH 750 DSP und dort
+  standardmäßig aktiviert.
+- Antwortet ein Lautsprecher auf eine einzelne Abfrage mit mehr als einer
+  Zeile, kann in einem engen Fall eine Folgezeile der einen Antwort als die
+  nächste ausgegeben werden. Das Protokoll führt keine Transaktionskennung,
+  eine Folgezeile für den gerade abgefragten Pfad ist von einer frischen
+  Antwort darauf also nicht zu unterscheiden. Bereits anliegende Zeilen werden
+  vor der nächsten Anfrage verworfen; betroffen ist nur eine, die genau
+  dazwischen eintrifft. Beide Testgeräte antworten mit exakt einer Zeile, das
+  betrifft also andere Firmware, nicht die eingesetzte Hardware.
 - Steuerungsmodus (`ui/control_mode`) bleibt immer deaktiviert: ein Wechsel
   zu `LOCAL` könnte die Netzwerksteuerung vom Gerät trennen.
 - Werksreset (`device/restore`) hat eine Zwei-Schritt-Sicherheitsabfrage:

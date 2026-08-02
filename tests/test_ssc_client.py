@@ -28,7 +28,17 @@ from custom_components.neumann_kh.ssc_client import (
 # socket_enabled fixture (pytest-socket).
 
 _SETTLE = 0.05
-_TIMEOUT = 0.3
+# Generous on purpose. This has to cover a loopback connect on a *loaded*
+# machine, not just an idle one: at 0.3 s the whole suite failed roughly once
+# in eight full runs, always in whichever test happened to be connecting when
+# the machine stalled - which is why it never reproduced in isolation and took
+# three sightings to pin down. Production uses 3.0 s.
+_TIMEOUT = 2.0
+# Only where the timeout itself is what is being tested.
+_SHORT_TIMEOUT = 0.3
+# Comfortably past the client's stale-drain window, so a line written after
+# this gap is one the drain can no longer catch.
+_STALE_DRAIN_GAP = 0.05
 
 
 class FakeSSCServer:
@@ -202,25 +212,24 @@ async def test_endless_talker_does_not_hold_the_read_open(socket_enabled, monkey
 
     async def _handle(reader, writer):
         await reader.readline()
+        # More than the cap, queued in one go. Pacing the lines would race the
+        # settle window: on a loaded machine the read ends normally before the
+        # cap is reached, and the test then fails for a reason that has
+        # nothing to do with the limit.
+        for _ in range(100):
+            writer.write(json.dumps({"other": {"value": 1}}).encode() + b"\r\n")
+        await writer.drain()
+        # Keep talking afterwards, which is the scenario being guarded against.
         try:
             while True:
                 writer.write(json.dumps({"other": {"value": 1}}).encode() + b"\r\n")
                 await writer.drain()
-                # Yield between lines instead of spinning: drain() returns
-                # immediately while the buffer stays below the high-water mark.
-                # Still far faster than the line cap needs.
                 await asyncio.sleep(0.001)
         except (ConnectionResetError, BrokenPipeError, asyncio.CancelledError):
             pass
 
     raw_server = await asyncio.start_server(_handle, "127.0.0.1", 0)
     port = raw_server.sockets[0].getsockname()[1]
-    # Generous initial timeout on purpose. This test is about the line cap
-    # ending the read, not about how fast the first line arrives; with the
-    # suite-wide 0.3 s it failed once on a CI runner because that first line
-    # was late. The failure was never reproducible locally, not even pinned to
-    # a single core, so this removes the irrelevant deadline rather than
-    # claiming a root cause.
     client = SSCClient(host="127.0.0.1", port=port, timeout=5.0, settle_time=_SETTLE)
     try:
         assert await client.get(("device", "name")) is None
@@ -233,8 +242,11 @@ async def test_endless_talker_does_not_hold_the_read_open(socket_enabled, monkey
 
 async def test_timeout_raises_and_drops_connection(server):
     # Server does not respond at all -> SSCTimeoutError, connection dropped.
+    # Short timeout here so the test does not sit out the generous default.
     server.responder = lambda req: [None]
-    client = _client(server.port)
+    client = SSCClient(
+        host="127.0.0.1", port=server.port, timeout=_SHORT_TIMEOUT, settle_time=_SETTLE
+    )
     try:
         with pytest.raises(SSCTimeoutError):
             await client.get(("device", "name"))
@@ -348,13 +360,14 @@ async def test_connection_is_dropped_after_a_safety_limit(socket_enabled, monkey
 
     async def _handle(reader, writer):
         await reader.readline()
-        try:
-            while True:
-                writer.write(json.dumps({"other": {"value": 1}}).encode() + b"\r\n")
-                await writer.drain()
-                await asyncio.sleep(0.001)
-        except (ConnectionResetError, BrokenPipeError, asyncio.CancelledError):
-            pass
+        # Everything up front rather than paced: a server that sleeps between
+        # lines races the settle window, and on a loaded machine the read ends
+        # normally before the cap is ever reached - so the assertion below
+        # would fail for a reason that has nothing to do with the limit.
+        for _ in range(50):
+            writer.write(json.dumps({"other": {"value": 1}}).encode() + b"\r\n")
+        await writer.drain()
+        await asyncio.sleep(1)
 
     raw_server = await asyncio.start_server(_handle, "127.0.0.1", 0)
     port = raw_server.sockets[0].getsockname()[1]
@@ -523,14 +536,13 @@ async def test_a_response_is_bounded_by_total_size(socket_enabled, monkeypatch, 
 
     async def _handle(reader, writer):
         await reader.readline()
-        try:
-            while True:
-                # Never the requested path, so only a limit can end this.
-                writer.write(json.dumps({"noise": {"value": "x" * 500}}).encode() + b"\r\n")
-                await writer.drain()
-                await asyncio.sleep(0.001)
-        except (ConnectionResetError, BrokenPipeError, asyncio.CancelledError):
-            pass
+        # Never the requested path, so only a limit can end this - and all of
+        # it up front, so the size limit is reached without racing the settle
+        # window.
+        for _ in range(50):
+            writer.write(json.dumps({"noise": {"value": "x" * 500}}).encode() + b"\r\n")
+        await writer.drain()
+        await asyncio.sleep(1)
 
     raw_server = await asyncio.start_server(_handle, "127.0.0.1", 0)
     port = raw_server.sockets[0].getsockname()[1]

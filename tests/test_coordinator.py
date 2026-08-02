@@ -136,3 +136,32 @@ async def test_all_slow_paths_registered_in_slow_set(coordinator):
     """Safeguard for the membership test of apply_confirmed_value()."""
     for path in SLOW_POLL_PATHS:
         assert path in coordinator._slow_path_set
+
+
+async def test_invalidate_and_refresh_rereads_the_slow_paths(coordinator, fake_client):
+    """A factory reset rewrites everything, so every cached value is stale.
+
+    Without dropping the slow cache the rarely polled entities - the device
+    name among them - would keep showing pre-reset settings for up to five
+    minutes while the device had already moved on.
+    """
+    await coordinator.async_refresh()  # cycle 0: slow paths cached
+    assert _value(coordinator, PATH_DEVICE_NAME) == "Links"
+
+    # The device is reset behind our back.
+    fake_client.values[PATH_DEVICE_NAME] = "Factory default"
+
+    await coordinator.async_invalidate_and_refresh()
+    await coordinator.async_refresh()
+
+    assert _value(coordinator, PATH_DEVICE_NAME) == "Factory default"
+
+
+async def test_a_plain_refresh_still_uses_the_slow_cache(coordinator, fake_client):
+    """Guard against the invalidation above turning every cycle into a slow one."""
+    await coordinator.async_refresh()  # cycle 0: slow
+    fake_client.values[PATH_DEVICE_NAME] = "Changed later"
+
+    await coordinator.async_refresh()  # fast cycle
+
+    assert _value(coordinator, PATH_DEVICE_NAME) == "Links"

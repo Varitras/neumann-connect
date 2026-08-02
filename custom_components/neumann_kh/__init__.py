@@ -18,6 +18,7 @@ from homeassistant.const import CONF_HOST, CONF_PORT, Platform
 from homeassistant.core import HomeAssistant
 
 from .const import (
+    CONF_FIRMWARE_VERSION,
     CONF_INTERFACE,
     CONF_MODEL,
     CONF_SERIAL,
@@ -25,6 +26,7 @@ from .const import (
     DEFAULT_TIMEOUT,
     DOMAIN,
     PATH_IDENTITY_SERIAL,
+    PATH_IDENTITY_VERSION,
 )
 from .coordinator import NeumannKHCoordinator
 from .discovery import async_scan_for_speakers
@@ -73,9 +75,15 @@ async def _async_relocate(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         return False
 
     for speaker in speakers:
-        if speaker.host == entry.data.get(CONF_HOST):
-            # Already where we looked, so the address is not the problem -
-            # and rewriting it would schedule a reload that changes nothing.
+        if (speaker.host, speaker.port) == (
+            entry.data.get(CONF_HOST),
+            entry.data.get(CONF_PORT, DEFAULT_PORT),
+        ):
+            # Already exactly where we looked, so the address is not the
+            # problem - and rewriting it would schedule a reload that changes
+            # nothing. The port belongs in this comparison: a speaker that
+            # kept its address but moved to another port is precisely the case
+            # this repair exists for.
             continue
         client = SSCClient(host=speaker.host, port=speaker.port, timeout=DEFAULT_TIMEOUT)
         try:
@@ -110,6 +118,43 @@ async def _async_relocate(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return False
 
 
+async def _async_refresh_firmware_version(
+    hass: HomeAssistant, entry: ConfigEntry, client: SSCClient
+) -> None:
+    """Store the firmware version the speaker reports right now.
+
+    It is otherwise only read while adding or reconfiguring the entry, so the
+    version shown in the device info kept describing whatever was installed
+    back then. Updating a speaker's firmware reboots it, which makes the entry
+    reload anyway, so reading it once per setup is enough to keep it honest.
+
+    Only written when it actually differs: an update rewrites the entry, and
+    rewriting it on every start would reload the entry on every start.
+    """
+    try:
+        version = await client.get(PATH_IDENTITY_VERSION)
+    except Exception:
+        # Deliberately broad. This is a cosmetic detail of the device info, so
+        # nothing it can throw may take down a setup that otherwise succeeded -
+        # the previously stored value simply stays.
+        _LOGGER.debug("Could not read the firmware version of %s", entry.title, exc_info=True)
+        return
+
+    version = str(version) if version is not None else ""
+    if not version or version == entry.data.get(CONF_FIRMWARE_VERSION):
+        return
+
+    _LOGGER.info(
+        "%s reports firmware %s now instead of %s",
+        entry.title,
+        version,
+        entry.data.get(CONF_FIRMWARE_VERSION) or "an unknown version",
+    )
+    hass.config_entries.async_update_entry(
+        entry, data={**entry.data, CONF_FIRMWARE_VERSION: version}
+    )
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up a config entry (one speaker)."""
     client = SSCClient(
@@ -135,6 +180,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # instead of the entry failing every ten minutes indefinitely.
         await _async_relocate(hass, entry)
         raise
+
+    await _async_refresh_firmware_version(hass, entry, client)
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
 

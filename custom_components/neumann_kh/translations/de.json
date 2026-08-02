@@ -161,13 +161,19 @@
         "name": "Ausgang 1 Bezeichnung"
       },
       "out1_loudspeaker": {
-        "name": "Ausgang 1 Lautsprecher"
+        "name": "Ausgang 1 Lautsprecher",
+        "state": {
+          "UNKNOWN": "Nicht zugewiesen"
+        }
       },
       "out2_label": {
         "name": "Ausgang 2 Bezeichnung"
       },
       "out2_loudspeaker": {
-        "name": "Ausgang 2 Lautsprecher"
+        "name": "Ausgang 2 Lautsprecher",
+        "state": {
+          "UNKNOWN": "Nicht zugewiesen"
+        }
       },
       "output_label": {
         "name": "Ausgangsbezeichnung"
