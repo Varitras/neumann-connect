@@ -104,6 +104,56 @@ class FakeSSCServer:
                 await asyncio.wait_for(self.server.wait_closed(), timeout=1)
 
 
+async def _serve(handler):
+    """Start a bare server and keep track of its connection handlers.
+
+    Handlers in this file deliberately stay alive after answering: closing the
+    writer would make the client see EOF during the settle window and report a
+    dropped connection instead of reading the answer. That also means a handler
+    is still running when the test body ends, so its task has to be cancelled
+    explicitly - otherwise the Home Assistant test harness fails the teardown
+    with "lingering task". That only ever surfaced on the slower CI machine,
+    which is why it belongs in one helper rather than in whichever test
+    happened to trip over it.
+    """
+    tasks: set[asyncio.Task] = set()
+
+    async def _tracked(reader, writer):
+        task = asyncio.current_task()
+        if task is not None:
+            tasks.add(task)
+        try:
+            await handler(reader, writer)
+        finally:
+            writer.close()
+
+    server = await asyncio.start_server(_tracked, "127.0.0.1", 0)
+    return server, tasks
+
+
+async def _shutdown(server, tasks) -> None:
+    """Cancel every handler, then close the server."""
+    for task in tasks:
+        task.cancel()
+    for task in tasks:
+        with contextlib.suppress(asyncio.CancelledError, Exception):
+            await task
+    server.close()
+    # wait_closed() can hang for a server that never accepted a connection -
+    # bound it hard.
+    with contextlib.suppress(asyncio.TimeoutError):
+        await asyncio.wait_for(server.wait_closed(), timeout=1)
+
+
+async def _stay_open() -> None:
+    """Hold a handler open until the test tears the server down.
+
+    A fixed sleep raced the test from both ends: too short and the client sees
+    EOF mid-read, too long and the task outlives the test body.
+    """
+    await asyncio.Event().wait()
+
+
 @pytest.fixture
 async def server(socket_enabled):
     srv = FakeSSCServer()
@@ -191,18 +241,16 @@ async def test_invalid_json_line_is_ignored(socket_enabled):
         # the settle time, and a server close during that phase would
         # (correctly) be reported as a connection drop. Returning here would
         # close the writer, so hold the handler open past the settle time.
-        await asyncio.sleep(0.5)
+        await _stay_open()
 
-    raw_server = await asyncio.start_server(_handle, "127.0.0.1", 0)
+    raw_server, handled = await _serve(_handle)
     port = raw_server.sockets[0].getsockname()[1]
     client = _client(port)
     try:
         assert await client.get(("device", "name")) == "ok"
     finally:
         await client.close()
-        raw_server.close()
-        with contextlib.suppress(asyncio.TimeoutError):
-            await asyncio.wait_for(raw_server.wait_closed(), timeout=1)
+        await _shutdown(raw_server, handled)
 
 
 async def test_endless_talker_does_not_hold_the_read_open(socket_enabled, monkeypatch):
@@ -230,16 +278,14 @@ async def test_endless_talker_does_not_hold_the_read_open(socket_enabled, monkey
         except (ConnectionResetError, BrokenPipeError, asyncio.CancelledError):
             pass
 
-    raw_server = await asyncio.start_server(_handle, "127.0.0.1", 0)
+    raw_server, handled = await _serve(_handle)
     port = raw_server.sockets[0].getsockname()[1]
     client = SSCClient(host="127.0.0.1", port=port, timeout=5.0, settle_time=_SETTLE)
     try:
         assert await client.get(("device", "name")) is None
     finally:
         await client.close()
-        raw_server.close()
-        with contextlib.suppress(asyncio.TimeoutError):
-            await asyncio.wait_for(raw_server.wait_closed(), timeout=1)
+        await _shutdown(raw_server, handled)
 
 
 async def test_timeout_raises_and_drops_connection(server):
@@ -339,7 +385,7 @@ async def test_oversized_line_raises_connection_error(socket_enabled):
         await writer.drain()
         writer.close()
 
-    raw_server = await asyncio.start_server(_handle, "127.0.0.1", 0)
+    raw_server, handled = await _serve(_handle)
     port = raw_server.sockets[0].getsockname()[1]
     client = _client(port)
     try:
@@ -347,9 +393,7 @@ async def test_oversized_line_raises_connection_error(socket_enabled):
             await client.get(("device", "name"))
     finally:
         await client.close()
-        raw_server.close()
-        with contextlib.suppress(asyncio.TimeoutError):
-            await asyncio.wait_for(raw_server.wait_closed(), timeout=1)
+        await _shutdown(raw_server, handled)
 
 
 async def test_connection_is_dropped_after_a_safety_limit(socket_enabled, monkeypatch):
@@ -369,9 +413,9 @@ async def test_connection_is_dropped_after_a_safety_limit(socket_enabled, monkey
         for _ in range(50):
             writer.write(json.dumps({"other": {"value": 1}}).encode() + b"\r\n")
         await writer.drain()
-        await asyncio.sleep(1)
+        await _stay_open()
 
-    raw_server = await asyncio.start_server(_handle, "127.0.0.1", 0)
+    raw_server, handled = await _serve(_handle)
     port = raw_server.sockets[0].getsockname()[1]
     client = SSCClient(host="127.0.0.1", port=port, timeout=5.0, settle_time=_SETTLE)
     try:
@@ -379,9 +423,7 @@ async def test_connection_is_dropped_after_a_safety_limit(socket_enabled, monkey
         assert client._writer is None, "the connection survived a safety limit"
     finally:
         await client.close()
-        raw_server.close()
-        with contextlib.suppress(asyncio.TimeoutError):
-            await asyncio.wait_for(raw_server.wait_closed(), timeout=1)
+        await _shutdown(raw_server, handled)
 
 
 async def test_write_failure_becomes_a_connection_error(server):
@@ -505,9 +547,9 @@ async def test_stale_drain_gives_up_instead_of_stalling_a_request(
         for _ in range(50):
             writer.write(json.dumps({"noise": {"value": 1}}).encode() + b"\r\n")
         await writer.drain()
-        await asyncio.sleep(1)
+        await _stay_open()
 
-    raw_server = await asyncio.start_server(_handle, "127.0.0.1", 0)
+    raw_server, handled = await _serve(_handle)
     port = raw_server.sockets[0].getsockname()[1]
     client = _client(port)
     try:
@@ -520,9 +562,7 @@ async def test_stale_drain_gives_up_instead_of_stalling_a_request(
         assert client._writer is None
     finally:
         await client.close()
-        raw_server.close()
-        with contextlib.suppress(asyncio.TimeoutError):
-            await asyncio.wait_for(raw_server.wait_closed(), timeout=1)
+        await _shutdown(raw_server, handled)
 
 
 async def test_a_response_is_bounded_by_total_size(socket_enabled, monkeypatch, caplog):
@@ -544,9 +584,9 @@ async def test_a_response_is_bounded_by_total_size(socket_enabled, monkeypatch, 
         for _ in range(50):
             writer.write(json.dumps({"noise": {"value": "x" * 500}}).encode() + b"\r\n")
         await writer.drain()
-        await asyncio.sleep(1)
+        await _stay_open()
 
-    raw_server = await asyncio.start_server(_handle, "127.0.0.1", 0)
+    raw_server, handled = await _serve(_handle)
     port = raw_server.sockets[0].getsockname()[1]
     client = SSCClient(host="127.0.0.1", port=port, timeout=5.0, settle_time=_SETTLE)
     try:
@@ -558,9 +598,7 @@ async def test_a_response_is_bounded_by_total_size(socket_enabled, monkeypatch, 
         )
     finally:
         await client.close()
-        raw_server.close()
-        with contextlib.suppress(asyncio.TimeoutError):
-            await asyncio.wait_for(raw_server.wait_closed(), timeout=1)
+        await _shutdown(raw_server, handled)
 
 
 async def test_a_line_that_is_not_utf8_is_skipped(socket_enabled):
@@ -574,18 +612,16 @@ async def test_a_line_that_is_not_utf8_is_skipped(socket_enabled):
         writer.write(b"\xff\xfe not utf-8 at all\r\n")
         writer.write(json.dumps({"device": {"name": "ok"}}).encode() + b"\r\n")
         await writer.drain()
-        await asyncio.sleep(0.5)
+        await _stay_open()
 
-    raw_server = await asyncio.start_server(_handle, "127.0.0.1", 0)
+    raw_server, handled = await _serve(_handle)
     port = raw_server.sockets[0].getsockname()[1]
     client = _client(port)
     try:
         assert await client.get(("device", "name")) == "ok"
     finally:
         await client.close()
-        raw_server.close()
-        with contextlib.suppress(asyncio.TimeoutError):
-            await asyncio.wait_for(raw_server.wait_closed(), timeout=1)
+        await _shutdown(raw_server, handled)
 
 
 async def test_a_reset_while_reading_becomes_a_connection_error(socket_enabled):
@@ -604,7 +640,7 @@ async def test_a_reset_while_reading_becomes_a_connection_error(socket_enabled):
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
         writer.close()
 
-    raw_server = await asyncio.start_server(_handle, "127.0.0.1", 0)
+    raw_server, handled = await _serve(_handle)
     port = raw_server.sockets[0].getsockname()[1]
     client = _client(port)
     try:
@@ -613,6 +649,4 @@ async def test_a_reset_while_reading_becomes_a_connection_error(socket_enabled):
         assert client._writer is None, "the dead connection was kept"
     finally:
         await client.close()
-        raw_server.close()
-        with contextlib.suppress(asyncio.TimeoutError):
-            await asyncio.wait_for(raw_server.wait_closed(), timeout=1)
+        await _shutdown(raw_server, handled)
