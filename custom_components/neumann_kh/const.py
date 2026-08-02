@@ -26,7 +26,7 @@ DEFAULT_QUERY_SETTLE = 0.4  # Seconds of quiet time until multiple responses cou
 UPDATE_INTERVAL_SECONDS = 30
 POLL_CYCLE_TIMEOUT_SECONDS = 25.0  # Time limit for a complete poll cycle
 
-# Models with logo brightness + save_settings. "KH 80"/"KH 150"/"KH 120 II"
+# Models with a front-logo brightness setting. "KH 80"/"KH 150"/"KH 120 II"
 # are confirmed (KH 120 II via real hardware test, the others per
 # khtool documentation). The "DSP"/"AES67" variants are UNVERIFIED
 # additions (unknown which exact product name these devices actually
@@ -35,7 +35,7 @@ POLL_CYCLE_TIMEOUT_SECONDS = 25.0  # Time limit for a complete poll cycle
 # "KH 120" (without "II") is likewise unverified - the original
 # KH 120 from 2010, per research, probably had no DSP yet; kept
 # here anyway (harmless if this value never occurs).
-MODELS_WITH_LOGO_AND_SAVE = (
+MODELS_WITH_LOGO_BRIGHTNESS = (
     "KH 80",
     "KH 80 DSP",
     "KH 150",
@@ -63,14 +63,14 @@ PATH_IDENTITY_VENDOR = ("device", "identity", "vendor")
 PATH_IDENTITY_SERIAL = ("device", "identity", "serial")
 PATH_IDENTITY_VERSION = ("device", "identity", "version")
 
-PATH_SAVE_SETTINGS = ("device", "save_settings")
 PATH_LOGO_BRIGHTNESS = ("ui", "logo", "brightness")
 
 # Input gain (non-subwoofer models only) - read-only.
 PATH_INPUT_GAIN = ("ui", "input_gain")
 
 PATH_OUTPUT_LEVEL = ("audio", "out", "level")
-PATH_OUTPUT_DIMM = ("audio", "out", "dimm")  # not present on all models
+# "audio/out/dimm" used to live here. Measured 404 on both test models, so the
+# entity could never hold a value and the restore could never write it.
 PATH_OUTPUT_DELAY = ("audio", "out", "delay")
 PATH_OUTPUT_MUTE = ("audio", "out", "mute")
 PATH_OUTPUT_LABEL = ("audio", "out", "label")  # KH 750 only
@@ -147,7 +147,8 @@ PATH_UI_SUB_PHASE = ("ui", "subwoofer_phase")
 PATH_UI_SUB_PHASE_INVERSION = ("ui", "subwoofer_phase_inversion")
 
 # Additional bass management outputs (for connected extra speakers).
-# Label read-only; loudspeaker assignment writable (see select.py).
+# Label and loudspeaker assignment are both read-only (see sensor.py); a set
+# on either is answered with a 405 on the KH 750.
 PATH_OUT1_LEVEL = ("audio", "out1", "level")
 PATH_OUT1_DELAY = ("audio", "out1", "delay")
 PATH_OUT1_MUTE = ("audio", "out1", "mute")
@@ -165,7 +166,6 @@ PATH_OUT2_LOUDSPEAKER = ("audio", "out2", "loudspeaker")
 # Contains all values that can actually change at runtime.
 POLL_PATHS = (
     PATH_OUTPUT_LEVEL,
-    PATH_OUTPUT_DIMM,
     PATH_OUTPUT_DELAY,
     PATH_OUTPUT_MUTE,
     PATH_OUTPUT_PHASE_INVERSION,
@@ -239,8 +239,6 @@ SUBWOOFER_SLOW_POLL_PATHS = (
 # --- Value ranges ------------------------------------------------------
 LEVEL_MIN = 0.0
 LEVEL_MAX = 120.0
-DIMM_MIN = -120.0
-DIMM_MAX = 0.0
 
 # Delay range is model-dependent.
 DELAY_MIN = 0

@@ -23,7 +23,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from ._util import build_nested, deep_merge
 from .const import (
-    MODELS_WITH_LOGO_AND_SAVE,
+    MODELS_WITH_LOGO_BRIGHTNESS,
     MODELS_WITH_SUBWOOFER_FEATURES,
     PATH_LOGO_BRIGHTNESS,
     POLL_CYCLE_TIMEOUT_SECONDS,
@@ -58,7 +58,7 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._poll_paths = list(POLL_PATHS)
         self._slow_poll_paths = list(SLOW_POLL_PATHS)
         # Logo brightness only on matching models (not KH 750 DSP).
-        if model in MODELS_WITH_LOGO_AND_SAVE:
+        if model in MODELS_WITH_LOGO_BRIGHTNESS:
             self._poll_paths.append(PATH_LOGO_BRIGHTNESS)
         # Subwoofer-specific paths only on a detected subwoofer.
         if model in MODELS_WITH_SUBWOOFER_FEATURES:

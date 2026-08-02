@@ -71,7 +71,6 @@ _WRITABLE = {
     "PATH_IDENTIFY": ("KH 120 II", "KH 750"),
     "PATH_INPUT_INTERFACE_TYPE": ("KH 120 II", "KH 750"),
     "PATH_OUTPUT_DELAY": ("KH 120 II", "KH 750"),
-    "PATH_OUTPUT_DIMM": ("KH 120 II", "KH 750"),
     "PATH_OUTPUT_LEVEL": ("KH 120 II", "KH 750"),
     "PATH_OUTPUT_MUTE": ("KH 120 II", "KH 750"),
     "PATH_OUTPUT_PHASE_INVERSION": ("KH 120 II", "KH 750"),
@@ -129,8 +128,12 @@ def test_commands_are_never_restorable(model):
     from custom_components.neumann_kh import const
 
     restorable = set(restorable_paths_for_model(model))
-    for name in ("PATH_RESTORE", "PATH_SAVE_SETTINGS", "PATH_IDENTIFY"):
+    for name in ("PATH_RESTORE", "PATH_IDENTIFY"):
         assert getattr(const, name) not in restorable, f"{name} must not be restorable"
+    # Spelled out rather than read from const: the constant was dropped along
+    # with the button (404 on both test models), and the guarantee has to hold
+    # if the path ever comes back.
+    assert ("device", "save_settings") not in restorable
 
 
 @pytest.mark.parametrize("model", [_KH_120_II, _KH_750])

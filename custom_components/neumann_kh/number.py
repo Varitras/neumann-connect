@@ -1,8 +1,5 @@
-"""Number entities: level, dimm, delay, logo brightness, auto-standby values
+"""Number entities: level, delay, logo brightness, auto-standby values
 plus (only on a detected subwoofer) the out1/out2 outputs.
-
-"Dimm" is not present on the KH 120 II - the entity stays (other models) and
-shows "unknown" there.
 """
 
 from __future__ import annotations
@@ -28,12 +25,10 @@ from .const import (
     DELAY_MAX_DEFAULT,
     DELAY_MAX_SUBWOOFER,
     DELAY_MIN,
-    DIMM_MAX,
-    DIMM_MIN,
     DOMAIN,
     LEVEL_MAX,
     LEVEL_MIN,
-    MODELS_WITH_LOGO_AND_SAVE,
+    MODELS_WITH_LOGO_BRIGHTNESS,
     MODELS_WITH_SUBWOOFER_FEATURES,
     PATH_LOGO_BRIGHTNESS,
     PATH_OUT1_DELAY,
@@ -41,7 +36,6 @@ from .const import (
     PATH_OUT2_DELAY,
     PATH_OUT2_LEVEL,
     PATH_OUTPUT_DELAY,
-    PATH_OUTPUT_DIMM,
     PATH_OUTPUT_LEVEL,
     PATH_STANDBY_AUTO_TIME,
     PATH_STANDBY_LEVEL,
@@ -83,18 +77,6 @@ COMMON_NUMBER_DESCRIPTIONS: tuple[NeumannKHNumberDescription, ...] = (
         ssc_path=PATH_OUTPUT_LEVEL,
     ),
     NeumannKHNumberDescription(
-        key="output_dimm",
-        translation_key="output_dimm",
-        icon="mdi:volume-medium",
-        native_min_value=DIMM_MIN,
-        native_max_value=DIMM_MAX,
-        native_step=0.5,
-        native_unit_of_measurement="dB",
-        mode=NumberMode.SLIDER,
-        entity_registry_enabled_default=False,  # not present on all models
-        ssc_path=PATH_OUTPUT_DIMM,
-    ),
-    NeumannKHNumberDescription(
         key="standby_auto_time",
         translation_key="standby_auto_time",
         icon="mdi:timer-sand",
@@ -118,7 +100,7 @@ COMMON_NUMBER_DESCRIPTIONS: tuple[NeumannKHNumberDescription, ...] = (
     ),
 )
 
-# Only available for non-subwoofer models, see MODELS_WITH_LOGO_AND_SAVE
+# Only available for non-subwoofer models, see MODELS_WITH_LOGO_BRIGHTNESS
 BRIGHTNESS_DESCRIPTION = NeumannKHNumberDescription(
     key="logo_brightness",
     translation_key="logo_brightness",
@@ -213,7 +195,7 @@ async def async_setup_entry(
     descriptions = list(COMMON_NUMBER_DESCRIPTIONS)
     descriptions.append(_build_output_delay_description(is_subwoofer))
 
-    if model in MODELS_WITH_LOGO_AND_SAVE:
+    if model in MODELS_WITH_LOGO_BRIGHTNESS:
         descriptions.append(BRIGHTNESS_DESCRIPTION)
 
     if is_subwoofer:

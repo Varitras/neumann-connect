@@ -160,6 +160,17 @@ async def async_run_discovery(
             translation_placeholders={"error": str(err)},
         ) from err
 
+    # Same bar as the backup: a run that read nothing would otherwise replace
+    # the last usable discovery with empty trees and still report success. Any
+    # non-empty part counts - the schema part is best-effort and stays empty on
+    # most firmware, so requiring it would refuse every normal run. Checked
+    # without naming the parts so this keeps working if the shape gains one.
+    if not any(discovery.values()):
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="discovery_empty",
+        )
+
     masked = mask_serial(serial)
     record = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -231,6 +242,20 @@ async def async_check_restorable(
         raise HomeAssistantError(
             translation_domain=DOMAIN,
             translation_key="restore_serial_mismatch",
+        )
+
+    # The same bar the backup has to clear before it is written (see
+    # async_run_backup). Checking only that "values" is non-empty lets a
+    # snapshot holding nothing but identity and diagnostics through - a file
+    # from before that check existed, or one taken for a different model - and
+    # the restore then reports success after writing nothing at all.
+    if not any(
+        _value_at(backup["values"], path) is not None
+        for path in restorable_paths_for_model(model)
+    ):
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="restore_nothing_to_write",
         )
 
     return backup

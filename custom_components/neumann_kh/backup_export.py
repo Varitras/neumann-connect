@@ -10,7 +10,7 @@ from typing import Any
 
 from ._util import build_nested, deep_merge
 from .const import (
-    MODELS_WITH_LOGO_AND_SAVE,
+    MODELS_WITH_LOGO_BRIGHTNESS,
     MODELS_WITH_SUBWOOFER_FEATURES,
     PATH_DEVICE_NAME,
     PATH_INPUT_INTERFACE_TYPE,
@@ -26,7 +26,6 @@ from .const import (
     PATH_OUT2_LEVEL,
     PATH_OUT2_MUTE,
     PATH_OUTPUT_DELAY,
-    PATH_OUTPUT_DIMM,
     PATH_OUTPUT_LEVEL,
     PATH_OUTPUT_MUTE,
     PATH_OUTPUT_PHASE_INVERSION,
@@ -72,7 +71,7 @@ def known_paths_for_model(model: str | None) -> list[tuple[str, ...]]:
     paths = list(POLL_PATHS) + list(SLOW_POLL_PATHS)
     # Model-dependent extras the coordinator adds the same way - without this
     # the logo brightness was missing from every export.
-    if model in MODELS_WITH_LOGO_AND_SAVE:
+    if model in MODELS_WITH_LOGO_BRIGHTNESS:
         paths.append(PATH_LOGO_BRIGHTNESS)
     if model in MODELS_WITH_SUBWOOFER_FEATURES:
         paths += list(SUBWOOFER_POLL_PATHS) + list(SUBWOOFER_SLOW_POLL_PATHS)
@@ -92,7 +91,6 @@ def known_paths_for_model(model: str | None) -> list[tuple[str, ...]]:
 #                         "true" would leave the speaker blinking
 _RESTORABLE_COMMON = (
     PATH_OUTPUT_LEVEL,
-    PATH_OUTPUT_DIMM,
     PATH_OUTPUT_DELAY,
     PATH_OUTPUT_MUTE,
     PATH_OUTPUT_PHASE_INVERSION,
@@ -127,7 +125,7 @@ def restorable_paths_for_model(model: str | None) -> list[tuple[str, ...]]:
         # the other (see switch.py / binary_sensor.py). Writing it there only
         # earns a rejection.
         paths.append(PATH_STANDBY_ENABLED)
-    if model in MODELS_WITH_LOGO_AND_SAVE:
+    if model in MODELS_WITH_LOGO_BRIGHTNESS:
         paths.append(PATH_LOGO_BRIGHTNESS)
     if model in MODELS_WITH_SUBWOOFER_FEATURES:
         paths += list(_RESTORABLE_SUBWOOFER)

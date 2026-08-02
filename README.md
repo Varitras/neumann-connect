@@ -176,7 +176,6 @@ because a second list is one that drifts out of step with the first.
 | Entity | Type | Range | SSC path |
 |---|---|---|---|
 | Output level | `number` | 0–120 dB | `audio/out/level` |
-| Dimm (default: disabled, not present on the KH 120 II) | `number` | −120–0 dB | `audio/out/dimm` |
 | Delay | `number` | 0–5760 samples @48kHz (KH 750 DSP: 0–1000) | `audio/out/delay` |
 | Logo brightness* | `number` | 0–125 % | `ui/logo/brightness` |
 | Auto standby time | `number` | 1–240 min | `device/standby/auto_standby_time` |
@@ -194,7 +193,6 @@ because a second list is one that drifts out of step with the first.
 | Input gain, input select, bass, mid, treble, output level SPL (non-subwoofer only; confirmed by testing not to be writable, diagnostic) | `sensor` | dB or text | `ui/input_gain`, `ui/input_select`, `ui/bass_gain`, `ui/mid_gain`, `ui/treble_gain`, `ui/output_level` |
 | Input clipping | `binary_sensor` | – | `m/in/clip` |
 | Warning (diagnostic) | `binary_sensor` | – | `warnings` |
-| Save settings* (default: disabled, confirmed by testing to be non-functional) | `button` | – | `device/save_settings` |
 | Restore factory defaults (default: disabled, two-step confirmation) | `button` | – | `device/restore` |
 | Create backup (all known values except live measurements) | `button` | – | – |
 | Restore backup (writes the stored backup back, disabled by default) | `button` | – | – |
@@ -217,7 +215,7 @@ spellings).
 | Output 1/2 level (default: disabled) | `number` | 0–120 dB | `audio/out1/level`, `audio/out2/level` |
 | Output 1/2 delay (default: disabled) | `number` | 0–1000 samples | `audio/out1/delay`, `audio/out2/delay` |
 | Output 1/2 mute (default: disabled) | `switch` | – | `audio/out1/mute`, `audio/out2/mute` |
-| Device temperature (default: enabled, unit Kelvin) | `sensor` | °C | `device/temperature` |
+| Device temperature (default: enabled; the device reports Kelvin) | `sensor` | °C | `device/temperature` |
 | Output level (live) (default: disabled) | `sensor` | dB | `m/out/level` |
 | Output label (main output, diagnostic) | `sensor` | text | `audio/out/label` |
 | Output 1/2 label, output 1/2 loudspeaker (default: disabled, diagnostic, read-only) | `sensor` | text ("Not assigned" instead of "UNKNOWN") | `audio/out1/label`, `audio/out1/loudspeaker`, `audio/out2/label`, `audio/out2/loudspeaker` |
@@ -239,7 +237,7 @@ message and not as a container query. The reason (confirmed by two hardware
 tests): the firmware rejects both a combined message containing several leaves
 (as soon as one of them is unknown) and a container query such as
 `{"device":null}` entirely. Only individual, concrete, existing leaf paths work
-reliably. If the device rejects a single value (e.g. `dimm` on the KH 120 II),
+reliably. If the device rejects a single value,
 only that one is skipped – the remaining values are still updated.
 
 **Standby behaviour (important, not a bug):** when a loudspeaker (especially
@@ -294,10 +292,11 @@ integration decides.
   are therefore read-only: bass management, channel B input mode, subwoofer
   input gain/low cut/output level/phase/phase inversion.
 - The following KH 120 II values are likewise confirmed by testing not to be
-  writable: input gain, input select, mid, treble, output level (SPL),
-  "save settings".
-- `dimm` (`audio/out/dimm`) does not exist on the KH 120 II – the entity
-  remains (for other models) and shows "unknown" there.
+  writable: input gain, input select, mid, treble, output level (SPL).
+- `audio/out/dimm` and `device/save_settings` are answered with a 404 by both
+  test models, so neither path exists on them. The dimm entity and the "save
+  settings" button were removed rather than left showing "unknown" and
+  failing on every press.
 - "Identify" is a switch, not an auto-stop button: the flashing only stops by
   itself after several minutes.
 - Device temperature (KH 750 DSP): reported in Kelvin, converted to °C.

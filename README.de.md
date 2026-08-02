@@ -183,7 +183,6 @@ ersten auseinanderläuft.
 | Entity | Typ | Bereich | SSC-Pfad |
 |---|---|---|---|
 | Ausgangspegel | `number` | 0–120 dB | `audio/out/level` |
-| Dimm (Default: deaktiviert, nicht bei KH 120 II vorhanden) | `number` | −120–0 dB | `audio/out/dimm` |
 | Verzögerung | `number` | 0–5760 Samples @48kHz (KH 750 DSP: 0–1000) | `audio/out/delay` |
 | Logo-Helligkeit* | `number` | 0–125 % | `ui/logo/brightness` |
 | Auto-Standby-Zeit | `number` | 1–240 min | `device/standby/auto_standby_time` |
@@ -201,7 +200,6 @@ ersten auseinanderläuft.
 | Eingangsverstärkung, Eingangsauswahl, Bass, Mitten, Höhen, Ausgangspegel SPL (nur Nicht-Subwoofer; per Test nicht schreibbar, Diagnose) | `sensor` | dB bzw. Text | `ui/input_gain`, `ui/input_select`, `ui/bass_gain`, `ui/mid_gain`, `ui/treble_gain`, `ui/output_level` |
 | Eingang übersteuert (Clip) | `binary_sensor` | – | `m/in/clip` |
 | Warnung (Diagnose) | `binary_sensor` | – | `warnings` |
-| Einstellungen speichern* (Default: deaktiviert, per Test nicht funktional) | `button` | – | `device/save_settings` |
 | Werkseinstellungen wiederherstellen (Default: deaktiviert, Zwei-Schritt-Bestätigung) | `button` | – | `device/restore` |
 | Backup erstellen (alle bekannten Werte außer Live-Messwerten) | `button` | – | – |
 | Backup zurückspielen (schreibt das gespeicherte Backup zurück, standardmäßig deaktiviert) | `button` | – | – |
@@ -224,7 +222,7 @@ die Integration akzeptiert beide Schreibweisen).
 | Ausgang 1/2 Pegel (Default: deaktiviert) | `number` | 0–120 dB | `audio/out1/level`, `audio/out2/level` |
 | Ausgang 1/2 Verzögerung (Default: deaktiviert) | `number` | 0–1000 Samples | `audio/out1/delay`, `audio/out2/delay` |
 | Ausgang 1/2 Stumm (Default: deaktiviert) | `switch` | – | `audio/out1/mute`, `audio/out2/mute` |
-| Gerätetemperatur (Default: aktiviert, Einheit Kelvin) | `sensor` | °C | `device/temperature` |
+| Gerätetemperatur (Default: aktiviert; das Gerät meldet Kelvin) | `sensor` | °C | `device/temperature` |
 | Ausgangspegel live (Default: deaktiviert) | `sensor` | dB | `m/out/level` |
 | Ausgangsbezeichnung (Hauptausgang, Diagnose) | `sensor` | Text | `audio/out/label` |
 | Ausgang 1/2 Bezeichnung, Ausgang 1/2 Lautsprecher (Default: deaktiviert, Diagnose, nur lesend) | `sensor` | Text ("Nicht zugewiesen" statt "UNKNOWN") | `audio/out1/label`, `audio/out1/loudspeaker`, `audio/out2/label`, `audio/out2/loudspeaker` |
@@ -248,7 +246,7 @@ Hardware-Tests bestätigt): Die Firmware lehnt sowohl eine Sammelnachricht
 mit mehreren Blättern (sobald eines davon unbekannt ist) als auch eine
 Container-Abfrage wie `{"device":null}` komplett ab. Nur einzelne, konkrete,
 existierende Blattpfade funktionieren zuverlässig. Lehnt das Gerät einen
-einzelnen Wert ab (z. B. `dimm` auf der KH 120 II), wird nur dieser
+einzelnen Wert ab, wird nur dieser
 übersprungen - die übrigen Werte werden trotzdem aktualisiert.
 
 **Standby-Verhalten (wichtig, kein Bug):** Geht ein Lautsprecher (insb. die
@@ -305,10 +303,11 @@ Integration.
   reine Lesewerte: Bass-Management, Kanal-B-Eingangsmodus,
   Subwoofer-Eingangsverstärkung/Low-Cut/Ausgangspegel/Phase/Phaseninversion.
 - Folgende KH-120-II-Werte sind ebenso per Test bestätigt nicht schreibbar:
-  Input Gain, Input Select, Mitten, Höhen, Ausgangspegel (SPL),
-  "Einstellungen speichern".
-- `dimm` (`audio/out/dimm`) existiert auf der KH 120 II nicht - Entity
-  bleibt bestehen (andere Modelle), zeigt dort "unbekannt".
+  Input Gain, Input Select, Mitten, Höhen, Ausgangspegel (SPL).
+- `audio/out/dimm` und `device/save_settings` werden von beiden Testmodellen
+  mit 404 beantwortet, existieren dort also nicht. Die Dimm-Entity und der
+  Button "Einstellungen speichern" wurden entfernt, statt dauerhaft
+  "unbekannt" anzuzeigen bzw. bei jedem Druck zu scheitern.
 - "Identifizieren" ist ein Schalter, kein Auto-Stopp-Button: Das Blinken
   hört erst nach mehreren Minuten von selbst auf.
 - Gerätetemperatur (KH 750 DSP): Einheit Kelvin, umgerechnet in °C.

@@ -71,16 +71,14 @@
       "no_serial": "The device announced itself without a serial number and cannot be identified.",
       "no_ipv6": "The device announced no IPv6 address. Neumann KH speakers only support IPv6.",
       "cannot_connect": "The discovered device did not respond to SSC requests.",
-      "discovery_expired": "The discovery result has expired, please search again."
+      "discovery_expired": "The discovery result has expired, please search again.",
+      "unknown": "Unexpected error - the setup was cancelled."
     }
   },
   "entity": {
     "number": {
       "output_level": {
         "name": "Output level"
-      },
-      "output_dimm": {
-        "name": "Dimm"
       },
       "output_delay": {
         "name": "Delay"
@@ -236,9 +234,6 @@
       }
     },
     "button": {
-      "save_settings": {
-        "name": "Save settings"
-      },
       "restore_factory_defaults": {
         "name": "Restore factory defaults"
       },
@@ -270,9 +265,6 @@
     },
     "selection_rejected": {
       "message": "The speaker rejected this selection (possibly not supported by this model/firmware): {error}"
-    },
-    "save_settings_rejected": {
-      "message": "The speaker rejected 'Save settings': {error}"
     },
     "factory_reset_rejected": {
       "message": "The speaker rejected the factory reset: {error}"
@@ -312,6 +304,12 @@
     },
     "backup_empty": {
       "message": "The speaker answered none of the queries, so there is nothing to back up. The previous backup was kept."
+    },
+    "restore_nothing_to_write": {
+      "message": "The stored backup holds no value this speaker can be restored from. Create a new backup first."
+    },
+    "discovery_empty": {
+      "message": "The speaker answered none of the queries, so there is nothing to record. The previous discovery was kept."
     }
   }
 }

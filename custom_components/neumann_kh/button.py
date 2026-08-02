@@ -1,8 +1,5 @@
-"""Button entities: 'Save settings', 'Restore factory defaults',
-'Create backup', 'Restore backup' and 'Run device discovery'.
-
-'Save settings' only on KH 80/150/120 II (not KH 750; non-functional on
-KH 120 II per test, therefore disabled by default).
+"""Button entities: 'Restore factory defaults', 'Create backup',
+'Restore backup' and 'Run device discovery'.
 
 'Restore factory defaults' and 'Restore backup' both overwrite device state,
 so both use a two-step confirmation: the first press only arms it, a second
@@ -38,9 +35,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import (
     CONF_MODEL,
     DOMAIN,
-    MODELS_WITH_LOGO_AND_SAVE,
     PATH_RESTORE,
-    PATH_SAVE_SETTINGS,
     RESTORE_FACTORY_DEFAULTS_VALUE,
 )
 from .coordinator import NeumannKHCoordinator
@@ -68,13 +63,6 @@ def _localized(hass: HomeAssistant, de: str, en: str) -> str:
     language = hass.config.language or "en"
     return de if language.startswith("de") else en
 
-
-SAVE_SETTINGS_DESCRIPTION = ButtonEntityDescription(
-    key="save_settings",
-    translation_key="save_settings",
-    icon="mdi:content-save-outline",
-    entity_registry_enabled_default=False,  # non-functional per test (KH 120 II)
-)
 
 RESTORE_DESCRIPTION = ButtonEntityDescription(
     key="restore_factory_defaults",
@@ -117,36 +105,13 @@ async def async_setup_entry(
         NeumannKHDiscoveryButton(coordinator, entry),
     ]
     entities += build_eq_reset_buttons(coordinator, entry, entry.data.get(CONF_MODEL))
-    if entry.data.get(CONF_MODEL) in MODELS_WITH_LOGO_AND_SAVE:
-        entities.append(NeumannKHSaveSettingsButton(coordinator, entry))
+
+    # A "save settings" button used to be added here for the monitor models.
+    # "device/save_settings" is answered with a 404 on the KH 120 II, the only
+    # test device that ever offered the button, so it could not have worked on
+    # any speaker it was shown for.
 
     async_add_entities(entities)
-
-
-class NeumannKHSaveSettingsButton(NeumannKHEntity, ButtonEntity):
-    """Writes the current settings permanently to the device (survives power loss)."""
-
-    entity_description = SAVE_SETTINGS_DESCRIPTION
-
-    def __init__(self, coordinator: NeumannKHCoordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry)
-        self._attr_unique_id = f"{self._unique_id_base}_save_settings"
-
-    async def async_press(self) -> None:
-        try:
-            await self.coordinator.client.set(PATH_SAVE_SETTINGS, True)
-        except SSCDeviceError as err:
-            raise HomeAssistantError(
-                translation_domain=DOMAIN,
-                translation_key="save_settings_rejected",
-                translation_placeholders={"error": str(err)},
-            ) from err
-        except (SSCConnectionError, SSCTimeoutError) as err:
-            raise HomeAssistantError(
-                translation_domain=DOMAIN,
-                translation_key="device_unreachable",
-                translation_placeholders={"error": str(err)},
-            ) from err
 
 
 class NeumannKHRestoreButton(NeumannKHEntity, ButtonEntity):

@@ -291,3 +291,111 @@ async def test_a_failing_store_is_reported_readably(monkeypatch):
         )
 
     assert err.value.translation_key == "backup_failed"
+
+
+async def test_a_discovery_that_read_nothing_does_not_replace_the_last_one(monkeypatch):
+    """The backup gained this guard; its sibling below it did not.
+
+    Two empty trees used to overwrite both the file and the store and still
+    report success - the same shape of bug the backup check was added for.
+    """
+    saved: list[Any] = []
+    written: list[Any] = []
+
+    async def _discover(client, model):
+        return {"known_paths": {}, "schema_limits": {}}
+
+    monkeypatch.setattr(export_actions, "async_discover_all_values", _discover)
+    monkeypatch.setattr(
+        export_actions.storage, "async_save_discovery",
+        lambda *a, **k: saved.append(a),
+    )
+    monkeypatch.setattr(
+        export_actions, "async_write_export", lambda *a, **k: written.append(a),
+    )
+    monkeypatch.setattr(export_actions, "_notify_written", lambda *a, **k: None)
+
+    with pytest.raises(HomeAssistantError) as err:
+        await export_actions.async_run_discovery(
+            _FakeHass(), _FakeEntryWithSerial(), _FakeClient(answers_none=set())
+        )
+
+    assert err.value.translation_key == "discovery_empty"
+    assert not written and not saved, "an empty discovery was stored anyway"
+
+
+async def test_a_discovery_with_only_known_paths_still_goes_through(monkeypatch):
+    """Counter-check: osc/schema is rejected by most firmware.
+
+    If the guard required both parts it would refuse every normal run, which
+    is exactly the failure the check above must not turn into.
+    """
+    written: list[Any] = []
+
+    async def _discover(client, model):
+        return {"known_paths": {"device": {"name": "x"}}, "schema_limits": {}}
+
+    async def _write(hass_, kind, masked, record, entry_id):
+        written.append(record)
+        return "/config/neumann_kh/discovery.json"
+
+    async def _save(hass_, serial, record):
+        return None
+
+    monkeypatch.setattr(export_actions, "async_discover_all_values", _discover)
+    monkeypatch.setattr(export_actions.storage, "async_save_discovery", _save)
+    monkeypatch.setattr(export_actions, "async_write_export", _write)
+    monkeypatch.setattr(export_actions, "_notify_written", lambda *a, **k: None)
+
+    path = await export_actions.async_run_discovery(
+        _FakeHass(), _FakeEntryWithSerial(), _FakeClient(answers_none=set())
+    )
+
+    assert path.endswith("discovery.json")
+    assert len(written) == 1
+
+
+async def test_a_backup_without_restorable_values_is_refused_at_restore(monkeypatch):
+    """The write side got this check; the read side kept accepting anything.
+
+    A snapshot from before the backup guard existed holds identity and
+    diagnostics only. It passed the "values is not empty" test, wrote nothing,
+    and still reported a successful restore.
+    """
+    stored = {
+        "model": _KH_120_II,
+        "serial": export_actions.mask_serial("SIM0001234"),
+        "values": {"device": {"identity": {"product": _KH_120_II}}},
+    }
+
+    async def _get_backup(hass_, serial):
+        return stored
+
+    monkeypatch.setattr(export_actions.storage, "async_get_backup", _get_backup)
+
+    with pytest.raises(HomeAssistantError) as err:
+        await export_actions.async_check_restorable(
+            _FakeHass(), _FakeEntryWithSerial()
+        )
+
+    assert err.value.translation_key == "restore_nothing_to_write"
+
+
+async def test_a_backup_with_one_restorable_value_is_accepted(monkeypatch):
+    """Counter-check: the guard must not raise the bar to "complete"."""
+    values: dict[str, Any] = {}
+    deep_merge(values, build_nested(restorable_paths_for_model(_KH_120_II)[0], 1))
+    stored = {
+        "model": _KH_120_II,
+        "serial": export_actions.mask_serial("SIM0001234"),
+        "values": values,
+    }
+
+    async def _get_backup(hass_, serial):
+        return stored
+
+    monkeypatch.setattr(export_actions.storage, "async_get_backup", _get_backup)
+
+    assert await export_actions.async_check_restorable(
+        _FakeHass(), _FakeEntryWithSerial()
+    ) is stored

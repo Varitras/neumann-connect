@@ -92,7 +92,9 @@ _READ_ONLY_KH_120_II = frozenset(
         ("ui", "mid_gain"),
         ("ui", "treble_gain"),
         ("ui", "output_level"),
-        ("device", "save_settings"),
+        # "device/save_settings" is deliberately absent here and from the
+        # state: measured 404 on the KH 120 II, so the device does not have
+        # the path at all rather than refusing to write it.
     }
 )
 
@@ -160,8 +162,14 @@ def _build_state(model: str) -> dict[str, Any]:
     """Build the initial device state for the given model.
 
     Paths a model does not have are deliberately absent, so the simulator
-    answers 404 for them - exactly like the real device (e.g. "dimm" does not
-    exist on the KH 120 II).
+    answers 404 for them - exactly like the real device ("audio/out/dimm" and
+    "device/save_settings" exist on neither test model).
+
+    The values are the ones measured off the hardware, types included. An
+    invented format is worse than a wrong value: the integration decides per
+    path whether it parses a number or passes text through, so a simulator
+    answering "0 dB" where the device answers 0.0 makes a correct sensor look
+    broken - and an incorrect one look fine.
     """
     is_subwoofer = model == MODEL_KH_750
     state: dict[str, Any] = {
@@ -178,14 +186,14 @@ def _build_state(model: str) -> dict[str, Any]:
             "restore": "",
             "standby": {
                 "enabled": True,
-                "auto_standby_time": 120,
-                "level": -70.0,
+                "auto_standby_time": 60,
+                "level": -65,
                 "countdown": 0,
             },
             "identification": {"visual": False},
         },
         "audio": {
-            "in": {"interface": "ANALOG ONLY", "current_input": "ANALOG"},
+            "in": {"interface": "ANALOG ONLY", "current_input": "ANALOG INPUT"},
             "out": {
                 "level": 100.0,
                 "delay": 0,
@@ -194,40 +202,44 @@ def _build_state(model: str) -> dict[str, Any]:
         },
         "ui": {"control_mode": "NETWORK"},
         "m": {"in": {"level": [-40.0, -41.5], "clip": [False, False]}},
-        "warnings": [],
+        # A device with nothing to report answers with this marker, not an
+        # empty list.
+        "warnings": ["NO_WARNING"],
     }
 
     if is_subwoofer:
         _merge(
             state,
             {
-                "device": {"temperature": 310.0},
+                "device": {"temperature": 310},
                 "audio": {
-                    "digital_bypass": False,
-                    "out": {"dimm": 0.0, "label": "Main"},
+                    "digital_bypass": True,
+                    # No "dimm" here either: measured 404 on the KH 750 as well,
+                    # so it exists on neither test model.
+                    "out": {"label": "SUBWOOFER"},
                     "out1": {
                         "level": 100.0,
                         "delay": 0,
                         "mute": False,
-                        "label": "Out 1",
+                        "label": "OUT1",
                         "loudspeaker": "UNKNOWN",
                     },
                     "out2": {
                         "level": 100.0,
                         "delay": 0,
                         "mute": False,
-                        "label": "Out 2",
+                        "label": "OUT2",
                         "loudspeaker": "UNKNOWN",
                     },
                 },
                 "ui": {
-                    "bass_management": "5.1",
-                    "channel_b_input_mode": "STEREO",
-                    "subwoofer_input_gain": "0 dB",
-                    "subwoofer_low_cut": "OFF",
-                    "subwoofer_output_level": "100 dB",
+                    "bass_management": "DISABLED",
+                    "channel_b_input_mode": "Ext.BM LFE (fullrange)",
+                    "subwoofer_input_gain": 2.0,
+                    "subwoofer_low_cut": -0.1,
+                    "subwoofer_output_level": "94",
                     "subwoofer_phase": "0",
-                    "subwoofer_phase_inversion": "OFF",
+                    "subwoofer_phase_inversion": "0",
                 },
                 "m": {"out": {"level": [-35.0], "clip": [False]}},
             },
@@ -237,16 +249,15 @@ def _build_state(model: str) -> dict[str, Any]:
         _merge(
             state,
             {
-                "device": {"save_settings": False},
                 "audio": {"out": {"phaseinversion": False}},
                 "ui": {
-                    "logo": {"brightness": 60},
-                    "input_gain": "0 dB",
+                    "logo": {"brightness": 30},
+                    "input_gain": 0.0,
                     "input_select": "ANALOG",
-                    "bass_gain": "0 dB",
-                    "mid_gain": "0 dB",
-                    "treble_gain": "0 dB",
-                    "output_level": "100 dB",
+                    "bass_gain": "0",
+                    "mid_gain": "0",
+                    "treble_gain": "0",
+                    "output_level": "100",
                 },
             },
         )

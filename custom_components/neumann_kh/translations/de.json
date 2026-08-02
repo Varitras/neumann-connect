@@ -71,16 +71,14 @@
       "no_serial": "Das Gerät hat sich ohne Seriennummer gemeldet und lässt sich nicht zuordnen.",
       "no_ipv6": "Das Gerät hat keine IPv6-Adresse gemeldet. Neumann-KH-Lautsprecher unterstützen nur IPv6.",
       "cannot_connect": "Das gefundene Gerät hat nicht auf SSC-Anfragen geantwortet.",
-      "discovery_expired": "Das Suchergebnis ist abgelaufen, bitte erneut suchen."
+      "discovery_expired": "Das Suchergebnis ist abgelaufen, bitte erneut suchen.",
+      "unknown": "Unerwarteter Fehler - die Einrichtung wurde abgebrochen."
     }
   },
   "entity": {
     "number": {
       "output_level": {
         "name": "Ausgangspegel"
-      },
-      "output_dimm": {
-        "name": "Dimm"
       },
       "output_delay": {
         "name": "Verzögerung"
@@ -236,9 +234,6 @@
       }
     },
     "button": {
-      "save_settings": {
-        "name": "Einstellungen speichern"
-      },
       "restore_factory_defaults": {
         "name": "Werkseinstellungen wiederherstellen"
       },
@@ -270,9 +265,6 @@
     },
     "selection_rejected": {
       "message": "Der Lautsprecher hat diese Auswahl abgelehnt (evtl. von diesem Modell/dieser Firmware nicht unterstützt): {error}"
-    },
-    "save_settings_rejected": {
-      "message": "Der Lautsprecher hat 'Einstellungen speichern' abgelehnt: {error}"
     },
     "factory_reset_rejected": {
       "message": "Der Lautsprecher hat den Werksreset abgelehnt: {error}"
@@ -312,6 +304,12 @@
     },
     "backup_empty": {
       "message": "Der Lautsprecher hat auf keine Abfrage geantwortet, es gibt also nichts zu sichern. Das vorherige Backup bleibt erhalten."
+    },
+    "restore_nothing_to_write": {
+      "message": "Das gespeicherte Backup enthält keinen Wert, der auf diesem Lautsprecher wiederhergestellt werden kann. Bitte zuerst ein neues Backup erstellen."
+    },
+    "discovery_empty": {
+      "message": "Der Lautsprecher hat auf keine Abfrage geantwortet, es gibt also nichts aufzuzeichnen. Die vorherige Discovery bleibt erhalten."
     }
   }
 }

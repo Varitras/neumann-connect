@@ -38,8 +38,9 @@ integration look healthy while it is broken against real speakers.
 - Only single leaf paths are answered; collective and container queries are
   rejected with `400`.
 - Fields confirmed read-only reject a write with `405`, per model.
-- Paths a model does not have return `404` — for example `dimm` on the
-  KH 120 II.
+- Paths a model does not have return `404` — `audio/out/dimm` and
+  `device/save_settings` on both models, `device/temperature` and
+  `m/out/level` on the KH 120 II.
 - The KH 750 reports its product name as `KH 750`, without the `DSP` suffix.
 - `osc/schema` and `osc/limits` are rejected with `400` unless
   `--enable-schema` is passed.

@@ -283,6 +283,16 @@ class SSCClient:
                 raise SSCConnectionError(
                     f"Response from {self._host} exceeds the line limit"
                 ) from err
+            except OSError as err:
+                # A reset while reading (the speaker rebooting, the segment
+                # dropping) arrives as a bare ConnectionResetError. Left
+                # untranslated it escapes past the handler in _locked_request
+                # that drops the socket, so the dead connection would stay in
+                # place, and the coordinator would log a traceback for every
+                # remaining path of the cycle instead of failing it once.
+                raise SSCConnectionError(
+                    f"Reading from {self._host} failed: {err}"
+                ) from err
 
             if len(raw_line) > _MAX_LINE_BYTES:
                 raise SSCConnectionError(f"Response from {self._host} implausibly large")

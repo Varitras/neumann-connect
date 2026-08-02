@@ -11,6 +11,8 @@ import asyncio
 import contextlib
 import json
 import logging
+import socket
+import struct
 
 import pytest
 
@@ -579,6 +581,36 @@ async def test_a_line_that_is_not_utf8_is_skipped(socket_enabled):
     client = _client(port)
     try:
         assert await client.get(("device", "name")) == "ok"
+    finally:
+        await client.close()
+        raw_server.close()
+        with contextlib.suppress(asyncio.TimeoutError):
+            await asyncio.wait_for(raw_server.wait_closed(), timeout=1)
+
+
+async def test_a_reset_while_reading_becomes_a_connection_error(socket_enabled):
+    """readuntil() can raise a bare ConnectionResetError.
+
+    Untranslated it escapes past the handler in _locked_request that drops the
+    socket, so the dead connection stays in place - and the coordinator, which
+    only special-cases the SSC errors, logs a traceback for every remaining
+    path of the cycle instead of failing it once.
+    """
+    async def _handle(reader, writer):
+        await reader.readline()
+        # Abort rather than close: SO_LINGER 0 makes the peer see a reset
+        # while it is blocked in readuntil(), not a clean EOF.
+        sock = writer.get_extra_info("socket")
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
+        writer.close()
+
+    raw_server = await asyncio.start_server(_handle, "127.0.0.1", 0)
+    port = raw_server.sockets[0].getsockname()[1]
+    client = _client(port)
+    try:
+        with pytest.raises(SSCConnectionError):
+            await client.get(("device", "name"))
+        assert client._writer is None, "the dead connection was kept"
     finally:
         await client.close()
         raw_server.close()
