@@ -5,6 +5,45 @@
 All notable changes to this integration are documented here.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.18.1] – Two entities no speaker answered
+
+Reading the values off both test speakers settled several open questions.
+Two paths turned out not to exist on either model, so the entities built on
+them could never hold a value or carry out their action.
+
+### Removed
+- The "Dimm" number entity. `audio/out/dimm` is answered with a 404 by both
+  test models, so the entity was permanently without a value. It was disabled
+  by default; if you had enabled it, remove it under Settings → Devices &
+  Services → [device] → Entities
+- The "Save settings" button. `device/save_settings` is a 404 on the KH 120 II,
+  the only model the button was ever offered for, so no press could have
+  succeeded. Same removal note as above
+
+### Fixed
+- Sensor states are no longer translated. A translated state was written to
+  the recorder, so switching the interface language split the history in two
+  and broke automations comparing against the old wording. The unassigned
+  subwoofer outputs now report a stable state and are translated for display
+  only
+- A factory reset now refreshes every value immediately. Rarely polled
+  settings kept showing their pre-reset state for up to five minutes
+- Changing an entry's port under "Reconfigure" is now followed. Only the
+  address was applied
+- The firmware version shown in the device info is refreshed on every setup.
+  It was read once when the entry was created and never updated afterwards
+- A restore refuses a backup that holds no value this speaker can be restored
+  from, instead of reporting success after writing nothing. A discovery that
+  read nothing no longer replaces the last usable one
+- A connection reset while reading is reported as a connection problem. It
+  used to surface as a stack trace for every remaining value of the poll
+  cycle, and left the dead connection in place
+- One config flow abort showed its internal key instead of a message
+
+### Changed
+- The documented minimum version is Home Assistant 2025.2. The READMEs claimed
+  2026.3, which is only needed for the custom icon
+
 ## [1.18.0] – Speakers that move to a new address
 
 A global IPv6 address is built from the prefix the internet provider hands

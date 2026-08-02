@@ -5,6 +5,49 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
+## [1.18.1] – Zwei Entities, die kein Lautsprecher beantwortet hat
+
+Das Auslesen beider Testlautsprecher hat mehrere offene Fragen geklärt. Zwei
+Pfade existieren auf keinem der Modelle, die darauf aufgebauten Entities
+konnten also nie einen Wert tragen oder ihre Aktion ausführen.
+
+### Entfernt
+- Die Number-Entity "Dimm". `audio/out/dimm` wird von beiden Testmodellen mit
+  404 beantwortet, die Entity war also dauerhaft ohne Wert. Sie war
+  standardmäßig deaktiviert; falls du sie aktiviert hattest, entferne sie unter
+  Einstellungen → Geräte & Dienste → [Gerät] → Entitäten
+- Der Button "Einstellungen speichern". `device/save_settings` ist auf der
+  KH 120 II ein 404 - dem einzigen Modell, für das der Button überhaupt
+  angeboten wurde. Kein Druck konnte also Erfolg haben. Hinweis zum Entfernen
+  wie oben
+
+### Behoben
+- Sensor-Zustände werden nicht mehr übersetzt. Ein übersetzter Zustand landete
+  im Recorder, ein Sprachwechsel zerteilte damit die Historie und brach
+  Automationen, die gegen die alte Schreibweise verglichen. Die nicht belegten
+  Subwoofer-Ausgänge melden jetzt einen stabilen Zustand und werden nur für die
+  Anzeige übersetzt
+- Ein Werksreset aktualisiert jetzt sofort alle Werte. Selten abgefragte
+  Einstellungen zeigten bis zu fünf Minuten lang den Zustand vor dem Reset
+- Eine Portänderung unter "Neu konfigurieren" wird jetzt übernommen. Bisher
+  wurde nur die Adresse gespeichert
+- Die in den Geräteinformationen angezeigte Firmware-Version wird bei jedem
+  Setup aktualisiert. Sie wurde einmal beim Anlegen des Eintrags gelesen und
+  danach nie wieder
+- Ein Restore lehnt ein Backup ab, das keinen für diesen Lautsprecher
+  wiederherstellbaren Wert enthält, statt Erfolg zu melden, ohne etwas
+  geschrieben zu haben. Eine Discovery ohne gelesene Werte überschreibt die
+  letzte brauchbare nicht mehr
+- Ein Verbindungsabbruch während des Lesens wird als Verbindungsproblem
+  gemeldet. Bisher erschien er als Stack-Trace für jeden verbleibenden Wert des
+  Abfragezyklus, und die tote Verbindung blieb bestehen
+- Ein Abbruch im Config Flow zeigte seinen internen Schlüssel statt einer
+  Meldung
+
+### Geändert
+- Die dokumentierte Mindestversion ist Home Assistant 2025.2. Die READMEs
+  nannten 2026.3, was nur für das eigene Icon nötig ist
+
 ## [1.18.0] – Lautsprecher, die ihre Adresse wechseln
 
 Eine globale IPv6-Adresse enthält das Präfix, das der Internetanbieter zuteilt,
