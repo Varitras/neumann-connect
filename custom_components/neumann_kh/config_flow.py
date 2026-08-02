@@ -491,7 +491,19 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return self.async_abort(reason="wrong_device")
             self._abort_if_unique_id_configured(updates=updates)
 
-        if identity.serial and str(identity.serial) != str(serial):
+        if not identity.serial:
+            # Nothing to anchor the entry on. Keeping the announced serial
+            # would make an unauthenticated record the device's identity, and
+            # a forged one could then occupy a serial the real speaker needs
+            # later. The manual and reconfigure paths refuse this too.
+            _LOGGER.debug(
+                "Ignoring the announcement for %s: %s reports no serial number",
+                serial,
+                host,
+            )
+            return self.async_abort(reason="no_serial")
+
+        if str(identity.serial) != str(serial):
             # Unknown speaker whose announcement disagrees with the device.
             # The device is the authority, so anchor on what it reports -
             # otherwise the entry would carry one serial as its unique ID and

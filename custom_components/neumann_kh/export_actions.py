@@ -141,8 +141,21 @@ async def async_run_discovery(
         "serial": masked,
         **discovery,
     }
+    # Same order and the same error handling as the backup above: the file is
+    # what the user is pointed at, so it has to exist before anything claims
+    # the run succeeded, and a write failure has to arrive as a readable
+    # message rather than a raw OSError.
+    try:
+        path = await async_write_export(
+            hass, KIND_DISCOVERY, masked, record, entry.entry_id
+        )
+    except Exception as err:
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="discovery_failed",
+            translation_placeholders={"error": str(err)},
+        ) from err
     await storage.async_save_discovery(hass, serial, record)
-    path = await async_write_export(hass, KIND_DISCOVERY, masked, record, entry.entry_id)
     _notify_written(hass, entry, KIND_DISCOVERY, path)
     return path
 

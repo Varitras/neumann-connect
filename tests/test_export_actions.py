@@ -205,3 +205,37 @@ async def test_a_good_backup_reaches_both(monkeypatch):
     assert path.endswith("backup.json")
     assert len(saved) == 1
     assert len(written) == 1
+
+
+async def test_a_failed_discovery_file_write_leaves_the_store_untouched(monkeypatch):
+    """The discovery run had the same ordering problem as the backup one.
+
+    Fixing only the backup left its sibling two functions below untouched -
+    same structure, same store-before-file, same unwrapped OSError.
+    """
+    saved: list[Any] = []
+    written: list[Any] = []
+
+    async def _discover(client, model):
+        return {"values": {"device": {"name": "x"}}}
+
+    async def _save(hass_, serial, record):
+        saved.append(record)
+
+    async def _write(hass_, kind, masked, record, entry_id):
+        written.append(record)
+        raise OSError("disk full")
+
+    monkeypatch.setattr(export_actions, "async_discover_all_values", _discover)
+    monkeypatch.setattr(export_actions.storage, "async_save_discovery", _save)
+    monkeypatch.setattr(export_actions, "async_write_export", _write)
+    monkeypatch.setattr(export_actions, "_notify_written", lambda *a, **k: None)
+
+    with pytest.raises(HomeAssistantError) as err:
+        await export_actions.async_run_discovery(
+            _FakeHass(), _FakeEntryWithSerial(), _FakeClient(answers_none=set())
+        )
+
+    assert err.value.translation_key == "discovery_failed"
+    assert written, "the file write was not even attempted"
+    assert not saved, "the store was updated even though the file failed"

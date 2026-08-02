@@ -456,3 +456,22 @@ def test_a_numeric_serial_is_kept_as_text():
 
     assert _as_identity_text(1234567890) == "1234567890"
     assert _as_identity_text("  KH 120 II  ") == "KH 120 II"
+
+
+async def test_zeroconf_of_a_device_without_a_serial_is_not_set_up(hass, _custom_integration):
+    """Keeping the announced serial would make mDNS the device's identity.
+
+    The record is unauthenticated, so a forged one could occupy a serial the
+    real speaker needs later. The manual and reconfigure paths refuse a device
+    that reports none, and this one has to as well.
+    """
+    identity = DeviceIdentity(
+        product="KH 120 II", serial=None, vendor="Georg Neumann GmbH"
+    )
+
+    result = await _run_zeroconf(
+        hass, _zeroconf_info(serial="SIM0009999"), identity=identity
+    )
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "no_serial"
