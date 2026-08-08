@@ -442,8 +442,3 @@ class SSCClient:
             build_nested(path, value), priority=priority, expect_path=path
         )
         return extract(response, path)
-
-    @staticmethod
-    def extract(data: dict, path: tuple[str, ...]) -> Any:
-        """Public access to extract(), for evaluating request() results."""
-        return extract(data, path)

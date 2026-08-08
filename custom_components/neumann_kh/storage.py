@@ -79,6 +79,9 @@ async def async_get_backup(hass: HomeAssistant, serial: str) -> dict[str, Any] |
 # --- Discovery -----------------------------------------------------------
 
 
+# Write-only on purpose for now: nothing reads this back - the JSON export
+# under <config>/neumann_kh/ is what the user is pointed at. The reader that
+# used to sit here was never called and has been removed.
 async def async_save_discovery(hass: HomeAssistant, serial: str, discovery: dict[str, Any]) -> None:
     """Store a discovery result (all known values/ranges) for a serial number."""
     if not serial:
@@ -90,9 +93,3 @@ async def async_save_discovery(hass: HomeAssistant, serial: str, discovery: dict
         await store.async_save(data)
 
 
-async def async_get_discovery(hass: HomeAssistant, serial: str) -> dict[str, Any] | None:
-    """Return the last saved discovery result for a serial number, if present."""
-    if not serial:
-        return None
-    data = await _get_store(hass, "discovery").async_load() or {"discovery": {}}
-    return data.get("discovery", {}).get(serial)

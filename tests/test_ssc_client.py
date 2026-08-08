@@ -132,13 +132,18 @@ async def _serve(handler):
 
 
 async def _shutdown(server, tasks) -> None:
-    """Cancel every handler, then close the server."""
-    for task in tasks:
+    """Stop accepting, cancel every handler, then close the server.
+
+    The server is closed first and the tasks are iterated over a copy: a
+    connection arriving during one of the awaits would otherwise mutate the
+    set being iterated, or slip in without being cancelled.
+    """
+    server.close()
+    for task in list(tasks):
         task.cancel()
-    for task in tasks:
+    for task in list(tasks):
         with contextlib.suppress(asyncio.CancelledError, Exception):
             await task
-    server.close()
     # wait_closed() can hang for a server that never accepted a connection -
     # bound it hard.
     with contextlib.suppress(asyncio.TimeoutError):

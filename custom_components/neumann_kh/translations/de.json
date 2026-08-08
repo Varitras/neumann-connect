@@ -309,7 +309,7 @@
       "message": "Der Lautsprecher hat nicht alle Abfragen innerhalb von {seconds} Sekunden beantwortet. Es wurde nichts aufgezeichnet - die vorherige Discovery bleibt erhalten."
     },
     "restore_timed_out": {
-      "message": "Das Zurückspielen wurde nach {seconds} Sekunden abgebrochen; bis dahin waren {written} Werte geschrieben. Der Lautsprecher ist nur teilweise zurückgespielt. Ein erneuter Druck beginnt wieder beim ersten Wert - er setzt nicht an der Abbruchstelle fort."
+      "message": "Das Zurückspielen wurde nach {seconds} Sekunden abgebrochen; bis dahin waren {written} Werte geschrieben. Der Lautsprecher ist nur teilweise zurückgespielt. Ein neuer Versuch braucht wieder zwei Drücke - einen zum Scharfschalten, einen zum Bestätigen - und beginnt beim ersten Wert, nicht an der Abbruchstelle."
     },
     "device_action_in_progress": {
       "message": "Auf diesem Lautsprecher läuft bereits eine andere Aktion (Backup, Discovery, Zurückspielen oder Werksreset). Warte, bis sie fertig ist, und drücke dann erneut."

@@ -80,14 +80,16 @@ async def _simulator(model: str):
     finally:
         # Closing the server does not end a handler that is still serving an
         # open connection; the Home Assistant harness then fails the teardown
-        # with "lingering task", intermittently and under load only. Same
-        # treatment as _serve() in test_ssc_client.py.
-        for task in handlers:
+        # with "lingering task", intermittently and under load only.
+        # Close first so nothing new is accepted, then cancel over a copy:
+        # a connection arriving mid-await would otherwise mutate the set being
+        # iterated - or slip in uncancelled.
+        server.close()
+        for task in list(handlers):
             task.cancel()
-        for task in handlers:
+        for task in list(handlers):
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await task
-        server.close()
         with contextlib.suppress(asyncio.TimeoutError):
             await asyncio.wait_for(server.wait_closed(), timeout=1)
 

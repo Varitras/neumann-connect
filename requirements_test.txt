@@ -3,12 +3,12 @@
 #
 # Pick the newest release that pins a STABLE Home Assistant, not simply the
 # newest release: the plugin publishes daily and follows Home Assistant's beta
-# releases as well, so "latest" regularly means testing against a beta. Check
-# what a candidate pins before bumping - 0.13.349 and later already track the
-# 2026.8 betas.
+# releases too, so "latest" regularly means testing against a beta. Check what
+# a candidate pins before bumping - naming today's beta series here would go
+# stale within weeks, the rule does not.
 #
-# 0.13.348 pins Home Assistant 2026.7.4 and therefore requires Python >= 3.14.
-pytest-homeassistant-custom-component==0.13.348
+# 0.13.355 pins Home Assistant 2026.8.1, verified as the current stable.
+pytest-homeassistant-custom-component==0.13.355
 # Pinned to the same version the lint job installs. Unpinned here, the local
 # environment could lint against a different release than CI does - which is
 # how a Ruff upgrade turned the build red once already.
