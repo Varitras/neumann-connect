@@ -106,7 +106,7 @@ def _entry(hass) -> MockConfigEntry:
     return entry
 
 
-async def _run_reconfigure(hass, entry, identity, host="fe80::2"):
+async def _run_reconfigure(hass, entry, identity, host="fe80::2", interface="eth1"):
     with patch(
         "custom_components.neumann_kh.config_flow._async_test_connection",
         return_value=identity,
@@ -114,7 +114,7 @@ async def _run_reconfigure(hass, entry, identity, host="fe80::2"):
         result = await entry.start_reconfigure_flow(hass)
         return await hass.config_entries.flow.async_configure(
             result["flow_id"],
-            {CONF_HOST: host, CONF_INTERFACE: "eth1", CONF_PORT: 45},
+            {CONF_HOST: host, CONF_INTERFACE: interface, CONF_PORT: 45},
         )
 
 
@@ -761,3 +761,49 @@ async def test_an_expired_discovery_sends_you_back_to_the_scan(hass, _custom_int
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "scan"
     assert result["errors"] == {"base": "discovery_expired"}
+
+
+# The reconfigure step validates its input the same way the manual step does,
+# but "the same way" is an analogy, not a proof - these three cases had no test
+# of their own.
+
+
+async def test_reconfigure_rejects_a_non_ipv6_host(hass, _custom_integration):
+    entry = _entry(hass)
+
+    result = await _run_reconfigure(hass, entry, _GOOD_IDENTITY, host="192.168.1.5")
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "invalid_ipv6"}
+    assert entry.data[CONF_HOST] == "fe80::1", "a rejected input must not be stored"
+
+
+async def test_reconfigure_reports_an_unreachable_device(hass, _custom_integration):
+    entry = _entry(hass)
+
+    result = await _run_reconfigure(
+        hass, entry, DeviceIdentity(error_key="cannot_connect")
+    )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "cannot_connect"}
+    assert entry.data[CONF_HOST] == "fe80::1"
+
+
+async def test_reconfigure_takes_the_scope_id_out_of_the_host(hass, _custom_integration):
+    entry = _entry(hass)
+    identity = DeviceIdentity(
+        product="KH 120 II",
+        serial=_EXISTING_SERIAL,
+        version="1_7_4",
+        vendor="Georg Neumann GmbH",
+    )
+
+    result = await _run_reconfigure(
+        hass, entry, identity, host="fe80::9%eth5", interface=""
+    )
+
+    assert result["type"] is FlowResultType.ABORT, result.get("errors")
+    assert result["reason"] == "reconfigure_successful"
+    assert entry.data[CONF_HOST] == "fe80::9"
+    assert entry.data[CONF_INTERFACE] == "eth5"

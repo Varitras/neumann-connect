@@ -8,6 +8,7 @@ leaves, and treat every kind of refusal as "this device will not tell us".
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 import pytest
@@ -126,3 +127,33 @@ async def test_the_node_budget_stops_a_runaway_tree(monkeypatch):
     # Exactly the budget, not one more: the check used "greater than" against
     # the count, which let a limit of N through at N+1.
     assert len(client.limits_asked) <= 3, client.limits_asked
+
+
+async def test_a_timeout_keeps_what_was_already_collected(monkeypatch):
+    """The walk is best-effort, so a hang must not discard the partial result.
+
+    Deliberately not timing-dependent beyond "immediate versus never": the
+    first leaf answers at once, the second blocks on an event nobody sets.
+    """
+    monkeypatch.setattr(discovery_export, "_SCHEMA_DISCOVERY_TIMEOUT", 0.3)
+
+    class _StallsOnTheSecondLeaf(_SchemaClient):
+        def __init__(self) -> None:
+            super().__init__({"first": None, "second": None})
+            self.blocked = asyncio.Event()
+            self.reached_second = False
+
+        async def request(self, payload):
+            if "limits" in payload["osc"] and self._path_of(payload) == ("second",):
+                # Recorded before blocking - the base class only notes a path
+                # once it answers, which this call never does.
+                self.reached_second = True
+                await self.blocked.wait()  # never released
+            return await super().request(payload)
+
+    client = _StallsOnTheSecondLeaf()
+
+    result = await _async_discover_via_schema(client)
+
+    assert result == {"first": {"type": "Number"}}, result
+    assert client.reached_second, "it stopped before the leaf that hangs"

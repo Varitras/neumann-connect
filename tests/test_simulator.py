@@ -5,7 +5,8 @@ these tests drive it through the real SSCClient. Its value depends entirely on
 reproducing the verified firmware restrictions - a permissive simulator would
 hide real breakage. The rejection tests below are therefore the important ones.
 
-Short timeouts (settle 0.05 s, timeout 0.3 s) keep the suite fast.
+A short settle window (0.05 s) keeps the suite fast; the connection
+timeout is deliberately generous, see below.
 """
 
 from __future__ import annotations
@@ -29,7 +30,11 @@ from tools.ssc_simulator import (
 # NOT work for this).
 
 _SETTLE = 0.05
-_TIMEOUT = 0.3
+# Not 0.3: on a loaded machine even a loopback connection needs longer than
+# that, and the client then reports a timeout that has nothing to do with the
+# simulator. test_ssc_client.py hit exactly this and was raised to 2.0; this
+# file kept the tight value and started failing intermittently in the full run.
+_TIMEOUT = 2.0
 
 
 class SimulatorServer:
