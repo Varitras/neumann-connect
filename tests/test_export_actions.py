@@ -23,6 +23,7 @@ from custom_components.neumann_kh.backup_export import (
 )
 from custom_components.neumann_kh.const import CONF_MODEL, CONF_SERIAL
 from custom_components.neumann_kh.export_actions import async_run_restore
+from custom_components.neumann_kh.ssc_client import SSCDeviceError
 
 _KH_120_II = "KH 120 II"
 
@@ -449,3 +450,26 @@ async def test_a_backup_that_runs_out_of_time_saves_nothing(monkeypatch):
 
     with pytest.raises(backup_export.BackupTimeoutError):
         await backup_export.async_build_backup(_SlowReader(), _KH_120_II)
+
+
+async def test_a_restore_the_device_refuses_entirely_is_not_a_success():
+    """Announcing "restored" after writing nothing is worse than an error.
+
+    The user walks away believing the speaker was rewritten. Every path being
+    refused means the backup does not fit this model or firmware.
+    """
+
+    class _RefusingClient(_FakeClient):
+        async def set(self, path, value):
+            raise SSCDeviceError("not writable here")
+
+    client = _RefusingClient(answers_none=set())
+    coordinator = _FakeCoordinator(client)
+
+    with pytest.raises(HomeAssistantError) as err:
+        await async_run_restore(
+            _FakeHass(), _FakeEntry(_KH_120_II), coordinator, _backup_covering(_KH_120_II)
+        )
+
+    assert err.value.translation_key == "restore_nothing_written"
+    assert not coordinator.applied, "nothing was confirmed, so nothing may be applied"

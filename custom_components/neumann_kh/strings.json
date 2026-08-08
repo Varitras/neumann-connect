@@ -309,10 +309,13 @@
       "message": "The speaker did not answer all queries within {seconds} seconds. Nothing was recorded - the previous discovery was kept."
     },
     "restore_timed_out": {
-      "message": "The restore was stopped after {seconds} seconds; {written} values had been written by then. The speaker is only partly restored - press again to continue."
+      "message": "The restore was stopped after {seconds} seconds; {written} values had been written by then. The speaker is only partly restored. Pressing again starts over from the first value - it does not resume where it stopped."
     },
     "device_action_in_progress": {
       "message": "Another action is still running on this speaker (backup, discovery, restore or factory reset). Wait for it to finish, then press again."
+    },
+    "restore_nothing_written": {
+      "message": "The speaker accepted none of the values in the backup ({skipped} skipped), so nothing was changed. Check that the backup belongs to this model and firmware."
     }
   }
 }

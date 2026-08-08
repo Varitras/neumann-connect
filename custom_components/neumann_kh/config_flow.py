@@ -139,6 +139,19 @@ def _build_reconfigure_schema(
     )
 
 
+def _split_scope_id(host: str, interface: str | None) -> tuple[str, str | None]:
+    """Accept "fe80::1%eth0" in the address field and pull the scope apart.
+
+    ipaddress.IPv6Address does not know about scope IDs, so the address has to
+    be split before it can be validated. An interface picked in the dropdown
+    wins over one typed into the address.
+    """
+    if "%" not in host:
+        return host, interface
+    host, _, scope = host.partition("%")
+    return host.strip(), interface or (scope.strip() or None)
+
+
 def _already_configured_serials(hass: HomeAssistant) -> set[str]:
     """Collect the serial numbers of all already configured speakers."""
     return {
@@ -317,15 +330,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         port = user_input.get(CONF_PORT, DEFAULT_PORT)
         name = user_input[CONF_NAME].strip()
 
-        # Accept inputs like "fe80::1%eth0": split off the scope ID
-        # (ipaddress.IPv6Address does not know about scope IDs) and - if the
-        # interface field is empty - use it as the interface. An explicitly
-        # chosen interface in the dropdown takes precedence.
-        if "%" in host:
-            host, _, host_scope = host.partition("%")
-            host = host.strip()
-            if not interface:
-                interface = host_scope.strip() or None
+        host, interface = _split_scope_id(host, interface)
 
         if not name:
             return await self._show_manual_form(user_input, "name_required")
@@ -411,11 +416,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         interface = user_input.get(CONF_INTERFACE, "").strip() or None
         port = user_input.get(CONF_PORT, DEFAULT_PORT)
 
-        if "%" in host:
-            host, _, host_scope = host.partition("%")
-            host = host.strip()
-            if not interface:
-                interface = host_scope.strip() or None
+        host, interface = _split_scope_id(host, interface)
 
         try:
             ipaddress.IPv6Address(host)

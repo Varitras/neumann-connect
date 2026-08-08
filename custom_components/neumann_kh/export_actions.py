@@ -368,6 +368,16 @@ async def async_run_restore(
     if confirmed_values:
         coordinator.apply_confirmed_values(confirmed_values)
 
+    if not confirmed_values:
+        # Every path was refused or went unconfirmed. Announcing a successful
+        # restore of nothing is worse than an error: the user walks away
+        # believing the speaker was rewritten.
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="restore_nothing_written",
+            translation_placeholders={"skipped": str(skipped)},
+        )
+
     _LOGGER.debug(
         "Restore for %s: %d written, %d adjusted, %d skipped",
         entry.title,

@@ -59,13 +59,13 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
-      # No --only-binary :all: here, deliberately. Tried and measured: the
-      # Home Assistant test tree cannot satisfy it. "mock-open", pulled in by
-      # pytest-homeassistant-custom-component, publishes no wheel at all, and
-      # Home Assistant pins ciso8601==2.3.2 while only 2.3.3 has one for this
-      # Python. Naming those two as exceptions would turn every upstream pin
-      # bump into a broken build, and it would buy little: a wheel executes on
-      # import just as freely, and the tests import everything.
+      # No --only-binary :all: here, deliberately: tried, and the Home
+      # Assistant test tree cannot satisfy it. Several dependencies ship
+      # source only - "mock-open" publishes no wheel at all. Which ones they
+      # are changes with every upstream pin, so an exception list would turn
+      # unrelated bumps into broken builds, and it would buy little anyway:
+      # a wheel executes on import just as freely, and the tests import
+      # everything.
       - run: pip install -r requirements_test.txt
       # -m "" overrides the default deselection in pytest.ini: CI always runs
       # the end-to-end tests as well. They cost ~50 s, which is irrelevant here

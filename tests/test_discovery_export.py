@@ -15,6 +15,7 @@ import pytest
 pytest.importorskip("homeassistant")
 
 from custom_components.neumann_kh import discovery_export
+from custom_components.neumann_kh._util import build_nested
 from custom_components.neumann_kh.discovery_export import (
     _async_discover_via_schema,
     _fetch_schema_subtree,
@@ -65,15 +66,9 @@ class _SchemaClient:
         path = self._path_of(payload)
         if "limits" in payload["osc"]:
             self.limits_asked.append(path)
-            answer: Any = {"type": "Number"}
-            for key in reversed(path):
-                answer = {key: answer}
-            return {"osc": {"limits": [answer]}}
+            return {"osc": {"limits": [build_nested(path, {"type": "Number"})]}}
 
-        level = self._level_at(path)
-        wrapped: Any = level
-        for key in reversed(path):
-            wrapped = {key: wrapped}
+        wrapped = build_nested(path, self._level_at(path)) if path else self._level_at(path)
         return {"osc": {"schema": [wrapped] if self.bundled else wrapped}}
 
 
@@ -128,4 +123,6 @@ async def test_the_node_budget_stops_a_runaway_tree(monkeypatch):
 
     await _async_discover_via_schema(client)
 
-    assert len(client.limits_asked) <= 4, client.limits_asked
+    # Exactly the budget, not one more: the check used "greater than" against
+    # the count, which let a limit of N through at N+1.
+    assert len(client.limits_asked) <= 3, client.limits_asked

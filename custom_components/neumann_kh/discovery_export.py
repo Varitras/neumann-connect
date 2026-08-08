@@ -119,7 +119,7 @@ async def _async_discover_via_schema(client: SSCClient) -> dict[str, Any]:
 
     async def _walk(path: tuple[str, ...], depth: int) -> None:
         nonlocal node_count
-        if depth > _MAX_SCHEMA_DEPTH or node_count > _MAX_SCHEMA_NODES:
+        if depth > _MAX_SCHEMA_DEPTH or node_count >= _MAX_SCHEMA_NODES:
             return
 
         subtree = await _fetch_schema_subtree(client, path)
@@ -127,7 +127,7 @@ async def _async_discover_via_schema(client: SSCClient) -> dict[str, Any]:
             return
 
         for key, child_value in subtree.items():
-            if node_count > _MAX_SCHEMA_NODES:
+            if node_count >= _MAX_SCHEMA_NODES:
                 return
             node_count += 1
             child_path = path + (key,)
