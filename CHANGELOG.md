@@ -35,6 +35,10 @@ them could never hold a value or carry out their action.
 - A restore refuses a backup that holds no value this speaker can be restored
   from, instead of reporting success after writing nothing. A discovery that
   read nothing no longer replaces the last usable one
+- The ten-second limit on a single response could not fire: the read timed
+  out just before the deadline and ended as if the device had simply gone
+  quiet. A speaker that keeps talking slowly now has its connection dropped,
+  as intended, instead of leaving unread lines queued on it
 - A connection reset while reading is reported as a connection problem. It
   used to surface as a stack trace for every remaining value of the poll
   cycle, and left the dead connection in place

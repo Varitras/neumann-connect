@@ -38,6 +38,11 @@ konnten also nie einen Wert tragen oder ihre Aktion ausführen.
   wiederherstellbaren Wert enthält, statt Erfolg zu melden, ohne etwas
   geschrieben zu haben. Eine Discovery ohne gelesene Werte überschreibt die
   letzte brauchbare nicht mehr
+- Die Zehn-Sekunden-Grenze für eine einzelne Antwort konnte nicht greifen:
+  der Lesevorgang lief kurz vor der Grenze in seine Zeitüberschreitung und
+  endete, als wäre das Gerät einfach verstummt. Bei einem Lautsprecher, der
+  langsam weitersendet, wird die Verbindung jetzt wie vorgesehen verworfen,
+  statt ungelesene Zeilen darauf liegen zu lassen
 - Ein Verbindungsabbruch während des Lesens wird als Verbindungsproblem
   gemeldet. Bisher erschien er als Stack-Trace für jeden verbleibenden Wert des
   Abfragezyklus, und die tote Verbindung blieb bestehen
