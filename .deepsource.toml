@@ -1,0 +1,12 @@
+version = 1
+
+# Without this the analyser treats tests as production code and reports things
+# that are only true there: a fake writer whose close() is empty, a stub method
+# that "could be static". Classifying the directory fixes that for every test
+# file, including the ones not written yet - three one-off suppressions would
+# not.
+test_patterns = ["tests/**"]
+
+[[analyzers]]
+name = "python"
+enabled = true
