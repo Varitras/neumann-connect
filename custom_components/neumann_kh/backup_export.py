@@ -5,11 +5,13 @@ not a meaningful part of a settings snapshot).
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
 from ._util import build_nested, deep_merge
 from .const import (
+    DEVICE_ACTION_TIMEOUT_SECONDS,
     MODELS_WITH_LOGO_BRIGHTNESS,
     MODELS_WITH_SUBWOOFER_FEATURES,
     NON_SUBWOOFER_POLL_PATHS,
@@ -140,12 +142,26 @@ def restorable_paths_for_model(model: str | None) -> list[tuple[str, ...]]:
     return paths
 
 
+class BackupTimeoutError(Exception):
+    """The run did not finish within DEVICE_ACTION_TIMEOUT_SECONDS."""
+
+
 async def async_build_backup(client: SSCClient, model: str | None) -> dict[str, Any]:
-    """Query all known values (except live readings) and return a JSON dict."""
+    """Query all known values (except live readings) and return a JSON dict.
+
+    Gives up once the time limit is reached instead of returning what it has:
+    a partial snapshot is more dangerous than none, because it looks complete
+    and would replace the last usable one.
+    """
     result: dict[str, Any] = {}
+    deadline = asyncio.get_running_loop().time() + DEVICE_ACTION_TIMEOUT_SECONDS
     for path in known_paths_for_model(model):
         if path in _EXCLUDED_PATHS:
             continue
+        if asyncio.get_running_loop().time() >= deadline:
+            raise BackupTimeoutError(
+                f"reading the values took longer than {DEVICE_ACTION_TIMEOUT_SECONDS:.0f}s"
+            )
         try:
             value = await client.get(path)
         except SSCDeviceError:

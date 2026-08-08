@@ -18,6 +18,7 @@ from typing import Any
 
 from ._util import build_nested, deep_merge, extract
 from .backup_export import known_paths_for_model
+from .const import DEVICE_ACTION_TIMEOUT_SECONDS
 from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeoutError
 
 _LOGGER = logging.getLogger(__name__)
@@ -29,6 +30,10 @@ _MAX_SCHEMA_DEPTH = 10
 # Overall time limit for the best-effort schema part (osc/schema + osc/limits).
 # With up to 500 nodes × individual request this could otherwise run very long.
 _SCHEMA_DISCOVERY_TIMEOUT = 30.0
+
+
+class DiscoveryTimeoutError(Exception):
+    """The guaranteed part did not finish within DEVICE_ACTION_TIMEOUT_SECONDS."""
 
 
 async def async_discover_all_values(
@@ -46,7 +51,13 @@ async def _async_query_known_paths(
 ) -> dict[str, Any]:
     """Query all known paths individually (guaranteed part, like coordinator.py)."""
     result: dict[str, Any] = {}
+    deadline = asyncio.get_running_loop().time() + DEVICE_ACTION_TIMEOUT_SECONDS
     for path in known_paths_for_model(model):
+        if asyncio.get_running_loop().time() >= deadline:
+            raise DiscoveryTimeoutError(
+                f"reading the known paths took longer than "
+                f"{DEVICE_ACTION_TIMEOUT_SECONDS:.0f}s"
+            )
         try:
             value = await client.get(path)
         except SSCDeviceError:

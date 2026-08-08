@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import UTC, datetime
 from typing import Any
@@ -15,9 +16,13 @@ from homeassistant.exceptions import HomeAssistantError
 
 from . import storage
 from ._util import extract, localized
-from .backup_export import async_build_backup, restorable_paths_for_model
-from .const import CONF_MODEL, CONF_SERIAL, DOMAIN
-from .discovery_export import async_discover_all_values
+from .backup_export import (
+    BackupTimeoutError,
+    async_build_backup,
+    restorable_paths_for_model,
+)
+from .const import CONF_MODEL, CONF_SERIAL, DEVICE_ACTION_TIMEOUT_SECONDS, DOMAIN
+from .discovery_export import DiscoveryTimeoutError, async_discover_all_values
 from .export_file import async_write_export
 from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeoutError
 
@@ -77,6 +82,15 @@ async def async_run_backup(
 
     try:
         values = await async_build_backup(client, model)
+    except BackupTimeoutError as err:
+        # A known outcome, not an unexpected failure - so it gets its own
+        # message rather than an English developer string inside a translated
+        # one.
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="backup_timed_out",
+            translation_placeholders={"seconds": f"{DEVICE_ACTION_TIMEOUT_SECONDS:.0f}"},
+        ) from err
     except Exception as err:
         raise HomeAssistantError(
             translation_domain=DOMAIN,
@@ -143,6 +157,12 @@ async def async_run_discovery(
 
     try:
         discovery = await async_discover_all_values(client, model)
+    except DiscoveryTimeoutError as err:
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="discovery_timed_out",
+            translation_placeholders={"seconds": f"{DEVICE_ACTION_TIMEOUT_SECONDS:.0f}"},
+        ) from err
     except Exception as err:
         raise HomeAssistantError(
             translation_domain=DOMAIN,
@@ -281,8 +301,25 @@ async def async_run_restore(
     adjusted = 0
     skipped = 0
     confirmed_values: list[tuple[tuple[str, ...], Any]] = []
+    # Checked between paths, never around the whole loop: cancelling inside a
+    # set() would drop the values already confirmed and leave the user with a
+    # bare abort instead of "wrote 12 of 23" on a half-written speaker.
+    deadline = asyncio.get_running_loop().time() + DEVICE_ACTION_TIMEOUT_SECONDS
 
     for path in restorable_paths_for_model(entry.data.get(CONF_MODEL)):
+        if asyncio.get_running_loop().time() >= deadline:
+            # Stop writing, keep what landed, say how far it got. The device is
+            # in a defined state either way - every write was confirmed.
+            if confirmed_values:
+                coordinator.apply_confirmed_values(confirmed_values)
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="restore_timed_out",
+                translation_placeholders={
+                    "written": str(written + adjusted),
+                    "seconds": f"{DEVICE_ACTION_TIMEOUT_SECONDS:.0f}",
+                },
+            )
         value = extract(values, path)
         if value is None:
             skipped += 1

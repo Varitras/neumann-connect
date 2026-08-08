@@ -310,6 +310,15 @@
     },
     "discovery_empty": {
       "message": "The speaker answered none of the queries, so there is nothing to record. The previous discovery was kept."
+    },
+    "backup_timed_out": {
+      "message": "The speaker did not answer all queries within {seconds} seconds. Nothing was saved - the previous backup was kept."
+    },
+    "discovery_timed_out": {
+      "message": "The speaker did not answer all queries within {seconds} seconds. Nothing was recorded - the previous discovery was kept."
+    },
+    "restore_timed_out": {
+      "message": "The restore was stopped after {seconds} seconds; {written} values had been written by then. The speaker is only partly restored - press again to continue."
     }
   }
 }

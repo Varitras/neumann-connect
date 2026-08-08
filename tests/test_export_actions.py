@@ -7,6 +7,7 @@ running integration.
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 import pytest
@@ -15,7 +16,7 @@ pytest.importorskip("homeassistant")
 
 from homeassistant.exceptions import HomeAssistantError
 
-from custom_components.neumann_kh import export_actions
+from custom_components.neumann_kh import backup_export, export_actions
 from custom_components.neumann_kh._util import build_nested, deep_merge
 from custom_components.neumann_kh.backup_export import (
     restorable_paths_for_model,
@@ -399,3 +400,49 @@ async def test_a_backup_with_one_restorable_value_is_accepted(monkeypatch):
     assert await export_actions.async_check_restorable(
         _FakeHass(), _FakeEntryWithSerial()
     ) is stored
+
+
+class _SlowClient(_FakeClient):
+    """Answers, but slowly enough that the run runs out of time."""
+
+    async def set(self, path, value):
+        await asyncio.sleep(0.05)
+        return await super().set(path, value)
+
+
+async def test_a_restore_that_runs_out_of_time_reports_how_far_it_got(monkeypatch):
+    """Stopping has to keep the partial progress, not discard it.
+
+    Wrapping the loop in wait_for() would cancel inside a set(): the values
+    already confirmed would never reach the coordinator and the user would see
+    a bare abort instead of a count, on a speaker that is half rewritten. So
+    the limit is checked between paths.
+    """
+    monkeypatch.setattr(export_actions, "DEVICE_ACTION_TIMEOUT_SECONDS", 0.1)
+
+    client = _SlowClient(answers_none=set())
+    coordinator = _FakeCoordinator(client)
+
+    with pytest.raises(HomeAssistantError) as err:
+        await async_run_restore(
+            _FakeHass(), _FakeEntry(_KH_120_II), coordinator, _backup_covering(_KH_120_II)
+        )
+
+    assert err.value.translation_key == "restore_timed_out"
+    # Some paths made it, and what the device confirmed reached the entities.
+    assert client.written, "the restore stopped before writing anything at all"
+    assert coordinator.applied, "confirmed values were dropped on the way out"
+    assert len(client.written) < len(restorable_paths_for_model(_KH_120_II))
+
+
+async def test_a_backup_that_runs_out_of_time_saves_nothing(monkeypatch):
+    """A partial snapshot is worse than none - it looks complete."""
+    monkeypatch.setattr(backup_export, "DEVICE_ACTION_TIMEOUT_SECONDS", 0.1)
+
+    class _SlowReader:
+        async def get(self, path):
+            await asyncio.sleep(0.05)
+            return 1
+
+    with pytest.raises(backup_export.BackupTimeoutError):
+        await backup_export.async_build_backup(_SlowReader(), _KH_120_II)

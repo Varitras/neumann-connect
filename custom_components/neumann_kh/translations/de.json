@@ -310,6 +310,15 @@
     },
     "discovery_empty": {
       "message": "Der Lautsprecher hat auf keine Abfrage geantwortet, es gibt also nichts aufzuzeichnen. Die vorherige Discovery bleibt erhalten."
+    },
+    "backup_timed_out": {
+      "message": "Der Lautsprecher hat nicht alle Abfragen innerhalb von {seconds} Sekunden beantwortet. Es wurde nichts gespeichert - das vorherige Backup bleibt erhalten."
+    },
+    "discovery_timed_out": {
+      "message": "Der Lautsprecher hat nicht alle Abfragen innerhalb von {seconds} Sekunden beantwortet. Es wurde nichts aufgezeichnet - die vorherige Discovery bleibt erhalten."
+    },
+    "restore_timed_out": {
+      "message": "Das Zurückspielen wurde nach {seconds} Sekunden abgebrochen; bis dahin waren {written} Werte geschrieben. Der Lautsprecher ist nur teilweise zurückgespielt - erneut drücken, um fortzufahren."
     }
   }
 }

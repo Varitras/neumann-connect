@@ -26,6 +26,18 @@ DEFAULT_QUERY_SETTLE = 0.4  # Seconds of quiet time until multiple responses cou
 UPDATE_INTERVAL_SECONDS = 30
 POLL_CYCLE_TIMEOUT_SECONDS = 25.0  # Time limit for a complete poll cycle
 
+# Time limit for a button action that walks many paths in one go (backup,
+# discovery, restore). Unlike the poll cycle these are not repeated, so nothing
+# else would ever end them: a device that answers *something* but never the
+# requested path costs up to 12s per path, which on a KH 750 backup adds up to
+# roughly 17 minutes of a spinning button. A real run against that model takes
+# a few seconds, so this leaves a factor of about twenty.
+#
+# Checked between paths rather than wrapped around the whole run: cancelling
+# mid-write during a restore would lose the values already confirmed and
+# replace "wrote 12 of 23" with a bare abort.
+DEVICE_ACTION_TIMEOUT_SECONDS = 120.0
+
 # Models with a front-logo brightness setting. "KH 80"/"KH 150"/"KH 120 II"
 # are confirmed (KH 120 II via real hardware test, the others per
 # khtool documentation). The "DSP"/"AES67" variants are UNVERIFIED
