@@ -40,7 +40,10 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
-      - run: pip install ruff
+      # Pinned deliberately: an unpinned Ruff turned the build red on the
+      # 0.16.0 release for rules that did not exist when the code was written.
+      # Bump this on purpose, not by surprise.
+      - run: pip install ruff==0.16.1
       - run: ruff check .
 
   tests:

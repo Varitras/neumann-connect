@@ -15,11 +15,9 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
-    CONF_MODEL,
     CONTROL_MODE_OPTIONS,
     DOMAIN,
     INPUT_INTERFACE_OPTIONS,
-    MODELS_WITH_SUBWOOFER_FEATURES,
     PATH_INPUT_INTERFACE_TYPE,
     PATH_UI_CONTROL_MODE,
 )
@@ -46,21 +44,18 @@ CONTROL_MODE_DESCRIPTION = NeumannKHSelectDescription(
 )
 
 
-def _build_input_interface_description(is_subwoofer: bool) -> NeumannKHSelectDescription:
-    """Builds the 'input interface' description.
-
-    Confirmed writable on KH 120 II and KH 750 DSP, therefore enabled by
-    default on both models (is_subwoofer only kept as a parameter in case a
-    differentiation becomes necessary later).
-    """
-    return NeumannKHSelectDescription(
-        key="input_interface",
-        translation_key="input_interface",
-        icon="mdi:audio-input-stereo-minijack",
-        options=list(INPUT_INTERFACE_OPTIONS),
-        entity_registry_enabled_default=True,
-        ssc_path=PATH_INPUT_INTERFACE_TYPE,
-    )
+# Confirmed writable on the KH 120 II and the KH 750 DSP, so it is the same on
+# every model and enabled by default. This used to be a builder taking
+# is_subwoofer "in case a differentiation becomes necessary later" - it never
+# was, and the argument only made the call sites look model-dependent.
+INPUT_INTERFACE_DESCRIPTION = NeumannKHSelectDescription(
+    key="input_interface",
+    translation_key="input_interface",
+    icon="mdi:audio-input-stereo-minijack",
+    options=list(INPUT_INTERFACE_OPTIONS),
+    entity_registry_enabled_default=True,
+    ssc_path=PATH_INPUT_INTERFACE_TYPE,
+)
 
 
 async def async_setup_entry(
@@ -68,11 +63,10 @@ async def async_setup_entry(
 ) -> None:
     """Sets up the select entities for a speaker."""
     coordinator: NeumannKHCoordinator = hass.data[DOMAIN][entry.entry_id]
-    is_subwoofer = entry.data.get(CONF_MODEL) in MODELS_WITH_SUBWOOFER_FEATURES
 
     descriptions = [
         CONTROL_MODE_DESCRIPTION,
-        _build_input_interface_description(is_subwoofer),
+        INPUT_INTERFACE_DESCRIPTION,
     ]
 
     async_add_entities(

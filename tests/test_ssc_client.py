@@ -511,12 +511,12 @@ async def test_cancelled_priority_request_does_not_wedge_the_poll_loop(server):
 
 
 def test_is_link_local():
-    assert SSCClient._is_link_local("fe80::1")
-    assert SSCClient._is_link_local("FE80::1")
-    assert SSCClient._is_link_local("febf::1")
-    assert not SSCClient._is_link_local("fec0::1")
-    assert not SSCClient._is_link_local("2001:db8::1")
-    assert not SSCClient._is_link_local("127.0.0.1")
+    assert SSCClient.is_link_local("fe80::1")
+    assert SSCClient.is_link_local("FE80::1")
+    assert SSCClient.is_link_local("febf::1")
+    assert not SSCClient.is_link_local("fec0::1")
+    assert not SSCClient.is_link_local("2001:db8::1")
+    assert not SSCClient.is_link_local("127.0.0.1")
 
 
 def test_connect_host_appends_scope_for_link_local():

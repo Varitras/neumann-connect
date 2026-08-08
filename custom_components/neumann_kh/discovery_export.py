@@ -119,7 +119,7 @@ async def _async_discover_via_schema(client: SSCClient) -> dict[str, Any]:
 
     try:
         await asyncio.wait_for(_walk((), 0), timeout=_SCHEMA_DISCOVERY_TIMEOUT)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         _LOGGER.debug(
             "osc/schema discovery aborted after %.0fs (using partial result)",
             _SCHEMA_DISCOVERY_TIMEOUT,

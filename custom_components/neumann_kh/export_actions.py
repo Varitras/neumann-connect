@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from homeassistant.components.persistent_notification import (
@@ -112,7 +112,7 @@ async def async_run_backup(
     # by the real one for mapping and retrieval.
     masked = mask_serial(serial)
     record = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "model": model,
         "serial": masked,
         "values": values,
@@ -173,7 +173,7 @@ async def async_run_discovery(
 
     masked = mask_serial(serial)
     record = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "model": model,
         "serial": masked,
         **discovery,

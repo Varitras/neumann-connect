@@ -1,0 +1,23 @@
+# Ruff is pinned in .github/workflows/ci.yml. Without the pin a new release
+# turns the build red for rules that did not exist when the code was written,
+# which is what happened on the 0.16.0 upgrade.
+
+# The oldest Python the supported Home Assistant version runs on (2025.2).
+# Without this Ruff assumes a much older Python and misjudges what is idiomatic.
+target-version = "py313"
+
+# Matches the code as it stands - only four lines exceed it today. Ruff's
+# default rule set does not check line length, so this only takes effect if
+# `ruff format` is ever run.
+line-length = 100
+
+[lint]
+# Added on top of the defaults, not instead of them - "select" would replace
+# the default set and silently drop rules that are already catching things.
+extend-select = ["B", "SLF"]
+
+[lint.per-file-ignores]
+# Tests reach into the client on purpose: asserting that a failure dropped the
+# connection means looking at _writer, and there is no public equivalent that
+# would not exist solely for the tests.
+"tests/*" = ["SLF001"]

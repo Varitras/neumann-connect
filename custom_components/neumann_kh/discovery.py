@@ -89,9 +89,15 @@ async def async_scan_for_speakers(
     aiozc = await ha_zeroconf.async_get_async_instance(hass)
     found_names: set[str] = set()
 
-    def _on_change(zeroconf, service_type, name, state_change) -> None:
-        # Parameter names must be exactly these - zeroconf calls with keyword
-        # arguments, renaming breaks the callback (see 1.8.1).
+    def _on_change(zeroconf, service_type, name, state_change) -> None:  # skipcq: PYL-W0613
+        # These four names are a contract, not a style choice: zeroconf's
+        # Signal.fire() passes them as keyword arguments (h(**kwargs)), so any
+        # rename raises TypeError rather than merely reading oddly - that was
+        # bug 1.8.1, where discovery silently found nothing.
+        #
+        # "zeroconf" and "service_type" are therefore unused on purpose.
+        # Renaming them to _zeroconf/_service_type to satisfy an analyser
+        # would reintroduce the bug, so the warning is suppressed instead.
         if state_change is ServiceStateChange.Added:
             found_names.add(name)
 

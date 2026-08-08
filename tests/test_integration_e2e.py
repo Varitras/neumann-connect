@@ -98,6 +98,22 @@ async def _setup_entry(hass, model: str, port: int, serial: str) -> MockConfigEn
     return entry
 
 
+def _find_entity(hass, entry, matches, description: str):
+    """The one registry entry of this config entry that `matches`.
+
+    A bare next() raises StopIteration here, which surfaces as an unrelated
+    error and names nothing. Renaming an entity should fail with what was
+    looked for, not with an empty iterator.
+    """
+    found = [
+        entity
+        for entity in er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id)
+        if matches(entity)
+    ]
+    assert found, f"no entity {description} on this config entry"
+    return found[0]
+
+
 async def _enable(hass, entry, suffix: str) -> None:
     """Enable an entity that is disabled by default, and reload for it.
 
@@ -106,26 +122,21 @@ async def _enable(hass, entry, suffix: str) -> None:
     once up front - and only once, because the reload builds new entity
     instances and would discard a pending two-click confirmation.
     """
-    registry = er.async_get(hass)
-    entity = next(
-        e
-        for e in er.async_entries_for_config_entry(registry, entry.entry_id)
-        if e.entity_id.endswith(suffix)
+    entity = _find_entity(
+        hass, entry, lambda e: e.entity_id.endswith(suffix), f"ending in {suffix!r}"
     )
-    registry.async_update_entity(entity.entity_id, disabled_by=None)
+    er.async_get(hass).async_update_entity(entity.entity_id, disabled_by=None)
     await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
 
 
 async def _press(hass, entry, suffix: str) -> None:
     """Press the button of this entry whose unique id ends with `suffix`."""
-    entity_id = next(
-        e.entity_id
-        for e in er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id)
-        if e.entity_id.endswith(suffix)
+    entity = _find_entity(
+        hass, entry, lambda e: e.entity_id.endswith(suffix), f"ending in {suffix!r}"
     )
     await hass.services.async_call(
-        "button", "press", {"entity_id": entity_id}, blocking=True
+        "button", "press", {"entity_id": entity.entity_id}, blocking=True
     )
     await hass.async_block_till_done()
 
@@ -217,11 +228,12 @@ async def test_restore_needs_two_presses_and_writes_back(hass, socket_enabled, t
         await _press(hass, entry, "_create_backup")
 
         # Change something so a restore has visible work to do.
-        mute = next(
-            e.entity_id
-            for e in er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id)
-            if e.entity_id.startswith("switch.") and e.entity_id.endswith("_mute")
-        )
+        mute = _find_entity(
+            hass,
+            entry,
+            lambda e: e.entity_id.startswith("switch.") and e.entity_id.endswith("_mute"),
+            "for the mute switch",
+        ).entity_id
         await hass.services.async_call(
             "switch", "turn_on", {"entity_id": mute}, blocking=True
         )
@@ -254,11 +266,9 @@ async def test_restore_refreshes_slow_polled_values_too(hass, socket_enabled, tm
         await _enable(hass, entry, "_device_name")
         await _enable(hass, entry, "_restore_backup")
 
-        name_entity = next(
-            e.entity_id
-            for e in er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id)
-            if e.entity_id.startswith("text.")
-        )
+        name_entity = _find_entity(
+            hass, entry, lambda e: e.entity_id.startswith("text."), "in the text domain"
+        ).entity_id
         original = hass.states.get(name_entity).state
         assert original and original != "unknown"
 
@@ -327,11 +337,9 @@ async def test_restore_writes_what_was_confirmed(hass, socket_enabled, tmp_path)
         await _enable(hass, entry, "_device_name")
         await _enable(hass, entry, "_restore_backup")
 
-        name_entity = next(
-            e.entity_id
-            for e in er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id)
-            if e.entity_id.startswith("text.")
-        )
+        name_entity = _find_entity(
+            hass, entry, lambda e: e.entity_id.startswith("text."), "in the text domain"
+        ).entity_id
         original_name = hass.states.get(name_entity).state
 
         await _press(hass, entry, "_create_backup")  # snapshot A
@@ -411,16 +419,12 @@ async def test_writing_a_value_reaches_the_device(hass, socket_enabled):
     async with _simulator(MODEL_KH_120_II) as port:
         entry = await _setup_entry(hass, MODEL_KH_120_II, port, "SIM0001234")
 
-        registry = er.async_get(hass)
-        mute = next(
-            (
-                e.entity_id
-                for e in er.async_entries_for_config_entry(registry, entry.entry_id)
-                if e.entity_id.startswith("switch.") and e.entity_id.endswith("_mute")
-            ),
-            None,
-        )
-        assert mute, "mute switch entity not found for this config entry"
+        mute = _find_entity(
+            hass,
+            entry,
+            lambda e: e.entity_id.startswith("switch.") and e.entity_id.endswith("_mute"),
+            "for the mute switch",
+        ).entity_id
 
         await hass.services.async_call(
             "switch", "turn_on", {"entity_id": mute}, blocking=True

@@ -54,6 +54,28 @@ _MAX_STALE_DRAIN_LINES = 256
 _MAX_STALE_DRAIN_SECONDS = 2.0
 
 
+def _limit_breached(remaining: float, lines: int, total_bytes: int) -> str | None:
+    """Which hard bound a response has crossed, or None while it is still fine.
+
+    One place instead of three: the counters only grow after a line has been
+    merged, so testing them before the next read is the same moment as testing
+    them right after the increment - and the caller ends up with one branch and
+    one log line rather than three of each.
+
+    Returns the phrase that names the breach, so the warning still says which
+    limit fired.
+    """
+    if remaining <= 0:
+        return f"kept sending for {_MAX_READ_SECONDS:.0f}s"
+    if lines >= _MAX_RESPONSE_LINES:
+        return f"sent more than {_MAX_RESPONSE_LINES} response lines"
+    if total_bytes >= _MAX_RESPONSE_BYTES:
+        # The line count alone bounds nothing useful: 256 lines of the maximum
+        # size would be a quarter of a gigabyte held in memory.
+        return f"sent more than {_MAX_RESPONSE_BYTES} bytes in one response"
+    return None
+
+
 class SSCConnectionError(Exception):
     """Raised when no connection to the speaker can be established."""
 
@@ -98,12 +120,12 @@ class SSCClient:
     def _connect_host(self) -> str:
         """Appends the scope ID for link-local addresses (fe80::/10, RFC 4291)."""
         host = self._host
-        if "%" not in host and self._interface and self._is_link_local(host):
+        if "%" not in host and self._interface and self.is_link_local(host):
             return f"{host}%{self._interface}"
         return host
 
     @staticmethod
-    def _is_link_local(host: str) -> bool:
+    def is_link_local(host: str) -> bool:
         """Checks whether an IPv6 address is in the link-local range fe80::/10."""
         prefix = host.lower().split("%", 1)[0][:4]
         if len(prefix) < 4 or not prefix.startswith("fe"):
@@ -121,7 +143,12 @@ class SSCClient:
                 ),
                 timeout=self._timeout,
             )
-        except (OSError, asyncio.TimeoutError) as err:
+        except OSError as err:
+            # Covers the connect timeout too: TimeoutError is an OSError
+            # subclass since Python 3.11, so naming both here would be
+            # redundant. The read loop depends on the same fact in reverse and
+            # must keep catching TimeoutError BEFORE OSError - swapping those
+            # two turns every settle-window timeout into a connection error.
             raise SSCConnectionError(
                 f"Connection to {self._connect_host}:{self._port} failed: {err}"
             ) from err
@@ -188,7 +215,7 @@ class SSCClient:
                     self._reader.readuntil(_MESSAGE_TERMINATOR),
                     timeout=min(_STALE_DRAIN_SECONDS, remaining),
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 # Nothing more waiting - the normal case by far.
                 return
             except asyncio.IncompleteReadError:
@@ -251,11 +278,10 @@ class SSCClient:
         while True:
             wait = self._settle_time if received else self._timeout
             remaining = deadline - asyncio.get_running_loop().time()
-            if remaining <= 0:
+            breach = _limit_breached(remaining, lines, total_bytes)
+            if breach is not None:
                 _LOGGER.warning(
-                    "Device %s kept sending for %.0fs, dropping the connection",
-                    self._host,
-                    _MAX_READ_SECONDS,
+                    "Device %s %s, dropping the connection", self._host, breach
                 )
                 limit_hit = True
                 break
@@ -264,7 +290,7 @@ class SSCClient:
                     self._reader.readuntil(_MESSAGE_TERMINATOR),
                     timeout=min(wait, remaining),
                 )
-            except asyncio.TimeoutError as err:
+            except TimeoutError as err:
                 if not received:
                     raise SSCTimeoutError(
                         f"No response from {self._host} within {self._timeout}s"
@@ -320,26 +346,10 @@ class SSCClient:
             if expect_path is not None and extract(merged, expect_path) is not None:
                 break
 
+            # Both bounds are evaluated at the top of the next pass, which is
+            # the same moment: nothing happens between here and there.
             lines += 1
             total_bytes += len(raw_line)
-            if lines >= _MAX_RESPONSE_LINES:
-                _LOGGER.warning(
-                    "Device %s sent more than %d response lines, dropping the connection",
-                    self._host,
-                    _MAX_RESPONSE_LINES,
-                )
-                limit_hit = True
-                break
-            if total_bytes >= _MAX_RESPONSE_BYTES:
-                # The line count alone bounds nothing useful: 256 lines of the
-                # maximum size would be a quarter of a gigabyte held in memory.
-                _LOGGER.warning(
-                    "Device %s sent more than %d bytes in one response, dropping the connection",
-                    self._host,
-                    _MAX_RESPONSE_BYTES,
-                )
-                limit_hit = True
-                break
 
         if limit_hit:
             # Unread lines are still queued on the socket. Keeping it would

@@ -291,7 +291,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 except ValueError:
                     errors["base"] = "invalid_ipv6"
                 else:
-                    if SSCClient._is_link_local(host) and not interface:
+                    if SSCClient.is_link_local(host) and not interface:
                         errors["base"] = "interface_required_for_link_local"
                     else:
                         identity = await _async_test_connection(host, port, interface)
@@ -369,7 +369,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             except ValueError:
                 errors["base"] = "invalid_ipv6"
             else:
-                if SSCClient._is_link_local(host) and not interface:
+                if SSCClient.is_link_local(host) and not interface:
                     errors["base"] = "interface_required_for_link_local"
                 else:
                     identity = await _async_test_connection(host, port, interface)

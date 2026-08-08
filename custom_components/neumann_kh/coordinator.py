@@ -106,7 +106,7 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             merged = await asyncio.wait_for(
                 self._poll_all_paths(paths), timeout=POLL_CYCLE_TIMEOUT_SECONDS
             )
-        except asyncio.TimeoutError as err:
+        except TimeoutError as err:
             raise UpdateFailed(
                 f"Neumann KH: poll cycle exceeded the time limit of "
                 f"{POLL_CYCLE_TIMEOUT_SECONDS}s"
