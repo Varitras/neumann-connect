@@ -38,6 +38,9 @@ konnten also nie einen Wert tragen oder ihre Aktion ausführen.
   wiederherstellbaren Wert enthält, statt Erfolg zu melden, ohne etwas
   geschrieben zu haben. Eine Discovery ohne gelesene Werte überschreibt die
   letzte brauchbare nicht mehr
+- Ein Zurückspielen, dessen Werte der Lautsprecher alle ablehnt, meldet jetzt
+  einen Fehler statt „zurückgespielt". Nichts zu schreiben und Erfolg zu melden
+  hinterließ den Eindruck, das Gerät sei umgeschrieben worden
 - Backup, Discovery und Zurückspielen haben jetzt eine Zeitgrenze. Sie liefen
   über alle bekannten Pfade, ohne dass irgendetwas sie beendet hätte - ein
   Lautsprecher, der antwortet, aber nie mit dem angefragten Pfad, konnte den

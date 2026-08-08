@@ -35,6 +35,9 @@ them could never hold a value or carry out their action.
 - A restore refuses a backup that holds no value this speaker can be restored
   from, instead of reporting success after writing nothing. A discovery that
   read nothing no longer replaces the last usable one
+- A restore whose every value the speaker refuses now reports an error
+  instead of "restored". Writing nothing and announcing success left the
+  impression that the speaker had been rewritten
 - Backup, discovery and restore now have a time limit. They walked every
   known path with nothing to end them, so a speaker that answers but never
   with the requested path could keep the button spinning for a quarter of an
