@@ -650,3 +650,43 @@ async def test_a_reset_while_reading_becomes_a_connection_error(socket_enabled):
     finally:
         await client.close()
         await _shutdown(raw_server, handled)
+
+
+async def test_a_slow_endless_talker_is_ended_by_the_time_limit(
+    socket_enabled, monkeypatch, caplog
+):
+    """The only bound that catches a device talking slowly but forever.
+
+    The line and byte caps need volume; a device that answers just often
+    enough to refresh the settle window reaches neither. The time limit is
+    what ends that read - and, just as importantly, drops the connection,
+    because unread lines are still queued on the socket.
+
+    Disabling that branch left every other test in this file green, and the
+    read then ended through the settle timeout instead: bounded in time, but
+    with the connection kept and nothing logged.
+    """
+    monkeypatch.setattr(ssc_client, "_MAX_READ_SECONDS", 0.5)
+
+    async def _handle(reader, writer):
+        await reader.readline()
+        # Faster than the settle window, so the read never ends on its own,
+        # and far too slow to reach the line or byte cap within the limit.
+        while True:
+            writer.write(json.dumps({"other": {"value": 1}}).encode() + b"\r\n")
+            await writer.drain()
+            await asyncio.sleep(_SETTLE / 5)
+
+    raw_server, handled = await _serve(_handle)
+    port = raw_server.sockets[0].getsockname()[1]
+    client = SSCClient(host="127.0.0.1", port=port, timeout=5.0, settle_time=_SETTLE)
+    try:
+        with caplog.at_level(logging.WARNING):
+            assert await client.get(("device", "name")) is None
+        assert "kept sending for" in caplog.text, (
+            f"the read ended through another path: {caplog.text}"
+        )
+        assert client._writer is None, "the connection was kept despite the limit"
+    finally:
+        await client.close()
+        await _shutdown(raw_server, handled)

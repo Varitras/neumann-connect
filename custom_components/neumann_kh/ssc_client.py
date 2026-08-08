@@ -286,9 +286,14 @@ class SSCClient:
                 limit_hit = True
                 break
             try:
+                # Deliberately not min(wait, remaining): shrinking the read
+                # timeout towards the deadline meant readuntil timed out just
+                # before it, so the read ended through the settle path with
+                # the connection kept and nothing logged - and the deadline
+                # branch below never ran. Overshooting the deadline by at most
+                # one settle window is the cheaper price.
                 raw_line = await asyncio.wait_for(
-                    self._reader.readuntil(_MESSAGE_TERMINATOR),
-                    timeout=min(wait, remaining),
+                    self._reader.readuntil(_MESSAGE_TERMINATOR), timeout=wait
                 )
             except TimeoutError as err:
                 if not received:
