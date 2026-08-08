@@ -24,7 +24,7 @@ from homeassistant.helpers.service_info.zeroconf import (
 )
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.neumann_kh.config_flow import DeviceIdentity
+from custom_components.neumann_kh.config_flow import _SELECTED_DEVICE, DeviceIdentity
 from custom_components.neumann_kh.const import (
     CONF_INTERFACE,
     CONF_MODEL,
@@ -640,12 +640,72 @@ def _speaker(host="fe80::1%2", port=45, name="KH120-SIMULATED._ssc._tcp.local.")
     return DiscoveredSpeaker(mdns_name=name, host=host, port=port)
 
 
+def _scan_option_labels(result) -> list[str]:
+    """The labels the discovery list actually offers."""
+    selector = result["data_schema"].schema[_SELECTED_DEVICE]
+    return [option["label"] for option in selector.config["options"]]
+
+
 async def test_scan_lists_what_answered(hass, _custom_integration):
+    """Asserting "a form appeared" would pass on an empty list too."""
     result = await _run_scan(hass, [_speaker()], [_GOOD_IDENTITY])
 
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "scan"
     assert not result.get("errors")
+
+    labels = _scan_option_labels(result)
+    assert any("Search again" in label or "Erneut suchen" in label for label in labels)
+    device = [label for label in labels if _GOOD_IDENTITY.serial in label]
+    assert device, labels
+    assert "KH 120 II" in device[0]
+    assert "fe80::1%2" in device[0]
+
+
+async def test_a_speaker_already_set_up_is_marked_as_such(hass, _custom_integration):
+    """Still selectable, but the list has to say it is already configured."""
+    entry = MockConfigEntry(
+        domain=DOMAIN, unique_id=_GOOD_IDENTITY.serial, data={CONF_HOST: "fe80::1"}
+    )
+    entry.add_to_hass(hass)
+
+    result = await _run_scan(hass, [_speaker()], [_GOOD_IDENTITY])
+
+    device = [
+        label for label in _scan_option_labels(result) if _GOOD_IDENTITY.serial in label
+    ]
+    assert device and ("already connected" in device[0] or "bereits verbunden" in device[0])
+
+
+async def test_a_foreign_vendor_is_flagged_in_the_list(hass, _custom_integration):
+    foreign = DeviceIdentity(product="Some Speaker", serial="X1", vendor="Other GmbH")
+
+    result = await _run_scan(hass, [_speaker()], [foreign])
+
+    device = [label for label in _scan_option_labels(result) if "X1" in label]
+    assert device and "Other GmbH" in device[0], device
+
+
+async def test_the_retry_button_starts_another_scan(hass, _custom_integration):
+    """The empty-result form submits back into the scan step."""
+    first = await _run_scan(hass, [], [])
+    assert first["errors"] == {"base": "no_devices_found"}
+
+    with (
+        patch(
+            "custom_components.neumann_kh.config_flow.async_scan_for_speakers",
+            return_value=[_speaker()],
+        ),
+        patch(
+            "custom_components.neumann_kh.config_flow._async_identify_all",
+            return_value=[(_GOOD_IDENTITY, _speaker())],
+        ),
+    ):
+        second = await hass.config_entries.flow.async_configure(first["flow_id"], {})
+
+    assert second["step_id"] == "scan"
+    assert not second.get("errors")
+    assert any(_GOOD_IDENTITY.serial in label for label in _scan_option_labels(second))
 
 
 async def test_scan_without_any_answer_offers_a_retry(hass, _custom_integration):
