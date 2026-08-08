@@ -35,6 +35,10 @@ them could never hold a value or carry out their action.
 - A restore refuses a backup that holds no value this speaker can be restored
   from, instead of reporting success after writing nothing. A discovery that
   read nothing no longer replaces the last usable one
+- Phase inversion is no longer polled or restored on the KH 750. Measured on
+  both test speakers, that path answers on the KH 120 II and is unknown on the
+  subwoofer, which therefore collected a rejected request every poll cycle and
+  one skipped value on every restore
 - The ten-second limit on a single response could not fire: the read timed
   out just before the deadline and ended as if the device had simply gone
   quiet. A speaker that keeps talking slowly now has its connection dropped,

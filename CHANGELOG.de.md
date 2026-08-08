@@ -38,6 +38,10 @@ konnten also nie einen Wert tragen oder ihre Aktion ausführen.
   wiederherstellbaren Wert enthält, statt Erfolg zu melden, ohne etwas
   geschrieben zu haben. Eine Discovery ohne gelesene Werte überschreibt die
   letzte brauchbare nicht mehr
+- Die Phasenumkehr wird auf der KH 750 nicht mehr abgefragt oder
+  zurückgespielt. An beiden Testgeräten gemessen: der Pfad antwortet auf der
+  KH 120 II und ist auf dem Subwoofer unbekannt, der damit pro Abfragezyklus
+  eine abgelehnte Anfrage und pro Restore einen übersprungenen Wert sammelte
 - Die Zehn-Sekunden-Grenze für eine einzelne Antwort konnte nicht greifen:
   der Lesevorgang lief kurz vor der Grenze in seine Zeitüberschreitung und
   endete, als wäre das Gerät einfach verstummt. Bei einem Lautsprecher, der
