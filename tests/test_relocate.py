@@ -242,7 +242,7 @@ async def test_silent_candidates_are_asked_concurrently(hass, _custom_integratio
         for i in range(8)
     ]
 
-    class _SlowClient:
+    class _SlowClient:  # skipcq: PYL-R0201, PTC-W0049 - a stand-in, not a design
         """Every candidate takes a while and none of them answers usefully."""
 
         def __init__(self, *args, **kwargs):

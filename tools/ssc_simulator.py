@@ -336,7 +336,8 @@ class SSCSimulator:
             node = node[key]
         node[path[-1]] = value
 
-    def _schema_level(self, node: dict[str, Any]) -> dict[str, Any]:
+    @staticmethod
+    def _schema_level(node: dict[str, Any]) -> dict[str, Any]:
         """One level of the address tree as osc/schema reports it.
 
         Containers are announced as an empty dict, leaves as null. Consumers

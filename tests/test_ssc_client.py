@@ -1,8 +1,8 @@
 """Tests for the SSC client against a real local asyncio TCP server.
 
-Short timeouts (settle 0.05 s, timeout 0.3 s) to keep the suite fast -
-the real production values (DEFAULT_QUERY_SETTLE, 3 s timeout) are
-deliberately not used here.
+A short settle window (0.05 s) keeps the suite fast; the connection timeout
+is deliberately generous, see the constants below. The production values
+(DEFAULT_QUERY_SETTLE, 3 s) are not used here.
 """
 
 from __future__ import annotations
@@ -432,7 +432,7 @@ async def test_write_failure_becomes_a_connection_error(server):
     try:
         await client.get(("device", "name"))  # establishes the connection
 
-        class _DeadWriter:
+        class _DeadWriter:  # skipcq: PYL-R0201, PTC-W0049 - a stand-in, not a design
             def write(self, _data):
                 raise BrokenPipeError("peer went away")
 
