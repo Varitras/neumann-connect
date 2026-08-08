@@ -72,6 +72,42 @@ async def _async_query_known_paths(
     return result
 
 
+async def _fetch_schema_subtree(
+    client: SSCClient, path: tuple[str, ...]
+) -> dict[str, Any] | None:
+    """Ask the device for the children of `path`, or None if it will not say.
+
+    Best-effort by contract: osc/schema is optional per the SSC specification
+    and many firmwares reject it outright. Every failure - a rejection, a lost
+    connection, a malformed answer - means the same thing to the caller, so
+    they all return None rather than propagating. The known-paths part of the
+    discovery has already been collected and must survive this.
+    """
+    request = (
+        {"osc": {"schema": None}}
+        if not path
+        else {"osc": {"schema": [build_nested(path, None)]}}
+    )
+    try:
+        response = await client.request(request)
+    except Exception:
+        _LOGGER.debug("osc/schema for path %s failed", path, exc_info=True)
+        return None
+
+    schema = extract(response, ("osc", "schema"))
+    if not schema:
+        return None
+
+    # Bundled or unbundled response form (see SSC specification) - both are a
+    # list of address trees; we look for the subtree at `path`.
+    entries = schema if isinstance(schema, list) else [schema]
+    for entry in entries:
+        candidate = extract(entry, path) if path else entry
+        if isinstance(candidate, dict):
+            return candidate
+    return None
+
+
 async def _async_discover_via_schema(client: SSCClient) -> dict[str, Any]:
     """Best-effort: query osc/schema recursively, query osc/limits per leaf.
 
@@ -86,31 +122,7 @@ async def _async_discover_via_schema(client: SSCClient) -> dict[str, Any]:
         if depth > _MAX_SCHEMA_DEPTH or node_count > _MAX_SCHEMA_NODES:
             return
 
-        request = {"osc": {"schema": None}} if not path else {"osc": {"schema": [build_nested(path, None)]}}
-        try:
-            response = await client.request(request)
-        except (SSCDeviceError, SSCConnectionError, SSCTimeoutError):
-            # Best-effort by contract: a device that does not support
-            # osc/schema, or drops the connection while walking it, must not
-            # cost us the known values already collected.
-            _LOGGER.debug("osc/schema for path %s failed", path, exc_info=True)
-            return
-        except Exception:
-            _LOGGER.debug("osc/schema for path %s failed", path, exc_info=True)
-            return
-
-        schema = extract(response, ("osc", "schema"))
-        if not schema:
-            return
-        # Bundled or unbundled response form (see SSC specification) - both are
-        # a list of address trees; we look for the subtree at `path`.
-        entries = schema if isinstance(schema, list) else [schema]
-        subtree: dict | None = None
-        for entry in entries:
-            candidate = extract(entry, path) if path else entry
-            if isinstance(candidate, dict):
-                subtree = candidate
-                break
+        subtree = await _fetch_schema_subtree(client, path)
         if subtree is None:
             return
 
@@ -122,11 +134,11 @@ async def _async_discover_via_schema(client: SSCClient) -> dict[str, Any]:
             if child_value == {}:
                 # Container - continue searching one level deeper.
                 await _walk(child_path, depth + 1)
-            else:
-                # Leaf (value was `null`) - query metadata via osc/limits.
-                limits = await _async_query_limits(client, child_path)
-                if limits is not None:
-                    deep_merge(result, build_nested(child_path, limits))
+                continue
+            # Leaf (value was `null`) - query metadata via osc/limits.
+            limits = await _async_query_limits(client, child_path)
+            if limits is not None:
+                deep_merge(result, build_nested(child_path, limits))
 
     try:
         await asyncio.wait_for(_walk((), 0), timeout=_SCHEMA_DISCOVERY_TIMEOUT)
