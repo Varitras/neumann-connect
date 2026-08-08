@@ -74,7 +74,7 @@ PATH_OUTPUT_LEVEL = ("audio", "out", "level")
 PATH_OUTPUT_DELAY = ("audio", "out", "delay")
 PATH_OUTPUT_MUTE = ("audio", "out", "mute")
 PATH_OUTPUT_LABEL = ("audio", "out", "label")  # KH 750 only
-PATH_OUTPUT_PHASE_INVERSION = ("audio", "out", "phaseinversion")  # non-subwoofer only
+PATH_OUTPUT_PHASE_INVERSION = ("audio", "out", "phaseinversion")  # see NON_SUBWOOFER_POLL_PATHS
 
 # Output level as a fixed SPL step (94/100/108/114 dB SPL), read-only
 # (rear-panel switch). Non-subwoofer models only.
@@ -168,7 +168,6 @@ POLL_PATHS = (
     PATH_OUTPUT_LEVEL,
     PATH_OUTPUT_DELAY,
     PATH_OUTPUT_MUTE,
-    PATH_OUTPUT_PHASE_INVERSION,
     PATH_METER_INPUT_LEVEL,
     PATH_METER_CLIP,
     PATH_STANDBY_ENABLED,
@@ -207,6 +206,12 @@ SLOW_POLL_EVERY_N_CYCLES = 10
 # Additional paths, only for models with subwoofer features. The
 # live measurements (metering, clip) and mutable output values stay in the
 # fast poll; static diagnostic/label values go into the slow one.
+# Measured: "audio/out/phaseinversion" is a 404 on the KH 750 and answers on
+# the KH 120 II. The switch was already model-gated (see switch.py), the poll
+# cycle and the restore allowlist were not - so the subwoofer collected one
+# rejected request per cycle and one pointless failure per restore.
+NON_SUBWOOFER_POLL_PATHS = (PATH_OUTPUT_PHASE_INVERSION,)
+
 SUBWOOFER_POLL_PATHS = (
     PATH_METER_OUTPUT_LEVEL,
     PATH_METER_OUTPUT_CLIP,

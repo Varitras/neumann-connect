@@ -668,18 +668,24 @@ async def test_a_slow_endless_talker_is_ended_by_the_time_limit(
     """
     monkeypatch.setattr(ssc_client, "_MAX_READ_SECONDS", 0.5)
 
+    # A generous settle window on purpose. What is under test is "lines keep
+    # arriving inside the window"; the shared 0.05 s left so little margin that
+    # a scheduler hiccup during the full suite ended the read through the
+    # settle path instead - green on its own, red under load.
+    settle = 0.3
+
     async def _handle(reader, writer):
         await reader.readline()
-        # Faster than the settle window, so the read never ends on its own,
-        # and far too slow to reach the line or byte cap within the limit.
+        # Far inside the settle window, so the read never ends on its own, and
+        # far too slow to reach the line or byte cap within the limit.
         while True:
             writer.write(json.dumps({"other": {"value": 1}}).encode() + b"\r\n")
             await writer.drain()
-            await asyncio.sleep(_SETTLE / 5)
+            await asyncio.sleep(0.01)
 
     raw_server, handled = await _serve(_handle)
     port = raw_server.sockets[0].getsockname()[1]
-    client = SSCClient(host="127.0.0.1", port=port, timeout=5.0, settle_time=_SETTLE)
+    client = SSCClient(host="127.0.0.1", port=port, timeout=5.0, settle_time=settle)
     try:
         with caplog.at_level(logging.WARNING):
             assert await client.get(("device", "name")) is None

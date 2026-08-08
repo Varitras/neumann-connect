@@ -73,7 +73,8 @@ _WRITABLE = {
     "PATH_OUTPUT_DELAY": ("KH 120 II", "KH 750"),
     "PATH_OUTPUT_LEVEL": ("KH 120 II", "KH 750"),
     "PATH_OUTPUT_MUTE": ("KH 120 II", "KH 750"),
-    "PATH_OUTPUT_PHASE_INVERSION": ("KH 120 II", "KH 750"),
+    # Measured: a 404 on the KH 750, answers on the KH 120 II.
+    "PATH_OUTPUT_PHASE_INVERSION": ("KH 120 II",),
     "PATH_STANDBY_AUTO_TIME": ("KH 120 II", "KH 750"),
     "PATH_STANDBY_ENABLED": ("KH 120 II", "KH 750"),
     "PATH_STANDBY_LEVEL": ("KH 120 II", "KH 750"),
@@ -174,3 +175,19 @@ def test_control_mode_is_written_last(model):
 def test_restorable_is_a_subset_of_the_backup(model):
     # Restoring a path that is never backed up could not work.
     assert set(restorable_paths_for_model(model)) <= set(known_paths_for_model(model))
+
+
+def test_phase_inversion_is_only_polled_and_restored_where_it_exists():
+    """Measured: a 404 on the KH 750, answers on the KH 120 II.
+
+    The switch was model-gated from the start, the poll cycle and the restore
+    allowlist were not - so the subwoofer collected one rejected request per
+    cycle and one pointless failure per restore. The comment on the constant
+    already said "non-subwoofer only" while the code below it disagreed.
+    """
+    from custom_components.neumann_kh import const
+
+    assert const.PATH_OUTPUT_PHASE_INVERSION in known_paths_for_model(_KH_120_II)
+    assert const.PATH_OUTPUT_PHASE_INVERSION not in known_paths_for_model(_KH_750)
+    assert const.PATH_OUTPUT_PHASE_INVERSION in restorable_paths_for_model(_KH_120_II)
+    assert const.PATH_OUTPUT_PHASE_INVERSION not in restorable_paths_for_model(_KH_750)

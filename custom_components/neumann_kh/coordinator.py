@@ -25,6 +25,7 @@ from ._util import build_nested, deep_merge
 from .const import (
     MODELS_WITH_LOGO_BRIGHTNESS,
     MODELS_WITH_SUBWOOFER_FEATURES,
+    NON_SUBWOOFER_POLL_PATHS,
     PATH_LOGO_BRIGHTNESS,
     POLL_CYCLE_TIMEOUT_SECONDS,
     POLL_PATHS,
@@ -60,6 +61,10 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Logo brightness only on matching models (not KH 750 DSP).
         if model in MODELS_WITH_LOGO_BRIGHTNESS:
             self._poll_paths.append(PATH_LOGO_BRIGHTNESS)
+        # Paths the subwoofer answers with a 404 - asking it every cycle only
+        # earns a rejection (see NON_SUBWOOFER_POLL_PATHS).
+        if model not in MODELS_WITH_SUBWOOFER_FEATURES:
+            self._poll_paths.extend(NON_SUBWOOFER_POLL_PATHS)
         # Subwoofer-specific paths only on a detected subwoofer.
         if model in MODELS_WITH_SUBWOOFER_FEATURES:
             self._poll_paths.extend(SUBWOOFER_POLL_PATHS)

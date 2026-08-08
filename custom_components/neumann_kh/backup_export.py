@@ -12,6 +12,7 @@ from ._util import build_nested, deep_merge
 from .const import (
     MODELS_WITH_LOGO_BRIGHTNESS,
     MODELS_WITH_SUBWOOFER_FEATURES,
+    NON_SUBWOOFER_POLL_PATHS,
     PATH_DEVICE_NAME,
     PATH_INPUT_INTERFACE_TYPE,
     PATH_LOGO_BRIGHTNESS,
@@ -75,6 +76,10 @@ def known_paths_for_model(model: str | None) -> list[tuple[str, ...]]:
         paths.append(PATH_LOGO_BRIGHTNESS)
     if model in MODELS_WITH_SUBWOOFER_FEATURES:
         paths += list(SUBWOOFER_POLL_PATHS) + list(SUBWOOFER_SLOW_POLL_PATHS)
+    else:
+        # Mirrors the coordinator. Without this the phase inversion would drop
+        # out of the monitors' backups the moment it left POLL_PATHS.
+        paths += list(NON_SUBWOOFER_POLL_PATHS)
     paths += list(eq_leaf_paths(model))
     return paths
 
@@ -93,7 +98,6 @@ _RESTORABLE_COMMON = (
     PATH_OUTPUT_LEVEL,
     PATH_OUTPUT_DELAY,
     PATH_OUTPUT_MUTE,
-    PATH_OUTPUT_PHASE_INVERSION,
     PATH_STANDBY_AUTO_TIME,
     PATH_STANDBY_LEVEL,
     PATH_INPUT_INTERFACE_TYPE,
@@ -123,8 +127,10 @@ def restorable_paths_for_model(model: str | None) -> list[tuple[str, ...]]:
         # Auto standby is writable on the monitors and read-only on the
         # subwoofer, which is why it is a switch on one and a binary sensor on
         # the other (see switch.py / binary_sensor.py). Writing it there only
-        # earns a rejection.
+        # earns a rejection. Phase inversion is the same story one step
+        # further: the KH 750 answers that path with a 404.
         paths.append(PATH_STANDBY_ENABLED)
+        paths.append(PATH_OUTPUT_PHASE_INVERSION)
     if model in MODELS_WITH_LOGO_BRIGHTNESS:
         paths.append(PATH_LOGO_BRIGHTNESS)
     if model in MODELS_WITH_SUBWOOFER_FEATURES:
