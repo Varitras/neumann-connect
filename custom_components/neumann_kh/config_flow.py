@@ -657,9 +657,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             speakers = await async_scan_for_speakers(self.hass)
         except Exception:
             _LOGGER.exception("Unexpected error during the mDNS scan")
-            return self.async_show_form(
-                step_id="scan", data_schema=vol.Schema({}), errors={"base": "scan_failed"}
-            )
+            return self._rescan_form("scan_failed")
 
         self._discovered = {}
         self._discovery_info = {}
@@ -683,56 +681,19 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if not self._discovered:
             # Empty schema = only a submit button that triggers the scan again.
-            return self.async_show_form(
-                step_id="scan", data_schema=vol.Schema({}), errors={"base": "no_devices_found"}
-            )
+            return self._rescan_form("no_devices_found")
 
         return self.async_show_form(step_id="scan", data_schema=self._build_scan_schema())
 
-    async def async_step_scan_confirm(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        """Second step: assign a name (pre-filled if the device is known)."""
-        errors: dict[str, str] = {}
-        candidate = self._discovered.get(self._pending_key or "")
-        identity = self._discovery_info.get(self._pending_key or "")
-
-        if candidate is None or identity is None:
-            # Discovery result expired (e.g. flow open too long) -> rescan.
-            return self.async_show_form(
-                step_id="scan", data_schema=vol.Schema({}), errors={"base": "discovery_expired"}
-            )
-
-        if user_input is not None:
-            name = user_input.get(CONF_NAME, "").strip()
-            if not name:
-                errors["base"] = "name_required"
-            else:
-                unique_id = identity.serial or f"{candidate.host}_{candidate.port}"
-                await self.async_set_unique_id(str(unique_id))
-                self._abort_if_unique_id_configured()
-                if identity.serial:
-                    await storage.async_remember_name(self.hass, identity.serial, name)
-
-                entry_data = {
-                    CONF_NAME: name,
-                    CONF_HOST: candidate.host,
-                    # Scope ID is already contained in candidate.host (%<scope>).
-                    CONF_INTERFACE: "",
-                    CONF_PORT: candidate.port,
-                    CONF_MODEL: identity.product or FALLBACK_MODEL,
-                    CONF_SERIAL: identity.serial or "",
-                    CONF_VENDOR: identity.vendor or "",
-                    CONF_FIRMWARE_VERSION: identity.version or "",
-                }
-                if not identity.is_neumann:
-                    self._pending_entry = entry_data
-                    self._pending_identity = identity
-                    return await self.async_step_unsupported()
-
-                return self.async_create_entry(title=name, data=entry_data)
-
+    async def _show_scan_confirm_form(
+        self, identity: DeviceIdentity, candidate: DiscoveredSpeaker, error: str | None
+    ) -> ConfigFlowResult:
+        """Ask for a name, pre-filled if this speaker carried one before."""
         remembered_name = None
         if identity.serial:
-            remembered_name = await storage.async_get_remembered_name(self.hass, identity.serial)
+            remembered_name = await storage.async_get_remembered_name(
+                self.hass, identity.serial
+            )
 
         schema = vol.Schema({vol.Required(CONF_NAME): str})
         if remembered_name:
@@ -741,11 +702,56 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="scan_confirm",
             data_schema=schema,
-            errors=errors,
+            errors={"base": error} if error else {},
             description_placeholders={
                 "device": f"{identity.product or FALLBACK_MODEL} – {candidate.host}"
             },
         )
+
+    def _rescan_form(self, error: str) -> ConfigFlowResult:
+        """Empty schema: a single button that starts the search over."""
+        return self.async_show_form(
+            step_id="scan", data_schema=vol.Schema({}), errors={"base": error}
+        )
+
+    async def async_step_scan_confirm(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Second step: assign a name (pre-filled if the device is known)."""
+        candidate = self._discovered.get(self._pending_key or "")
+        identity = self._discovery_info.get(self._pending_key or "")
+        if candidate is None or identity is None:
+            # Discovery result expired (e.g. flow open too long) -> rescan.
+            return self._rescan_form("discovery_expired")
+
+        if user_input is None:
+            return await self._show_scan_confirm_form(identity, candidate, None)
+
+        name = user_input.get(CONF_NAME, "").strip()
+        if not name:
+            return await self._show_scan_confirm_form(identity, candidate, "name_required")
+
+        unique_id = identity.serial or f"{candidate.host}_{candidate.port}"
+        await self.async_set_unique_id(str(unique_id))
+        self._abort_if_unique_id_configured()
+        if identity.serial:
+            await storage.async_remember_name(self.hass, identity.serial, name)
+
+        entry_data = {
+            CONF_NAME: name,
+            CONF_HOST: candidate.host,
+            # Scope ID is already contained in candidate.host (%<scope>).
+            CONF_INTERFACE: "",
+            CONF_PORT: candidate.port,
+            CONF_MODEL: identity.product or FALLBACK_MODEL,
+            CONF_SERIAL: identity.serial or "",
+            CONF_VENDOR: identity.vendor or "",
+            CONF_FIRMWARE_VERSION: identity.version or "",
+        }
+        if not identity.is_neumann:
+            self._pending_entry = entry_data
+            self._pending_identity = identity
+            return await self.async_step_unsupported()
+
+        return self.async_create_entry(title=name, data=entry_data)
 
     def _build_scan_schema(self) -> vol.Schema:
         """Build the selection form from the most recently discovered devices."""

@@ -606,3 +606,158 @@ async def test_manual_setup_of_a_foreign_device_asks_first(hass, _custom_integra
 
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "unsupported"
+
+
+# --- Active scan -----------------------------------------------------------
+#
+# The other untested flow path. Written before the step is touched, so they
+# describe the behaviour as it stands rather than as it ends up.
+
+
+async def _run_scan(hass, found, identities):
+    """Open the scan step with `found` speakers answering with `identities`."""
+    with (
+        patch(
+            "custom_components.neumann_kh.config_flow.async_scan_for_speakers",
+            return_value=found,
+        ),
+        patch(
+            "custom_components.neumann_kh.config_flow._async_identify_all",
+            return_value=list(zip(identities, found, strict=True)),
+        ),
+    ):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": "user"}
+        )
+        return await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"next_step_id": "scan"}
+        )
+
+
+def _speaker(host="fe80::1%2", port=45, name="KH120-SIMULATED._ssc._tcp.local."):
+    from custom_components.neumann_kh.discovery import DiscoveredSpeaker
+
+    return DiscoveredSpeaker(mdns_name=name, host=host, port=port)
+
+
+async def test_scan_lists_what_answered(hass, _custom_integration):
+    result = await _run_scan(hass, [_speaker()], [_GOOD_IDENTITY])
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "scan"
+    assert not result.get("errors")
+
+
+async def test_scan_without_any_answer_offers_a_retry(hass, _custom_integration):
+    """A silent candidate is not a device: the list must not offer it."""
+    result = await _run_scan(
+        hass, [_speaker()], [DeviceIdentity(error_key="cannot_connect")]
+    )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "no_devices_found"}
+
+
+async def test_a_failing_scan_says_so(hass, _custom_integration):
+    with patch(
+        "custom_components.neumann_kh.config_flow.async_scan_for_speakers",
+        side_effect=OSError("no network"),
+    ):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": "user"}
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"next_step_id": "scan"}
+        )
+
+    assert result["errors"] == {"base": "scan_failed"}
+
+
+async def _pick_and_name(hass, result, name):
+    """Select the single discovered device, then submit `name`."""
+    with patch("custom_components.neumann_kh.async_setup_entry", return_value=True):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"selected_device": _GOOD_IDENTITY.serial}
+        )
+        return await hass.config_entries.flow.async_configure(
+            result["flow_id"], {CONF_NAME: name}
+        )
+
+
+async def test_scan_creates_the_entry_from_the_selected_device(hass, _custom_integration):
+    listing = await _run_scan(hass, [_speaker()], [_GOOD_IDENTITY])
+
+    result = await _pick_and_name(hass, listing, "Right")
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY, result.get("errors")
+    assert result["title"] == "Right"
+    assert result["data"][CONF_SERIAL] == _GOOD_IDENTITY.serial
+    # The scope id travels inside the discovered address, so no separate value.
+    assert result["data"][CONF_HOST] == "fe80::1%2"
+    assert result["data"][CONF_INTERFACE] == ""
+
+
+async def test_scan_confirm_needs_a_name(hass, _custom_integration):
+    listing = await _run_scan(hass, [_speaker()], [_GOOD_IDENTITY])
+
+    result = await _pick_and_name(hass, listing, "  ")
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "name_required"}
+
+
+async def test_scan_confirm_of_a_foreign_device_asks_first(hass, _custom_integration):
+    foreign = DeviceIdentity(product="Some Speaker", serial="X1", vendor="Other GmbH")
+    with (
+        patch(
+            "custom_components.neumann_kh.config_flow.async_scan_for_speakers",
+            return_value=[_speaker()],
+        ),
+        patch(
+            "custom_components.neumann_kh.config_flow._async_identify_all",
+            return_value=[(foreign, _speaker())],
+        ),
+    ):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": "user"}
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"next_step_id": "scan"}
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"selected_device": "X1"}
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {CONF_NAME: "Odd one"}
+        )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "unsupported"
+
+
+async def test_an_expired_discovery_sends_you_back_to_the_scan(hass, _custom_integration):
+    """The result can be dropped while the naming form is still open.
+
+    Not reachable by submitting an unknown key - the list is a select with
+    fixed options, so Home Assistant rejects that before the step runs. What
+    does happen is a rescan clearing the result behind an open form, which is
+    what this reproduces.
+    """
+    listing = await _run_scan(hass, [_speaker()], [_GOOD_IDENTITY])
+
+    result = await hass.config_entries.flow.async_configure(
+        listing["flow_id"], {"selected_device": _GOOD_IDENTITY.serial}
+    )
+    assert result["step_id"] == "scan_confirm"
+
+    flow = hass.config_entries.flow._progress[listing["flow_id"]]
+    flow._discovered = {}
+    flow._discovery_info = {}
+
+    result = await hass.config_entries.flow.async_configure(
+        listing["flow_id"], {CONF_NAME: "Right"}
+    )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "scan"
+    assert result["errors"] == {"base": "discovery_expired"}
