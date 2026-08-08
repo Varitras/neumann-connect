@@ -109,8 +109,8 @@ async def test_a_device_that_refuses_the_schema_yields_nothing(answer):
     time this runs; letting an error out would throw that away.
     """
 
-    class _Refusing:  # skipcq: PYL-R0201 - a stand-in, not a design
-        async def request(self, payload):
+    class _Refusing:
+        async def request(self, payload):  # skipcq: PYL-R0201 - a stand-in, not a design
             raise answer
 
     assert await _fetch_schema_subtree(_Refusing(), ()) is None

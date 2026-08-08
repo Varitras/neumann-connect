@@ -242,17 +242,17 @@ async def test_silent_candidates_are_asked_concurrently(hass, _custom_integratio
         for i in range(8)
     ]
 
-    class _SlowClient:  # skipcq: PYL-R0201, PTC-W0049 - a stand-in, not a design
+    class _SlowClient:
         """Every candidate takes a while and none of them answers usefully."""
 
-        def __init__(self, *args, **kwargs):
+        def __init__(self, *args, **kwargs):  # skipcq: PTC-W0049 - a stand-in, not a design
             pass
 
-        async def get(self, path):
+        async def get(self, path):  # skipcq: PYL-R0201 - a stand-in, not a design
             await asyncio.sleep(0.2)
             return "SIM0009999"  # never the entry's serial
 
-        async def close(self):
+        async def close(self):  # skipcq: PYL-R0201 - a stand-in, not a design
             return None
 
     with patch(

@@ -432,14 +432,14 @@ async def test_write_failure_becomes_a_connection_error(server):
     try:
         await client.get(("device", "name"))  # establishes the connection
 
-        class _DeadWriter:  # skipcq: PYL-R0201, PTC-W0049 - a stand-in, not a design
-            def write(self, _data):
+        class _DeadWriter:
+            def write(self, _data):  # skipcq: PYL-R0201 - a stand-in, not a design
                 raise BrokenPipeError("peer went away")
 
-            def is_closing(self):
+            def is_closing(self):  # skipcq: PYL-R0201 - a stand-in, not a design
                 return False
 
-            def close(self):
+            def close(self):  # skipcq: PTC-W0049 - a stand-in, not a design
                 pass
 
         client._writer = _DeadWriter()

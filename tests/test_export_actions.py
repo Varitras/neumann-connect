@@ -443,8 +443,8 @@ async def test_a_backup_that_runs_out_of_time_saves_nothing(monkeypatch):
     """A partial snapshot is worse than none - it looks complete."""
     monkeypatch.setattr(backup_export, "DEVICE_ACTION_TIMEOUT_SECONDS", 0.1)
 
-    class _SlowReader:  # skipcq: PYL-R0201 - a stand-in, not a design
-        async def get(self, path):
+    class _SlowReader:
+        async def get(self, path):  # skipcq: PYL-R0201 - a stand-in, not a design
             await asyncio.sleep(0.05)
             return 1
 
@@ -465,11 +465,10 @@ async def test_a_restore_the_device_refuses_entirely_is_not_a_success():
 
     client = _RefusingClient(answers_none=set())
     coordinator = _FakeCoordinator(client)
+    hass, entry, backup = _FakeHass(), _FakeEntry(_KH_120_II), _backup_covering(_KH_120_II)
 
     with pytest.raises(HomeAssistantError) as err:
-        await async_run_restore(
-            _FakeHass(), _FakeEntry(_KH_120_II), coordinator, _backup_covering(_KH_120_II)
-        )
+        await async_run_restore(hass, entry, coordinator, backup)
 
     assert err.value.translation_key == "restore_nothing_written"
     assert not coordinator.applied, "nothing was confirmed, so nothing may be applied"

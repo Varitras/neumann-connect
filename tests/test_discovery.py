@@ -62,7 +62,7 @@ async def test_resolution_stops_at_a_bound(monkeypatch):
     monkeypatch.setattr(discovery, "_MAX_RESOLVE_SERVICES", 3)
     resolved: list[str] = []
 
-    class _FakeInfo:  # skipcq: PYL-R0201 - a stand-in, not a design
+    class _FakeInfo:
         port = 45
 
         def __init__(self, service_type, name):
@@ -72,10 +72,10 @@ async def test_resolution_stops_at_a_bound(monkeypatch):
             resolved.append(self.name)
             return True
 
-        def parsed_scoped_addresses(self):
+        def parsed_scoped_addresses(self):  # skipcq: PYL-R0201 - a stand-in, not a design
             return ["fe80::1%2"]
 
-    class _FakeBrowser:  # skipcq: PYL-R0201 - a stand-in, not a design
+    class _FakeBrowser:
         def __init__(self, *args, **kwargs):
             handlers = kwargs.get("handlers") or args[2]
             for index in range(10):
@@ -84,7 +84,7 @@ async def test_resolution_stops_at_a_bound(monkeypatch):
                     discovery.ServiceStateChange.Added,
                 )
 
-        async def async_cancel(self):
+        async def async_cancel(self):  # skipcq: PYL-R0201 - a stand-in, not a design
             return None
 
     hass = AsyncMock()
