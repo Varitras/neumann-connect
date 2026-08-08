@@ -63,10 +63,14 @@ def _integration_env(enable_custom_integrations, mock_async_zeroconf):
 async def _simulator(model: str):
     """Run a simulator on an ephemeral loopback port for the test."""
     simulator = SSCSimulator(model)
+    handlers: set[asyncio.Task] = set()
 
     async def connected(
         reader: asyncio.StreamReader, writer: asyncio.StreamWriter
     ) -> None:
+        task = asyncio.current_task()
+        if task is not None:
+            handlers.add(task)
         await _handle_client(simulator, reader, writer)
 
     # IPv4: the HA test plugin only allows 127.0.0.1 (socket_allow_hosts).
@@ -74,6 +78,15 @@ async def _simulator(model: str):
     try:
         yield server.sockets[0].getsockname()[1]
     finally:
+        # Closing the server does not end a handler that is still serving an
+        # open connection; the Home Assistant harness then fails the teardown
+        # with "lingering task", intermittently and under load only. Same
+        # treatment as _serve() in test_ssc_client.py.
+        for task in handlers:
+            task.cancel()
+        for task in handlers:
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await task
         server.close()
         with contextlib.suppress(asyncio.TimeoutError):
             await asyncio.wait_for(server.wait_closed(), timeout=1)

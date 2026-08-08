@@ -157,3 +157,18 @@ async def test_a_timeout_keeps_what_was_already_collected(monkeypatch):
 
     assert result == {"first": {"type": "Number"}}, result
     assert client.reached_second, "it stopped before the leaf that hangs"
+
+
+async def test_the_depth_budget_counts_levels_descended(monkeypatch):
+    """The sibling of the node budget, and it had no test at all.
+
+    With a limit of one level, the root's children may be listed but nothing
+    below them may be opened. The check used "greater than" like the node
+    count did, which let one level more through than the name promises.
+    """
+    monkeypatch.setattr(discovery_export, "_MAX_SCHEMA_DEPTH", 1)
+    client = _SchemaClient({"container": {"leaf": None, "deeper": {"buried": None}}})
+
+    await _async_discover_via_schema(client)
+
+    assert client.limits_asked == [], client.limits_asked

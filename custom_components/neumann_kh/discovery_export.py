@@ -24,7 +24,9 @@ from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeou
 _LOGGER = logging.getLogger(__name__)
 
 # Protection against an unexpectedly huge or endless command tree in case a
-# device does support osc/schema.
+# device does support osc/schema. Both are compared with ">=", so they mean
+# what they say: at most this many nodes, at most this many levels below the
+# root. The node count used to be compared with ">" and allowed one more.
 _MAX_SCHEMA_NODES = 500
 _MAX_SCHEMA_DEPTH = 10
 # Overall time limit for the best-effort schema part (osc/schema + osc/limits).
@@ -119,7 +121,7 @@ async def _async_discover_via_schema(client: SSCClient) -> dict[str, Any]:
 
     async def _walk(path: tuple[str, ...], depth: int) -> None:
         nonlocal node_count
-        if depth > _MAX_SCHEMA_DEPTH or node_count >= _MAX_SCHEMA_NODES:
+        if depth >= _MAX_SCHEMA_DEPTH or node_count >= _MAX_SCHEMA_NODES:
             return
 
         subtree = await _fetch_schema_subtree(client, path)

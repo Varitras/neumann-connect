@@ -365,9 +365,6 @@ async def async_run_restore(
     # apply_confirmed_values() also maintains the slow-poll cache - without
     # that, the next fast cycle would re-merge stale values and the restore
     # would snap back (see the 1.15.1 regression).
-    if confirmed_values:
-        coordinator.apply_confirmed_values(confirmed_values)
-
     if not confirmed_values:
         # Every path was refused or went unconfirmed. Announcing a successful
         # restore of nothing is worse than an error: the user walks away
@@ -377,6 +374,8 @@ async def async_run_restore(
             translation_key="restore_nothing_written",
             translation_placeholders={"skipped": str(skipped)},
         )
+
+    coordinator.apply_confirmed_values(confirmed_values)
 
     _LOGGER.debug(
         "Restore for %s: %d written, %d adjusted, %d skipped",
