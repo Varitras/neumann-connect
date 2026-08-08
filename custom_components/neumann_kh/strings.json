@@ -275,12 +275,6 @@
     "name_rejected": {
       "message": "The speaker rejected the new name: {error}"
     },
-    "backup_in_progress": {
-      "message": "A backup is already running, please wait."
-    },
-    "discovery_in_progress": {
-      "message": "A discovery is already running, please wait."
-    },
     "backup_failed": {
       "message": "Backup failed: {error}"
     },
@@ -295,9 +289,6 @@
     },
     "restore_serial_mismatch": {
       "message": "The stored backup belongs to a different speaker. Nothing was written."
-    },
-    "restore_in_progress": {
-      "message": "A restore is already running, please wait."
     },
     "restore_interrupted": {
       "message": "The connection dropped after {written} values had already been written; the speaker is only partly restored. Press again once it is reachable. ({error})"
@@ -319,6 +310,9 @@
     },
     "restore_timed_out": {
       "message": "The restore was stopped after {seconds} seconds; {written} values had been written by then. The speaker is only partly restored - press again to continue."
+    },
+    "device_action_in_progress": {
+      "message": "Another action is still running on this speaker (backup, discovery, restore or factory reset). Wait for it to finish, then press again."
     }
   }
 }

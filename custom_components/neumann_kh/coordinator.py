@@ -55,6 +55,16 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         self.client = client
         self.model = model
+        # Held for a whole button action (backup, discovery, restore, factory
+        # reset), not for a single request. The client's lock serialises
+        # individual messages, which is not enough: a backup running while a
+        # restore writes reads some values from before and some from after,
+        # and that mixed snapshot then replaces the last good one.
+        #
+        # Deliberately NOT taken by the poll cycle. Blocking it would drop
+        # every entity to unavailable for the duration of a backup; the
+        # client's priority mechanism already keeps user actions ahead of it.
+        self.action_lock = asyncio.Lock()
         # Fast paths: every cycle. Slow paths: only every N cycles.
         self._poll_paths = list(POLL_PATHS)
         self._slow_poll_paths = list(SLOW_POLL_PATHS)

@@ -17,6 +17,7 @@ fetching it.
 
 from __future__ import annotations
 
+import asyncio
 import time
 
 from homeassistant.components.button import ButtonEntity, ButtonEntityDescription
@@ -53,6 +54,21 @@ from .ssc_client import SSCConnectionError, SSCDeviceError, SSCTimeoutError
 # Time window within which a second press of "factory reset" actually
 # triggers the reset. After it elapses, it must be "armed" again.
 _RESTORE_CONFIRM_WINDOW_SECONDS = 30
+
+
+def _claim_device(coordinator: NeumannKHCoordinator) -> asyncio.Lock:
+    """Refuse the press if another action already owns the device.
+
+    Waiting would be worse than refusing: these actions are long and two of
+    them rewrite the speaker, so a queued second press would fire minutes
+    later on a device the user has stopped watching.
+    """
+    if coordinator.action_lock.locked():
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="device_action_in_progress",
+        )
+    return coordinator.action_lock
 
 
 RESTORE_DESCRIPTION = ButtonEntityDescription(
@@ -124,7 +140,12 @@ class NeumannKHRestoreButton(NeumannKHEntity, ButtonEntity):
             self._armed_at = None
             async_dismiss_notification(self.hass, self._notification_id)
             try:
-                await self.coordinator.client.set(PATH_RESTORE, RESTORE_FACTORY_DEFAULTS_VALUE)
+                # The most destructive action of the four, and the only one
+                # that never had a guard.
+                async with _claim_device(self.coordinator):
+                    await self.coordinator.client.set(
+                        PATH_RESTORE, RESTORE_FACTORY_DEFAULTS_VALUE
+                    )
             except SSCDeviceError as err:
                 raise HomeAssistantError(
                     translation_domain=DOMAIN,
@@ -179,19 +200,10 @@ class NeumannKHBackupButton(NeumannKHEntity, ButtonEntity):
     def __init__(self, coordinator: NeumannKHCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry)
         self._attr_unique_id = f"{self._unique_id_base}_create_backup"
-        self._running = False
 
     async def async_press(self) -> None:
-        if self._running:
-            raise HomeAssistantError(
-                translation_domain=DOMAIN,
-                translation_key="backup_in_progress",
-            )
-        self._running = True
-        try:
+        async with _claim_device(self.coordinator):
             await async_run_backup(self.hass, self._entry, self.coordinator.client)
-        finally:
-            self._running = False
 
 
 class NeumannKHDiscoveryButton(NeumannKHEntity, ButtonEntity):
@@ -202,19 +214,10 @@ class NeumannKHDiscoveryButton(NeumannKHEntity, ButtonEntity):
     def __init__(self, coordinator: NeumannKHCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry)
         self._attr_unique_id = f"{self._unique_id_base}_run_discovery"
-        self._running = False
 
     async def async_press(self) -> None:
-        if self._running:
-            raise HomeAssistantError(
-                translation_domain=DOMAIN,
-                translation_key="discovery_in_progress",
-            )
-        self._running = True
-        try:
+        async with _claim_device(self.coordinator):
             await async_run_discovery(self.hass, self._entry, self.coordinator.client)
-        finally:
-            self._running = False
 
 
 class NeumannKHRestoreBackupButton(NeumannKHEntity, ButtonEntity):
@@ -232,32 +235,22 @@ class NeumannKHRestoreBackupButton(NeumannKHEntity, ButtonEntity):
         self._attr_unique_id = f"{self._unique_id_base}_restore_backup"
         self._armed_at: float | None = None
         self._armed_backup: dict | None = None
-        self._running = False
         self._notification_id = f"{self._unique_id_base}_restore_backup_confirm"
 
     async def async_press(self) -> None:
-        if self._running:
-            raise HomeAssistantError(
-                translation_domain=DOMAIN,
-                translation_key="restore_in_progress",
-            )
-
         now = time.monotonic()
         if self._armed_at is not None and (now - self._armed_at) <= _RESTORE_CONFIRM_WINDOW_SECONDS:
             armed_backup = self._armed_backup
             self._armed_at = None
             self._armed_backup = None
             async_dismiss_notification(self.hass, self._notification_id)
-            self._running = True
-            try:
-                # Restore exactly what was confirmed. Re-reading here would
-                # pick up a backup created between the two presses, so the
-                # user would confirm one snapshot and get another.
+            # Restore exactly what was confirmed. Re-reading here would pick
+            # up a backup created between the two presses, so the user would
+            # confirm one snapshot and get another.
+            async with _claim_device(self.coordinator):
                 await async_run_restore(
                     self.hass, self._entry, self.coordinator, armed_backup
                 )
-            finally:
-                self._running = False
             return
 
         # First press: validate before arming, so a mismatched or missing
