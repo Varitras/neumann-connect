@@ -245,6 +245,30 @@ async def _async_identify_all(
     return list(await asyncio.gather(*(_one(speaker) for speaker in speakers)))
 
 
+def _scan_option_label(
+    identity: DeviceIdentity, host: str, configured_serials: set[str], de: bool
+) -> str:
+    """One line of the discovery list: what was found, and what is notable.
+
+    Building the label is text assembly, not flow control - keeping it out of
+    the schema builder leaves that function about the schema.
+    """
+    label = f"{identity.product or FALLBACK_MODEL} – {host}"
+    if identity.serial:
+        label += f" (Serial: {identity.serial})"
+    if identity.serial in configured_serials:
+        label += " — ✓ bereits verbunden" if de else " — ✓ already connected"
+    if not identity.is_neumann:
+        # Kept selectable on purpose: SSC is not Neumann-exclusive, so the
+        # device may still work - the label just says what it is.
+        label += (
+            f" — ⚠ kein Neumann-Gerät ({identity.vendor})"
+            if de
+            else f" — ⚠ not a Neumann device ({identity.vendor})"
+        )
+    return label
+
+
 class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Config Flow, one entry per physical speaker."""
 
@@ -347,66 +371,10 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     # --- Reconfigure: change address/interface/port of an existing entry -----
 
-    async def async_step_reconfigure(
-        self, user_input: dict[str, Any] | None = None
+    async def _show_reconfigure_form(
+        self, entry, user_input: dict[str, Any] | None, error: str | None = None
     ) -> ConfigFlowResult:
-        """Change the connection details of an existing speaker.
-
-        A link-local address depends on the interface and a speaker can move to
-        a different port, so without this the only way to correct either was to
-        delete the entry and set it up again - losing its entity IDs, history
-        and any automation referencing them.
-        """
-        entry = self._get_reconfigure_entry()
-        errors: dict[str, str] = {}
-
-        if user_input is not None:
-            host = user_input[CONF_HOST].strip()
-            interface = user_input.get(CONF_INTERFACE, "").strip() or None
-            port = user_input.get(CONF_PORT, DEFAULT_PORT)
-
-            if "%" in host:
-                host, _, host_scope = host.partition("%")
-                host = host.strip()
-                if not interface:
-                    interface = host_scope.strip() or None
-
-            try:
-                ipaddress.IPv6Address(host)
-            except ValueError:
-                errors["base"] = "invalid_ipv6"
-            else:
-                if SSCClient.is_link_local(host) and not interface:
-                    errors["base"] = "interface_required_for_link_local"
-                else:
-                    identity = await _async_test_connection(host, port, interface)
-                    if identity.error_key:
-                        errors["base"] = identity.error_key
-                    else:
-                        # Guard against pointing an entry at a different
-                        # speaker: that would silently attach one device's
-                        # history to another. Entries created without a serial
-                        # (unique_id is host_port) cannot be checked this way.
-                        # A known serial must be matched. Accepting a device
-                        # that reports none would silently attach this entry -
-                        # its history and stored exports - to whatever answered
-                        # at the new address.
-                        known_serial = entry.data.get(CONF_SERIAL)
-                        if known_serial and identity.serial != known_serial:
-                            return self.async_abort(reason="wrong_device")
-
-                        return self.async_update_reload_and_abort(
-                            entry,
-                            data_updates={
-                                CONF_HOST: host,
-                                CONF_INTERFACE: interface or "",
-                                CONF_PORT: port,
-                                CONF_MODEL: identity.product or entry.data.get(CONF_MODEL),
-                                CONF_VENDOR: identity.vendor or "",
-                                CONF_FIRMWARE_VERSION: identity.version or "",
-                            },
-                        )
-
+        """Show the reconfigure form, pre-filled from the attempt or the entry."""
         interface_options = await _async_get_interface_options(self.hass)
         schema = _build_reconfigure_schema(interface_options)
         schema = self.add_suggested_values_to_schema(
@@ -421,8 +389,70 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="reconfigure",
             data_schema=schema,
-            errors=errors,
+            errors={"base": error} if error else {},
             description_placeholders={"device": entry.title},
+        )
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Change the connection details of an existing speaker.
+
+        A link-local address depends on the interface and a speaker can move to
+        a different port, so without this the only way to correct either was to
+        delete the entry and set it up again - losing its entity IDs, history
+        and any automation referencing them.
+        """
+        entry = self._get_reconfigure_entry()
+        if user_input is None:
+            return await self._show_reconfigure_form(entry, None)
+
+        host = user_input[CONF_HOST].strip()
+        interface = user_input.get(CONF_INTERFACE, "").strip() or None
+        port = user_input.get(CONF_PORT, DEFAULT_PORT)
+
+        if "%" in host:
+            host, _, host_scope = host.partition("%")
+            host = host.strip()
+            if not interface:
+                interface = host_scope.strip() or None
+
+        try:
+            ipaddress.IPv6Address(host)
+        except ValueError:
+            return await self._show_reconfigure_form(entry, user_input, "invalid_ipv6")
+
+        if SSCClient.is_link_local(host) and not interface:
+            return await self._show_reconfigure_form(
+                entry, user_input, "interface_required_for_link_local"
+            )
+
+        identity = await _async_test_connection(host, port, interface)
+        if identity.error_key:
+            return await self._show_reconfigure_form(
+                entry, user_input, identity.error_key
+            )
+
+        # Guard against pointing an entry at a different speaker: that would
+        # silently attach one device's history to another. Entries created
+        # without a serial (unique_id is host_port) cannot be checked this way.
+        # A known serial must be matched - accepting a device that reports none
+        # would attach this entry, its history and its stored exports, to
+        # whatever answered at the new address.
+        known_serial = entry.data.get(CONF_SERIAL)
+        if known_serial and identity.serial != known_serial:
+            return self.async_abort(reason="wrong_device")
+
+        return self.async_update_reload_and_abort(
+            entry,
+            data_updates={
+                CONF_HOST: host,
+                CONF_INTERFACE: interface or "",
+                CONF_PORT: port,
+                CONF_MODEL: identity.product or entry.data.get(CONF_MODEL),
+                CONF_VENDOR: identity.vendor or "",
+                CONF_FIRMWARE_VERSION: identity.version or "",
+            },
         )
 
     # --- Shared: confirmation for devices of another vendor ------------------
@@ -727,21 +757,15 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 label="🔄 Erneut suchen" if de else "🔄 Search again",
             )
         ]
-        for key, identity in self._discovery_info.items():
-            label = f"{identity.product or FALLBACK_MODEL} – {self._discovered[key].host}"
-            if identity.serial:
-                label += f" (Serial: {identity.serial})"
-            if identity.serial in configured_serials:
-                label += " — ✓ bereits verbunden" if de else " — ✓ already connected"
-            if not identity.is_neumann:
-                # Kept selectable on purpose: SSC is not Neumann-exclusive, so
-                # the device may still work - the label just says what it is.
-                label += (
-                    f" — ⚠ kein Neumann-Gerät ({identity.vendor})"
-                    if de
-                    else f" — ⚠ not a Neumann device ({identity.vendor})"
-                )
-            options.append(selector.SelectOptionDict(value=key, label=label))
+        options += [
+            selector.SelectOptionDict(
+                value=key,
+                label=_scan_option_label(
+                    identity, self._discovered[key].host, configured_serials, de
+                ),
+            )
+            for key, identity in self._discovery_info.items()
+        ]
 
         return vol.Schema(
             {

@@ -306,19 +306,29 @@ async def async_run_restore(
     # bare abort instead of "wrote 12 of 23" on a half-written speaker.
     deadline = asyncio.get_running_loop().time() + DEVICE_ACTION_TIMEOUT_SECONDS
 
+    def _stop(translation_key: str, **placeholders: str) -> HomeAssistantError:
+        """Keep what landed, then describe how far the run got.
+
+        Both ways out of the loop - the time limit and a lost connection -
+        leave a partly rewritten speaker. Dropping the confirmed values here
+        would also drop the entity states that match what is on the device,
+        and a bare error would not say how much was already written.
+        """
+        if confirmed_values:
+            coordinator.apply_confirmed_values(confirmed_values)
+        return HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key=translation_key,
+            translation_placeholders={
+                "written": str(written + adjusted),
+                **placeholders,
+            },
+        )
+
     for path in restorable_paths_for_model(entry.data.get(CONF_MODEL)):
         if asyncio.get_running_loop().time() >= deadline:
-            # Stop writing, keep what landed, say how far it got. The device is
-            # in a defined state either way - every write was confirmed.
-            if confirmed_values:
-                coordinator.apply_confirmed_values(confirmed_values)
-            raise HomeAssistantError(
-                translation_domain=DOMAIN,
-                translation_key="restore_timed_out",
-                translation_placeholders={
-                    "written": str(written + adjusted),
-                    "seconds": f"{DEVICE_ACTION_TIMEOUT_SECONDS:.0f}",
-                },
+            raise _stop(
+                "restore_timed_out", seconds=f"{DEVICE_ACTION_TIMEOUT_SECONDS:.0f}"
             )
         value = extract(values, path)
         if value is None:
@@ -330,19 +340,7 @@ async def async_run_restore(
             # Not writable on this model or firmware.
             skipped += 1
         except (SSCConnectionError, SSCTimeoutError) as err:
-            # Everything written so far stays on the device. Say how far it
-            # got instead of leaving the user with a half-restored speaker and
-            # a bare "unreachable".
-            if confirmed_values:
-                coordinator.apply_confirmed_values(confirmed_values)
-            raise HomeAssistantError(
-                translation_domain=DOMAIN,
-                translation_key="restore_interrupted",
-                translation_placeholders={
-                    "written": str(written + adjusted),
-                    "error": str(err),
-                },
-            ) from err
+            raise _stop("restore_interrupted", error=str(err)) from err
         else:
             if confirmed is None:
                 # The device answered, but not for this path (the settle window
