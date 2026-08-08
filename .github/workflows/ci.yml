@@ -43,7 +43,12 @@ jobs:
       # Pinned deliberately: an unpinned Ruff turned the build red on the
       # 0.16.0 release for rules that did not exist when the code was written.
       # Bump this on purpose, not by surprise.
-      - run: pip install ruff==0.16.1
+      # --only-binary :all: forbids source distributions, whose build scripts
+      # run arbitrary code at install time. Ruff ships wheels everywhere, so
+      # this costs nothing here.
+      # Quoted: ":all:" contains a colon-space, which YAML would otherwise
+      # read as a nested mapping.
+      - run: 'pip install --only-binary :all: ruff==0.16.1'
       - run: ruff check .
 
   tests:
@@ -54,7 +59,11 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
-      - run: pip install -r requirements_test.txt
+      # See the lint job: wheels only, no build scripts executed. If a
+      # transitive dependency ever ships without a wheel for this Python,
+      # pip fails here rather than compiling it - that is the intended
+      # trade-off, and the failure names the package.
+      - run: 'pip install --only-binary :all: -r requirements_test.txt'
       # -m "" overrides the default deselection in pytest.ini: CI always runs
       # the end-to-end tests as well. They cost ~50 s, which is irrelevant here
       # and makes every push a full check.
@@ -74,7 +83,7 @@ jobs:
         with:
           # 2025.2 predates Python 3.14.
           python-version: "3.13"
-      - run: pip install "homeassistant==2025.2.0"
+      - run: 'pip install --only-binary :all: "homeassistant==2025.2.0"'
       - name: Import every module of the integration
         run: |
           python - <<'PY'
