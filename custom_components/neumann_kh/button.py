@@ -32,6 +32,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from ._util import localized
 from .const import (
     CONF_MODEL,
     DOMAIN,
@@ -52,16 +53,6 @@ from .ssc_client import SSCConnectionError, SSCDeviceError, SSCTimeoutError
 # Time window within which a second press of "factory reset" actually
 # triggers the reset. After it elapses, it must be "armed" again.
 _RESTORE_CONFIRM_WINDOW_SECONDS = 30
-
-
-def _localized(hass: HomeAssistant, de: str, en: str) -> str:
-    """Pick the German or English text based on the HA UI language.
-
-    Persistent notifications have no translation_key mechanism, so their
-    text is chosen here at runtime from the configured HA language.
-    """
-    language = hass.config.language or "en"
-    return de if language.startswith("de") else en
 
 
 RESTORE_DESCRIPTION = ButtonEntityDescription(
@@ -156,8 +147,8 @@ class NeumannKHRestoreButton(NeumannKHEntity, ButtonEntity):
         self._armed_at = now
         async_create_notification(
             self.hass,
-            _localized(
-                self.hass,
+            localized(
+                self.hass.config.language,
                 (
                     f"⚠️ Werksreset für **{self._entry.title}** ist jetzt bereit. "
                     f"Drücke den Button innerhalb von {_RESTORE_CONFIRM_WINDOW_SECONDS} Sekunden "
@@ -171,8 +162,8 @@ class NeumannKHRestoreButton(NeumannKHEntity, ButtonEntity):
                     f"Nothing happens without a second press."
                 ),
             ),
-            title=_localized(
-                self.hass,
+            title=localized(
+                self.hass.config.language,
                 "Neumann Connect: Werksreset bestätigen",
                 "Neumann Connect: confirm factory reset",
             ),
@@ -277,8 +268,8 @@ class NeumannKHRestoreBackupButton(NeumannKHEntity, ButtonEntity):
         self._armed_backup = backup
         async_create_notification(
             self.hass,
-            _localized(
-                self.hass,
+            localized(
+                self.hass.config.language,
                 f"Backup vom {backup.get('timestamp', '?')} für **{self._entry.title}** "
                 f"zurückspielen? Innerhalb von {_RESTORE_CONFIRM_WINDOW_SECONDS} Sekunden "
                 "erneut drücken. Die aktuellen Geräteeinstellungen werden überschrieben.",
@@ -287,8 +278,8 @@ class NeumannKHRestoreBackupButton(NeumannKHEntity, ButtonEntity):
                 f"{_RESTORE_CONFIRM_WINDOW_SECONDS} seconds. The device's current settings "
                 "will be overwritten.",
             ),
-            title=_localized(
-                self.hass,
+            title=localized(
+                self.hass.config.language,
                 "Neumann Connect: Zurückspielen bestätigen",
                 "Neumann Connect: confirm restore",
             ),

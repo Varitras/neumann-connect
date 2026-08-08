@@ -21,7 +21,7 @@ from typing import Any
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from ._util import build_nested, deep_merge
+from ._util import build_nested, deep_merge, extract
 from .const import (
     MODELS_WITH_LOGO_BRIGHTNESS,
     MODELS_WITH_SUBWOOFER_FEATURES,
@@ -127,7 +127,7 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             # until the next slow cycle, up to five minutes later, over one
             # missed answer.
             for path in self._slow_poll_paths:
-                value = SSCClient.extract(merged, path)
+                value = extract(merged, path)
                 if value is not None:
                     deep_merge(self._slow_data, build_nested(path, value))
             # Fill in whatever did not answer this round. Every value that did
@@ -230,4 +230,4 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Convenient access to a value from the last polled data."""
         if self.data is None:
             return None
-        return SSCClient.extract(self.data, path)
+        return extract(self.data, path)

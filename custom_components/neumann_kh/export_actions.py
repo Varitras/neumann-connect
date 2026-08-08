@@ -14,7 +14,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 
 from . import storage
-from ._util import localized
+from ._util import extract, localized
 from .backup_export import async_build_backup, restorable_paths_for_model
 from .const import CONF_MODEL, CONF_SERIAL, DOMAIN
 from .discovery_export import async_discover_all_values
@@ -25,16 +25,6 @@ _LOGGER = logging.getLogger(__name__)
 
 KIND_BACKUP = "backup"
 KIND_DISCOVERY = "discovery"
-
-
-def _value_at(values: dict[str, Any], path: tuple[str, ...]) -> Any:
-    """Read a single leaf out of a stored value tree, or None if absent."""
-    node: Any = values
-    for key in path:
-        if not isinstance(node, dict) or key not in node:
-            return None
-        node = node[key]
-    return node
 
 
 def mask_serial(serial: str) -> str:
@@ -100,7 +90,7 @@ async def async_run_backup(
     # the last usable snapshot with one that restores nothing, and still
     # report success.
     if not any(
-        _value_at(values, path) is not None
+        extract(values, path) is not None
         for path in restorable_paths_for_model(model)
     ):
         raise HomeAssistantError(
@@ -250,7 +240,7 @@ async def async_check_restorable(
     # from before that check existed, or one taken for a different model - and
     # the restore then reports success after writing nothing at all.
     if not any(
-        _value_at(backup["values"], path) is not None
+        extract(backup["values"], path) is not None
         for path in restorable_paths_for_model(model)
     ):
         raise HomeAssistantError(
@@ -293,7 +283,7 @@ async def async_run_restore(
     confirmed_values: list[tuple[tuple[str, ...], Any]] = []
 
     for path in restorable_paths_for_model(entry.data.get(CONF_MODEL)):
-        value = _value_at(values, path)
+        value = extract(values, path)
         if value is None:
             skipped += 1
             continue

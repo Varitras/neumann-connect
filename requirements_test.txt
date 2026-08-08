@@ -9,4 +9,7 @@
 #
 # 0.13.348 pins Home Assistant 2026.7.4 and therefore requires Python >= 3.14.
 pytest-homeassistant-custom-component==0.13.348
-ruff
+# Pinned to the same version the lint job installs. Unpinned here, the local
+# environment could lint against a different release than CI does - which is
+# how a Ruff upgrade turned the build red once already.
+ruff==0.16.1

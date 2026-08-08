@@ -138,8 +138,14 @@ async def _async_refresh_firmware_version(
 
     It is otherwise only read while adding or reconfiguring the entry, so the
     version shown in the device info kept describing whatever was installed
-    back then. Updating a speaker's firmware reboots it, which makes the entry
-    reload anyway, so reading it once per setup is enough to keep it honest.
+    back then.
+
+    Once per setup is not the same as "always current": a speaker that reboots
+    while Home Assistant is running does not make the entry reload - the poll
+    cycle simply fails a few times and picks up again. The version therefore
+    stays stale until the entry is reloaded or Home Assistant restarts. Polling
+    it every cycle to close that gap would cost a request per cycle for a value
+    that changes once a year.
 
     Only written when it actually differs: an update rewrites the entry, and
     rewriting it on every start would reload the entry on every start.
