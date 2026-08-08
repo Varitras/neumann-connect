@@ -28,8 +28,27 @@ _STORAGE_VERSION = 1
 _SAVE_LOCK = asyncio.Lock()
 
 
-def _get_store(hass: HomeAssistant, suffix: str) -> Store:
-    return Store(hass, _STORAGE_VERSION, f"{DOMAIN}_{suffix}")
+def _get_store(hass: HomeAssistant, kind: str) -> Store:
+    return Store(hass, _STORAGE_VERSION, f"{DOMAIN}_{kind}")
+
+
+async def _save_entry(hass: HomeAssistant, kind: str, serial: str, value: Any) -> None:
+    """Merge one serial's entry into a store. The store name is also its key."""
+    if not serial:
+        return
+    async with _SAVE_LOCK:
+        store = _get_store(hass, kind)
+        data = await store.async_load() or {}
+        data.setdefault(kind, {})[serial] = value
+        await store.async_save(data)
+
+
+async def _load_entry(hass: HomeAssistant, kind: str, serial: str) -> Any | None:
+    """One serial's entry, or None if the store or the serial is unknown."""
+    if not serial:
+        return None
+    data = await _get_store(hass, kind).async_load() or {}
+    return data.get(kind, {}).get(serial)
 
 
 # --- Name memory -------------------------------------------------------------
@@ -37,21 +56,12 @@ def _get_store(hass: HomeAssistant, suffix: str) -> Store:
 
 async def async_remember_name(hass: HomeAssistant, serial: str, name: str) -> None:
     """Store the last used name for a serial number."""
-    if not serial:
-        return
-    async with _SAVE_LOCK:
-        store = _get_store(hass, "names")
-        data = await store.async_load() or {"names": {}}
-        data.setdefault("names", {})[serial] = name
-        await store.async_save(data)
+    await _save_entry(hass, "names", serial, name)
 
 
 async def async_get_remembered_name(hass: HomeAssistant, serial: str) -> str | None:
     """Return the last used name for a serial number, if known."""
-    if not serial:
-        return None
-    data = await _get_store(hass, "names").async_load() or {"names": {}}
-    return data.get("names", {}).get(serial)
+    return await _load_entry(hass, "names", serial)
 
 
 # --- Backup ------------------------------------------------------------------
@@ -59,21 +69,12 @@ async def async_get_remembered_name(hass: HomeAssistant, serial: str) -> str | N
 
 async def async_save_backup(hass: HomeAssistant, serial: str, backup: dict[str, Any]) -> None:
     """Store a settings backup for a serial number."""
-    if not serial:
-        return
-    async with _SAVE_LOCK:
-        store = _get_store(hass, "backups")
-        data = await store.async_load() or {"backups": {}}
-        data.setdefault("backups", {})[serial] = backup
-        await store.async_save(data)
+    await _save_entry(hass, "backups", serial, backup)
 
 
 async def async_get_backup(hass: HomeAssistant, serial: str) -> dict[str, Any] | None:
     """Return the last saved backup for a serial number, if present."""
-    if not serial:
-        return None
-    data = await _get_store(hass, "backups").async_load() or {"backups": {}}
-    return data.get("backups", {}).get(serial)
+    return await _load_entry(hass, "backups", serial)
 
 
 # --- Discovery -----------------------------------------------------------
@@ -84,12 +85,6 @@ async def async_get_backup(hass: HomeAssistant, serial: str) -> dict[str, Any] |
 # used to sit here was never called and has been removed.
 async def async_save_discovery(hass: HomeAssistant, serial: str, discovery: dict[str, Any]) -> None:
     """Store a discovery result (all known values/ranges) for a serial number."""
-    if not serial:
-        return
-    async with _SAVE_LOCK:
-        store = _get_store(hass, "discovery")
-        data = await store.async_load() or {"discovery": {}}
-        data.setdefault("discovery", {})[serial] = discovery
-        await store.async_save(data)
+    await _save_entry(hass, "discovery", serial, discovery)
 
 
