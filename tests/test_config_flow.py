@@ -475,3 +475,134 @@ async def test_zeroconf_of_a_device_without_a_serial_is_not_set_up(hass, _custom
 
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "no_serial"
+
+
+# --- Manual setup ----------------------------------------------------------
+#
+# This path had no test at all, which is why it is written before touching the
+# function: it is the way a user sets up the first speaker, and every one of
+# these cases is a separate exit of the same nested chain.
+
+
+async def _run_manual(hass, identity, user_input):
+    """Open the manual step and submit `user_input`.
+
+    async_setup_entry is stubbed out: on success Home Assistant sets the new
+    entry up for real, and the coordinator would open a socket to a speaker
+    that does not exist. What is under test is the flow, not the setup.
+    """
+    with (
+        patch(
+            "custom_components.neumann_kh.config_flow._async_test_connection",
+            return_value=identity,
+        ),
+        patch(
+            "custom_components.neumann_kh.async_setup_entry", return_value=True
+        ),
+    ):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": "user"}
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"next_step_id": "manual"}
+        )
+        return await hass.config_entries.flow.async_configure(
+            result["flow_id"], user_input
+        )
+
+
+_GOOD_IDENTITY = DeviceIdentity(
+    product="KH 120 II",
+    serial="SIM0001234",
+    version="1_7_3",
+    vendor="Georg Neumann GmbH",
+)
+
+
+async def test_manual_setup_creates_the_entry(hass, _custom_integration):
+    result = await _run_manual(
+        hass,
+        _GOOD_IDENTITY,
+        {
+            CONF_NAME: "Left",
+            CONF_HOST: "fe80::1",
+            CONF_INTERFACE: "eth0",
+            CONF_PORT: 45,
+        },
+    )
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY, result.get("errors")
+    assert result["title"] == "Left"
+    assert result["data"][CONF_MODEL] == "KH 120 II"
+    assert result["data"][CONF_SERIAL] == "SIM0001234"
+    assert result["data"][CONF_INTERFACE] == "eth0"
+
+
+async def test_manual_setup_needs_a_name(hass, _custom_integration):
+    result = await _run_manual(
+        hass,
+        _GOOD_IDENTITY,
+        {CONF_NAME: "   ", CONF_HOST: "fe80::1", CONF_INTERFACE: "eth0", CONF_PORT: 45},
+    )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "name_required"}
+
+
+async def test_manual_setup_rejects_a_non_ipv6_host(hass, _custom_integration):
+    result = await _run_manual(
+        hass,
+        _GOOD_IDENTITY,
+        {CONF_NAME: "Left", CONF_HOST: "192.168.1.5", CONF_PORT: 45},
+    )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "invalid_ipv6"}
+
+
+async def test_manual_setup_rejects_link_local_without_interface(hass, _custom_integration):
+    """A fe80:: address needs a scope ID; no OS can route it otherwise."""
+    result = await _run_manual(
+        hass,
+        _GOOD_IDENTITY,
+        {CONF_NAME: "Left", CONF_HOST: "fe80::1", CONF_PORT: 45},
+    )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "interface_required_for_link_local"}
+
+
+async def test_manual_setup_takes_the_scope_id_out_of_the_host(hass, _custom_integration):
+    """"fe80::1%eth0" in the address field is accepted and split."""
+    result = await _run_manual(
+        hass,
+        _GOOD_IDENTITY,
+        {CONF_NAME: "Left", CONF_HOST: "fe80::1%eth0", CONF_PORT: 45},
+    )
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY, result.get("errors")
+    assert result["data"][CONF_HOST] == "fe80::1"
+    assert result["data"][CONF_INTERFACE] == "eth0"
+
+
+async def test_manual_setup_reports_an_unreachable_device(hass, _custom_integration):
+    result = await _run_manual(
+        hass,
+        DeviceIdentity(error_key="cannot_connect"),
+        {CONF_NAME: "Left", CONF_HOST: "fe80::1", CONF_INTERFACE: "eth0", CONF_PORT: 45},
+    )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "cannot_connect"}
+
+
+async def test_manual_setup_of_a_foreign_device_asks_first(hass, _custom_integration):
+    """Not blocked - SSC is not Neumann-exclusive - but shown before confirming."""
+    result = await _run_manual(
+        hass,
+        DeviceIdentity(product="Some Speaker", serial="X1", vendor="Other GmbH"),
+        {CONF_NAME: "Left", CONF_HOST: "fe80::1", CONF_INTERFACE: "eth0", CONF_PORT: 45},
+    )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "unsupported"

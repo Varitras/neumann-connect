@@ -65,6 +65,11 @@ MODELS_WITH_LOGO_BRIGHTNESS = (
 # full name.
 MODELS_WITH_SUBWOOFER_FEATURES = ("KH 750", "KH 750 DSP")
 
+# Shown when a device answers without a product name. Deliberately generic:
+# the integration talks plain SSC and stays usable on hardware it has no
+# model knowledge about.
+FALLBACK_MODEL = "KH DSP"
+
 # --- Zeroconf/mDNS device discovery ----------------------------------------
 SSC_ZEROCONF_SERVICE_TYPE = "_ssc._tcp.local."
 SCAN_DURATION_SECONDS = 4.0

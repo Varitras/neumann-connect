@@ -21,6 +21,7 @@ from .const import (
     CONF_VENDOR,
     DEFAULT_VENDOR,
     DOMAIN,
+    FALLBACK_MODEL,
 )
 from .coordinator import NeumannKHCoordinator
 
@@ -40,7 +41,7 @@ class NeumannKHEntity(CoordinatorEntity[NeumannKHCoordinator]):
             # Reported by the device; entries created before this was stored,
             # or devices without the field, fall back to Neumann.
             manufacturer=entry.data.get(CONF_VENDOR) or DEFAULT_VENDOR,
-            model=entry.data.get(CONF_MODEL, "KH DSP"),
+            model=entry.data.get(CONF_MODEL, FALLBACK_MODEL),
             sw_version=entry.data.get(CONF_FIRMWARE_VERSION) or None,
         )
         self._unique_id_base = serial

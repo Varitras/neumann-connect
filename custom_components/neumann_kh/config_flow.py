@@ -45,6 +45,7 @@ from .const import (
     DEFAULT_PORT,
     DEFAULT_TIMEOUT,
     DOMAIN,
+    FALLBACK_MODEL,
     PATH_IDENTITY_PRODUCT,
     PATH_IDENTITY_SERIAL,
     PATH_IDENTITY_VENDOR,
@@ -264,79 +265,85 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     # --- Path 1: Manual input ----------------------------------------------
 
-    async def async_step_manual(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        errors: dict[str, str] = {}
+    async def _show_manual_form(
+        self, user_input: dict[str, Any] | None, error: str | None = None
+    ) -> ConfigFlowResult:
+        """Show the manual form again, optionally with one error.
 
-        if user_input is not None:
-            host = user_input[CONF_HOST].strip()
-            interface = user_input.get(CONF_INTERFACE, "").strip() or None
-            port = user_input.get(CONF_PORT, DEFAULT_PORT)
-            name = user_input[CONF_NAME].strip()
-
-            # Accept inputs like "fe80::1%eth0": split off the scope ID
-            # (ipaddress.IPv6Address does not know about scope IDs) and - if the
-            # interface field is empty - use it as the interface. An explicitly
-            # chosen interface in the dropdown takes precedence.
-            if "%" in host:
-                host, _, host_scope = host.partition("%")
-                host = host.strip()
-                if not interface:
-                    interface = host_scope.strip() or None
-
-            if not name:
-                errors["base"] = "name_required"
-            else:
-                try:
-                    ipaddress.IPv6Address(host)
-                except ValueError:
-                    errors["base"] = "invalid_ipv6"
-                else:
-                    if SSCClient.is_link_local(host) and not interface:
-                        errors["base"] = "interface_required_for_link_local"
-                    else:
-                        identity = await _async_test_connection(host, port, interface)
-                        if identity.error_key:
-                            errors["base"] = identity.error_key
-                        else:
-                            unique_id = identity.serial or f"{host}_{port}"
-                            await self.async_set_unique_id(str(unique_id))
-                            self._abort_if_unique_id_configured()
-                            if identity.serial:
-                                await storage.async_remember_name(
-                                    self.hass, identity.serial, name
-                                )
-
-                            entry_data = {
-                                CONF_NAME: name,
-                                CONF_HOST: host,
-                                CONF_INTERFACE: interface or "",
-                                CONF_PORT: port,
-                                CONF_MODEL: identity.product or "KH DSP",
-                                CONF_SERIAL: identity.serial or "",
-                                CONF_VENDOR: identity.vendor or "",
-                                CONF_FIRMWARE_VERSION: identity.version or "",
-                            }
-                            if not identity.is_neumann:
-                                # Setup is not blocked - the integration talks
-                                # plain SSC and stays usable on other vendors'
-                                # devices. The user just gets to see what was
-                                # actually found before confirming.
-                                self._pending_entry = entry_data
-                                self._pending_identity = identity
-                                return await self.async_step_unsupported()
-
-                            return self.async_create_entry(title=name, data=entry_data)
-
+        The values of the failed attempt are carried over as suggested values -
+        without that Home Assistant shows an empty form and every field has to
+        be typed again.
+        """
         interface_options = await _async_get_interface_options(self.hass)
         schema = _build_manual_schema(interface_options)
-
-        # On an error the form is shown again. Without carrying over the values
-        # from the last attempt as "suggested_values", HA would show an empty
-        # form and the user would have to retype all fields.
         if user_input is not None:
             schema = self.add_suggested_values_to_schema(schema, user_input)
+        return self.async_show_form(
+            step_id="manual",
+            data_schema=schema,
+            errors={"base": error} if error else {},
+        )
 
-        return self.async_show_form(step_id="manual", data_schema=schema, errors=errors)
+    async def async_step_manual(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        if user_input is None:
+            return await self._show_manual_form(None)
+
+        host = user_input[CONF_HOST].strip()
+        interface = user_input.get(CONF_INTERFACE, "").strip() or None
+        port = user_input.get(CONF_PORT, DEFAULT_PORT)
+        name = user_input[CONF_NAME].strip()
+
+        # Accept inputs like "fe80::1%eth0": split off the scope ID
+        # (ipaddress.IPv6Address does not know about scope IDs) and - if the
+        # interface field is empty - use it as the interface. An explicitly
+        # chosen interface in the dropdown takes precedence.
+        if "%" in host:
+            host, _, host_scope = host.partition("%")
+            host = host.strip()
+            if not interface:
+                interface = host_scope.strip() or None
+
+        if not name:
+            return await self._show_manual_form(user_input, "name_required")
+
+        try:
+            ipaddress.IPv6Address(host)
+        except ValueError:
+            return await self._show_manual_form(user_input, "invalid_ipv6")
+
+        if SSCClient.is_link_local(host) and not interface:
+            return await self._show_manual_form(
+                user_input, "interface_required_for_link_local"
+            )
+
+        identity = await _async_test_connection(host, port, interface)
+        if identity.error_key:
+            return await self._show_manual_form(user_input, identity.error_key)
+
+        await self.async_set_unique_id(str(identity.serial or f"{host}_{port}"))
+        self._abort_if_unique_id_configured()
+        if identity.serial:
+            await storage.async_remember_name(self.hass, identity.serial, name)
+
+        entry_data = {
+            CONF_NAME: name,
+            CONF_HOST: host,
+            CONF_INTERFACE: interface or "",
+            CONF_PORT: port,
+            CONF_MODEL: identity.product or FALLBACK_MODEL,
+            CONF_SERIAL: identity.serial or "",
+            CONF_VENDOR: identity.vendor or "",
+            CONF_FIRMWARE_VERSION: identity.version or "",
+        }
+        if not identity.is_neumann:
+            # Setup is not blocked - the integration talks plain SSC and stays
+            # usable on other vendors' devices. The user just gets to see what
+            # was actually found before confirming.
+            self._pending_entry = entry_data
+            self._pending_identity = identity
+            return await self.async_step_unsupported()
+
+        return self.async_create_entry(title=name, data=entry_data)
 
     # --- Reconfigure: change address/interface/port of an existing entry -----
 
@@ -549,7 +556,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             CONF_HOST: host,
             CONF_INTERFACE: _NO_INTERFACE_VALUE,
             CONF_PORT: port,
-            CONF_MODEL: identity.product or "KH DSP",
+            CONF_MODEL: identity.product or FALLBACK_MODEL,
             # Whatever ends up as the unique ID above, so the two cannot drift.
             CONF_SERIAL: str(self.unique_id or ""),
             CONF_VENDOR: identity.vendor or "",
@@ -557,7 +564,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         }
         # Shown on the discovery card in the integrations panel.
         self.context["title_placeholders"] = {
-            "name": f"{identity.product or 'KH DSP'} ({self.unique_id})"
+            "name": f"{identity.product or FALLBACK_MODEL} ({self.unique_id})"
         }
         return await self.async_step_zeroconf_confirm()
 
@@ -599,7 +606,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=schema,
             errors=errors,
             description_placeholders={
-                "device": f"{identity.product or 'KH DSP'} – {entry_data[CONF_HOST]}"
+                "device": f"{identity.product or FALLBACK_MODEL} – {entry_data[CONF_HOST]}"
             },
         )
 
@@ -681,7 +688,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     # Scope ID is already contained in candidate.host (%<scope>).
                     CONF_INTERFACE: "",
                     CONF_PORT: candidate.port,
-                    CONF_MODEL: identity.product or "KH DSP",
+                    CONF_MODEL: identity.product or FALLBACK_MODEL,
                     CONF_SERIAL: identity.serial or "",
                     CONF_VENDOR: identity.vendor or "",
                     CONF_FIRMWARE_VERSION: identity.version or "",
@@ -706,7 +713,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=schema,
             errors=errors,
             description_placeholders={
-                "device": f"{identity.product or 'KH DSP'} – {candidate.host}"
+                "device": f"{identity.product or FALLBACK_MODEL} – {candidate.host}"
             },
         )
 
@@ -721,7 +728,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
         ]
         for key, identity in self._discovery_info.items():
-            label = f"{identity.product or 'KH DSP'} – {self._discovered[key].host}"
+            label = f"{identity.product or FALLBACK_MODEL} – {self._discovered[key].host}"
             if identity.serial:
                 label += f" (Serial: {identity.serial})"
             if identity.serial in configured_serials:

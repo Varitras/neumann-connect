@@ -270,7 +270,8 @@ async def test_restore_refreshes_slow_polled_values_too(hass, socket_enabled, tm
             hass, entry, lambda e: e.entity_id.startswith("text."), "in the text domain"
         ).entity_id
         original = hass.states.get(name_entity).state
-        assert original and original != "unknown"
+        assert original, "the device name entity has no state"
+        assert original != "unknown", "the device name was never read"
 
         await _press(hass, entry, "_create_backup")
 

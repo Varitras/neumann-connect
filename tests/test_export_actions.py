@@ -130,6 +130,15 @@ class _FakeEntryWithSerial(_FakeEntry):
         self.entry_id = "entry1"
 
 
+def _fakes():
+    """Build the fakes outside the pytest.raises block.
+
+    Constructed inside it, a constructor that started raising would satisfy
+    the expectation and the test would pass for the wrong reason.
+    """
+    return _FakeHass(), _FakeEntryWithSerial(), _FakeClient(answers_none=set())
+
+
 async def _run_backup(hass, monkeypatch, values, write=None):
     saved: list[Any] = []
     written: list[Any] = []
@@ -162,10 +171,9 @@ async def test_an_empty_backup_does_not_replace_the_last_good_one(monkeypatch):
     """
     saved, _ = await _run_backup(None, monkeypatch, values={})
 
+    hass, entry, client = _fakes()
     with pytest.raises(HomeAssistantError) as err:
-        await export_actions.async_run_backup(
-            _FakeHass(), _FakeEntryWithSerial(), _FakeClient(answers_none=set())
-        )
+        await export_actions.async_run_backup(hass, entry, client)
 
     assert err.value.translation_key == "backup_empty"
     assert not saved, "an empty backup was stored anyway"
@@ -184,10 +192,9 @@ async def test_a_failed_file_write_leaves_the_store_untouched(monkeypatch):
         None, monkeypatch, values={"device": {"name": "x"}}, write=_boom
     )
 
+    hass, entry, client = _fakes()
     with pytest.raises(HomeAssistantError) as err:
-        await export_actions.async_run_backup(
-            _FakeHass(), _FakeEntryWithSerial(), _FakeClient(answers_none=set())
-        )
+        await export_actions.async_run_backup(hass, entry, client)
 
     assert err.value.translation_key == "backup_failed"
     assert written, "the file write was not even attempted"
@@ -232,10 +239,9 @@ async def test_a_failed_discovery_file_write_leaves_the_store_untouched(monkeypa
     monkeypatch.setattr(export_actions, "async_write_export", _write)
     monkeypatch.setattr(export_actions, "_notify_written", lambda *a, **k: None)
 
+    hass, entry, client = _fakes()
     with pytest.raises(HomeAssistantError) as err:
-        await export_actions.async_run_discovery(
-            _FakeHass(), _FakeEntryWithSerial(), _FakeClient(answers_none=set())
-        )
+        await export_actions.async_run_discovery(hass, entry, client)
 
     assert err.value.translation_key == "discovery_failed"
     assert written, "the file write was not even attempted"
@@ -256,10 +262,9 @@ async def test_a_backup_without_any_restorable_value_is_refused(monkeypatch):
         values={"device": {"identity": {"hw_version": "1.0"}}},
     )
 
+    hass, entry, client = _fakes()
     with pytest.raises(HomeAssistantError) as err:
-        await export_actions.async_run_backup(
-            _FakeHass(), _FakeEntryWithSerial(), _FakeClient(answers_none=set())
-        )
+        await export_actions.async_run_backup(hass, entry, client)
 
     assert err.value.translation_key == "backup_empty"
     assert not saved, "a backup that restores nothing was stored anyway"
@@ -286,10 +291,9 @@ async def test_a_failing_store_is_reported_readably(monkeypatch):
     await _run_backup(None, monkeypatch, values={"device": {"name": "x"}})
     monkeypatch.setattr(export_actions.storage, "async_save_backup", _boom)
 
+    hass, entry, client = _fakes()
     with pytest.raises(HomeAssistantError) as err:
-        await export_actions.async_run_backup(
-            _FakeHass(), _FakeEntryWithSerial(), _FakeClient(answers_none=set())
-        )
+        await export_actions.async_run_backup(hass, entry, client)
 
     assert err.value.translation_key == "backup_failed"
 
@@ -316,13 +320,13 @@ async def test_a_discovery_that_read_nothing_does_not_replace_the_last_one(monke
     )
     monkeypatch.setattr(export_actions, "_notify_written", lambda *a, **k: None)
 
+    hass, entry, client = _fakes()
     with pytest.raises(HomeAssistantError) as err:
-        await export_actions.async_run_discovery(
-            _FakeHass(), _FakeEntryWithSerial(), _FakeClient(answers_none=set())
-        )
+        await export_actions.async_run_discovery(hass, entry, client)
 
     assert err.value.translation_key == "discovery_empty"
-    assert not written and not saved, "an empty discovery was stored anyway"
+    assert not written, "an empty discovery was written to a file anyway"
+    assert not saved, "an empty discovery reached the store anyway"
 
 
 async def test_a_discovery_with_only_known_paths_still_goes_through(monkeypatch):
@@ -374,10 +378,9 @@ async def test_a_backup_without_restorable_values_is_refused_at_restore(monkeypa
 
     monkeypatch.setattr(export_actions.storage, "async_get_backup", _get_backup)
 
+    hass, entry, _ = _fakes()
     with pytest.raises(HomeAssistantError) as err:
-        await export_actions.async_check_restorable(
-            _FakeHass(), _FakeEntryWithSerial()
-        )
+        await export_actions.async_check_restorable(hass, entry)
 
     assert err.value.translation_key == "restore_nothing_to_write"
 
