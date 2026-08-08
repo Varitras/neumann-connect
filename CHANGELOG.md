@@ -35,6 +35,14 @@ them could never hold a value or carry out their action.
 - A restore refuses a backup that holds no value this speaker can be restored
   from, instead of reporting success after writing nothing. A discovery that
   read nothing no longer replaces the last usable one
+- Backup, discovery and restore now have a time limit. They walked every
+  known path with nothing to end them, so a speaker that answers but never
+  with the requested path could keep the button spinning for a quarter of an
+  hour. Backup and discovery now save nothing rather than a partial snapshot;
+  a restore stops writing and reports how many values had landed
+- Only one action at a time may own a speaker. Backup, discovery, restore and
+  factory reset guarded themselves separately, so a backup could read while a
+  restore was writing and store a snapshot mixing values from before and after
 - Phase inversion is no longer polled or restored on the KH 750. Measured on
   both test speakers, that path answers on the KH 120 II and is unknown on the
   subwoofer, which therefore collected a rejected request every poll cycle and

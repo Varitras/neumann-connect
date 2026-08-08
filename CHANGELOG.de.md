@@ -38,6 +38,16 @@ konnten also nie einen Wert tragen oder ihre Aktion ausführen.
   wiederherstellbaren Wert enthält, statt Erfolg zu melden, ohne etwas
   geschrieben zu haben. Eine Discovery ohne gelesene Werte überschreibt die
   letzte brauchbare nicht mehr
+- Backup, Discovery und Zurückspielen haben jetzt eine Zeitgrenze. Sie liefen
+  über alle bekannten Pfade, ohne dass irgendetwas sie beendet hätte - ein
+  Lautsprecher, der antwortet, aber nie mit dem angefragten Pfad, konnte den
+  Button eine Viertelstunde drehen lassen. Backup und Discovery speichern nun
+  nichts statt eines halben Schnappschusses; ein Restore hört auf zu schreiben
+  und meldet, wie viele Werte angekommen waren
+- Auf einem Lautsprecher läuft nur noch eine Aktion gleichzeitig. Backup,
+  Discovery, Zurückspielen und Werksreset bewachten sich getrennt, sodass ein
+  Backup lesen konnte, während ein Restore schrieb - und ein Schnappschuss aus
+  Werten von vor und nach dem Schreiben gespeichert wurde
 - Die Phasenumkehr wird auf der KH 750 nicht mehr abgefragt oder
   zurückgespielt. An beiden Testgeräten gemessen: der Pfad antwortet auf der
   KH 120 II und ist auf dem Subwoofer unbekannt, der damit pro Abfragezyklus
