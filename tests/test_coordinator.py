@@ -196,3 +196,49 @@ async def test_a_fresh_slow_value_still_wins_over_the_cache(coordinator, fake_cl
     await coordinator.async_refresh()
 
     assert _value(coordinator, PATH_DEVICE_NAME) == "Renamed"
+
+
+async def test_a_value_confirmed_during_a_poll_is_not_overwritten(coordinator, fake_client):
+    """The v1.15.1 regression test only ever covered the SEQUENTIAL order.
+
+    It let one refresh finish, applied the confirmed value, then refreshed
+    again. The order that actually bites is the other one: the poll reads the
+    old value, the user changes it, the device confirms - and only then does
+    the poll return and publish the snapshot it took before the change.
+
+    The speaker is then correct while the entity shows the old value, and on a
+    slow path the stale value is written back into the cache on top.
+    """
+    await coordinator.async_refresh()
+
+    reached_the_slow_path = asyncio.Event()
+    release = asyncio.Event()
+    plain_get = fake_client.get
+
+    async def _gated_get(path: tuple[str, ...], priority: bool = False) -> Any:
+        value = await plain_get(path, priority)
+        if path == PATH_DEVICE_NAME:
+            # The poll now holds the OLD name and has not returned yet.
+            reached_the_slow_path.set()
+            await release.wait()
+        return value
+
+    fake_client.get = _gated_get
+    coordinator._slow_poll_pending = True
+    poll = asyncio.create_task(coordinator.async_refresh())
+
+    await reached_the_slow_path.wait()
+    coordinator.apply_confirmed_value(PATH_DEVICE_NAME, "Neuer Name")
+    fake_client.values[PATH_DEVICE_NAME] = "Neuer Name"
+    release.set()
+    await poll
+
+    assert _value(coordinator, PATH_DEVICE_NAME) == "Neuer Name", (
+        "the finishing poll published the value it read before the change"
+    )
+
+    fake_client.get = plain_get
+    await coordinator.async_refresh()
+    assert _value(coordinator, PATH_DEVICE_NAME) == "Neuer Name", (
+        "the stale value was written back into the slow cache"
+    )

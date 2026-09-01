@@ -17,7 +17,6 @@ fetching it.
 
 from __future__ import annotations
 
-import asyncio
 import time
 
 from homeassistant.components.button import ButtonEntity, ButtonEntityDescription
@@ -54,21 +53,6 @@ from .ssc_client import SSCConnectionError, SSCDeviceError, SSCTimeoutError
 # Time window within which a second press of "factory reset" actually
 # triggers the reset. After it elapses, it must be "armed" again.
 _RESTORE_CONFIRM_WINDOW_SECONDS = 30
-
-
-def _claim_device(coordinator: NeumannKHCoordinator) -> asyncio.Lock:
-    """Refuse the press if another action already owns the device.
-
-    Waiting would be worse than refusing: these actions are long and two of
-    them rewrite the speaker, so a queued second press would fire minutes
-    later on a device the user has stopped watching.
-    """
-    if coordinator.action_lock.locked():
-        raise HomeAssistantError(
-            translation_domain=DOMAIN,
-            translation_key="device_action_in_progress",
-        )
-    return coordinator.action_lock
 
 
 RESTORE_DESCRIPTION = ButtonEntityDescription(
@@ -142,7 +126,7 @@ class NeumannKHRestoreButton(NeumannKHEntity, ButtonEntity):
             try:
                 # The most destructive action of the four, and the only one
                 # that never had a guard.
-                async with _claim_device(self.coordinator):
+                async with self.coordinator.claim_device():
                     await self.coordinator.client.set(
                         PATH_RESTORE, RESTORE_FACTORY_DEFAULTS_VALUE
                     )
@@ -153,6 +137,12 @@ class NeumannKHRestoreButton(NeumannKHEntity, ButtonEntity):
                     translation_placeholders={"error": str(err)},
                 ) from err
             except (SSCConnectionError, SSCTimeoutError) as err:
+                # The command may already have reached the speaker: a reset
+                # reboots it, so a missing reply is what success looks like
+                # from here too. Reading that as "nothing happened" kept every
+                # value from before a reset that did in fact run - forever,
+                # for values that are only ever written once.
+                await self.coordinator.async_invalidate_and_refresh()
                 raise HomeAssistantError(
                     translation_domain=DOMAIN,
                     translation_key="device_unreachable",
@@ -202,7 +192,7 @@ class NeumannKHBackupButton(NeumannKHEntity, ButtonEntity):
         self._attr_unique_id = f"{self._unique_id_base}_create_backup"
 
     async def async_press(self) -> None:
-        async with _claim_device(self.coordinator):
+        async with self.coordinator.claim_device():
             await async_run_backup(self.hass, self._entry, self.coordinator.client)
 
 
@@ -216,7 +206,7 @@ class NeumannKHDiscoveryButton(NeumannKHEntity, ButtonEntity):
         self._attr_unique_id = f"{self._unique_id_base}_run_discovery"
 
     async def async_press(self) -> None:
-        async with _claim_device(self.coordinator):
+        async with self.coordinator.claim_device():
             await async_run_discovery(self.hass, self._entry, self.coordinator.client)
 
 
@@ -247,7 +237,7 @@ class NeumannKHRestoreBackupButton(NeumannKHEntity, ButtonEntity):
             # Restore exactly what was confirmed. Re-reading here would pick
             # up a backup created between the two presses, so the user would
             # confirm one snapshot and get another.
-            async with _claim_device(self.coordinator):
+            async with self.coordinator.claim_device():
                 await async_run_restore(
                     self.hass, self._entry, self.coordinator, armed_backup
                 )

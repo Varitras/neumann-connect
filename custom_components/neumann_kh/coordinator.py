@@ -19,10 +19,12 @@ from datetime import timedelta
 from typing import Any
 
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from ._util import build_nested, deep_merge, extract
 from .const import (
+    DOMAIN,
     MODELS_WITH_LOGO_BRIGHTNESS,
     MODELS_WITH_SUBWOOFER_FEATURES,
     NON_SUBWOOFER_POLL_PATHS,
@@ -101,6 +103,11 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Set over all slow paths for the membership test in
         # apply_confirmed_value() (the list is complete at that point).
         self._slow_path_set: set[tuple[str, ...]] = set(self._slow_poll_paths)
+        # A poll builds its snapshot independently of self.data, so a value the
+        # device confirms WHILE it runs would be overwritten when it returns.
+        # These two carry such values across the poll (see _async_update_data).
+        self._poll_in_flight = False
+        self._confirmed_during_poll: list[tuple[tuple[str, ...], Any]] = []
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Query each path individually; a rejected/faulty single path is skipped."""
@@ -117,6 +124,8 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if include_slow:
             paths.extend(self._slow_poll_paths)
 
+        self._confirmed_during_poll = []
+        self._poll_in_flight = True
         try:
             merged = await asyncio.wait_for(
                 self._poll_all_paths(paths), timeout=POLL_CYCLE_TIMEOUT_SECONDS
@@ -126,6 +135,16 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 f"Neumann KH: poll cycle exceeded the time limit of "
                 f"{POLL_CYCLE_TIMEOUT_SECONDS}s"
             ) from err
+        finally:
+            self._poll_in_flight = False
+
+        # Anything the device confirmed while this cycle was reading is newer
+        # than what the cycle saw, whichever path it was read on. Applied here,
+        # BEFORE the slow cache is refreshed from `merged` below, so the stale
+        # value cannot be written into the cache either.
+        for path, value in self._confirmed_during_poll:
+            deep_merge(merged, build_nested(path, value))
+        self._confirmed_during_poll = []
 
         if include_slow:
             # Slow values polled freshly and successfully - refresh cache for
@@ -190,6 +209,24 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         return merged
 
+    def claim_device(self) -> asyncio.Lock:
+        """Refuse the caller if another action already owns the device.
+
+        Waiting would be worse than refusing: these actions are long and two
+        of them rewrite the speaker, so a queued second press would fire
+        minutes later on a device the user has stopped watching.
+
+        Lives here rather than next to the buttons because the lock is this
+        object's state and the EQ reset button - in another module that
+        button.py already imports - needs it too.
+        """
+        if self.action_lock.locked():
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="device_action_in_progress",
+            )
+        return self.action_lock
+
     def apply_confirmed_value(self, path: tuple[str, ...], value: Any) -> None:
         """Apply a single device-confirmed value directly into the data."""
         self.apply_confirmed_values([(path, value)])
@@ -221,6 +258,8 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             deep_merge(new_data, build_nested(path, value))
             if path in self._slow_path_set:
                 deep_merge(self._slow_data, build_nested(path, value))
+            if self._poll_in_flight:
+                self._confirmed_during_poll.append((path, value))
         self.async_set_updated_data(new_data)
 
     async def async_invalidate_and_refresh(self) -> None:

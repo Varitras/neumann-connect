@@ -701,3 +701,31 @@ async def test_a_slow_endless_talker_is_ended_by_the_time_limit(
     finally:
         await client.close()
         await _shutdown(raw_server, handled)
+
+
+async def test_a_closed_client_does_not_reconnect(monkeypatch):
+    """Unloading the entry closes the client, but a running button action
+    keeps walking its path list.
+
+    Its next request used to reopen the connection - so a restore went on
+    writing settings to a speaker whose integration had already been
+    unloaded, and left a connection nobody would close again.
+
+    The assertion is on the connection ATTEMPT, not on the exception: an
+    unreachable host raises the same error, so a test that only checked the
+    error type would pass without the fix.
+    """
+    attempts: list[int] = []
+
+    async def _record_and_fail(*args, **kwargs):
+        attempts.append(1)
+        raise AssertionError("reconnected after close()")
+
+    client = SSCClient(host="127.0.0.1", port=45, timeout=0.2)
+    await client.close()
+    monkeypatch.setattr(asyncio, "open_connection", _record_and_fail)
+
+    with pytest.raises(SSCConnectionError):
+        await client.get(("device", "identity", "serial"))
+
+    assert not attempts, "a closed client opened a new connection"

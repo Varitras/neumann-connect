@@ -133,19 +133,26 @@ class NeumannKHEQResetButton(NeumannKHEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         zero = [0.0] * self._container.band_count
-        try:
-            await self.coordinator.client.set(self._container.path + ("gain",), zero)
-            await self.coordinator.client.set(self._container.path + ("boost",), zero)
-        except SSCDeviceError as err:
-            raise HomeAssistantError(
-                translation_domain=DOMAIN,
-                translation_key="eq_reset_rejected",
-                translation_placeholders={"error": str(err)},
-            ) from err
-        except (SSCConnectionError, SSCTimeoutError) as err:
-            raise HomeAssistantError(
-                translation_domain=DOMAIN,
-                translation_key="device_unreachable",
-                translation_placeholders={"error": str(err)},
-            ) from err
-        await self.coordinator.async_request_refresh()
+        # The fifth device action, and for a while the only one outside the
+        # lock: a backup reading while this writes mixes the old curve with
+        # the new one and then replaces the last good snapshot.
+        async with self.coordinator.claim_device():
+            try:
+                await self.coordinator.client.set(self._container.path + ("gain",), zero)
+                await self.coordinator.client.set(self._container.path + ("boost",), zero)
+            except SSCDeviceError as err:
+                raise HomeAssistantError(
+                    translation_domain=DOMAIN,
+                    translation_key="eq_reset_rejected",
+                    translation_placeholders={"error": str(err)},
+                ) from err
+            except (SSCConnectionError, SSCTimeoutError) as err:
+                raise HomeAssistantError(
+                    translation_domain=DOMAIN,
+                    translation_key="device_unreachable",
+                    translation_placeholders={"error": str(err)},
+                ) from err
+            finally:
+                # gain can have landed while boost was rejected, so the cached
+                # values are stale on the error path too.
+                await self.coordinator.async_request_refresh()

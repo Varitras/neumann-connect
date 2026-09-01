@@ -472,3 +472,35 @@ async def test_a_restore_the_device_refuses_entirely_is_not_a_success():
 
     assert err.value.translation_key == "restore_nothing_written"
     assert not coordinator.applied, "nothing was confirmed, so nothing may be applied"
+
+
+async def test_a_store_failure_does_not_undo_a_written_discovery_export(monkeypatch):
+    """The export is on disk; the store is a write-only copy nothing reads.
+
+    Reporting `discovery_failed` after the file already landed sends the user
+    looking for a run that in fact succeeded - and the comment justifying the
+    raise was copied from the backup path, where the store IS read back.
+    """
+    written: list[Any] = []
+
+    async def _discover(client, model):
+        return {"known_paths": {"device": {"name": "x"}}, "schema_limits": {}}
+
+    async def _write(hass_, kind, masked, record, entry_id):
+        written.append(record)
+        return "/config/neumann_kh/discovery.json"
+
+    async def _save(hass_, serial, record):
+        raise OSError("store unavailable")
+
+    monkeypatch.setattr(export_actions, "async_discover_all_values", _discover)
+    monkeypatch.setattr(export_actions.storage, "async_save_discovery", _save)
+    monkeypatch.setattr(export_actions, "async_write_export", _write)
+    monkeypatch.setattr(export_actions, "_notify_written", lambda *a, **k: None)
+
+    path = await export_actions.async_run_discovery(
+        _FakeHass(), _FakeEntryWithSerial(), _FakeClient(answers_none=set())
+    )
+
+    assert path.endswith("discovery.json"), "a written export was reported as failed"
+    assert len(written) == 1

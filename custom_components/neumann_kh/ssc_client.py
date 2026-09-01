@@ -106,6 +106,10 @@ class SSCClient:
         self._settle_time = settle_time
         self._reader: asyncio.StreamReader | None = None
         self._writer: asyncio.StreamWriter | None = None
+        # Set by close() and never cleared: no caller reuses a client
+        # after closing it, and a running button action must not silently
+        # reopen the connection of an entry that is already unloaded.
+        self._closed = False
         self._lock = asyncio.Lock()
         # Signals the poll loop that a user action is waiting on the lock
         # (see request(priority=True)) - poll then releases the lock.
@@ -134,6 +138,10 @@ class SSCClient:
         return prefix[2] in "89ab"
 
     async def _ensure_connected(self) -> None:
+        if self._closed:
+            raise SSCConnectionError(
+                "the connection was closed - the config entry is being unloaded"
+            )
         if self._writer is not None and not self._writer.is_closing():
             return
         try:
@@ -163,6 +171,7 @@ class SSCClient:
     async def close(self) -> None:
         """Closes the connection (e.g. when unloading the integration)."""
         async with self._lock:
+            self._closed = True
             if self._writer is not None:
                 self._writer.close()
                 with contextlib.suppress(OSError):

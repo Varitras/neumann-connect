@@ -13,7 +13,7 @@ pytest.importorskip("homeassistant")
 
 from homeassistant.exceptions import HomeAssistantError
 
-from custom_components.neumann_kh.button import _claim_device
+from custom_components.neumann_kh.coordinator import NeumannKHCoordinator
 from custom_components.neumann_kh.export_actions import mask_serial
 
 
@@ -35,17 +35,21 @@ def test_one_action_at_a_time_per_speaker():
     and replaces the last good one.
     """
     class _Coordinator:
+        """The real claim method over a minimal stand-in."""
+
+        claim_device = NeumannKHCoordinator.claim_device
+
         def __init__(self):
             self.action_lock = asyncio.Lock()
 
     async def _run():
         coordinator = _Coordinator()
-        async with _claim_device(coordinator):
+        async with coordinator.claim_device():
             # A second action while the first still owns the device.
             with pytest.raises(HomeAssistantError) as err:
-                _claim_device(coordinator)
+                coordinator.claim_device()
             assert err.value.translation_key == "device_action_in_progress"
         # Released again afterwards.
-        assert _claim_device(coordinator) is coordinator.action_lock
+        assert coordinator.claim_device() is coordinator.action_lock
 
     asyncio.run(_run())

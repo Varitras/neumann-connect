@@ -46,6 +46,7 @@ from .const import (
     DEFAULT_TIMEOUT,
     DOMAIN,
     FALLBACK_MODEL,
+    MAX_PARALLEL_IDENTITY_QUERIES,
     PATH_IDENTITY_PRODUCT,
     PATH_IDENTITY_SERIAL,
     PATH_IDENTITY_VENDOR,
@@ -53,6 +54,7 @@ from .const import (
     VENDOR_MARKER_NEUMANN,
 )
 from .discovery import DiscoveredSpeaker, async_scan_for_speakers, pick_host
+from .export_actions import mask_serial
 from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeoutError
 
 _LOGGER = logging.getLogger(__name__)
@@ -60,11 +62,6 @@ _LOGGER = logging.getLogger(__name__)
 _NO_INTERFACE_VALUE = ""  # "no interface specified" (e.g. for a global, non-link-local IPv6 address)
 _SELECTED_DEVICE = "selected_device"
 _RESCAN_VALUE = "__rescan__"
-# How many candidates are contacted at once while identifying a scan
-# result. Enough to keep a stale segment from dragging, few enough not
-# to open dozens of sockets on a small machine.
-_MAX_PARALLEL_IDENTITY_QUERIES = 8
-
 
 async def _async_get_interface_options(hass: HomeAssistant) -> list[selector.SelectOptionDict]:
     """Determine the network interfaces known on the HA host for the dropdown."""
@@ -246,7 +243,7 @@ async def _async_identify_all(
     up to minutes on a segment carrying stale announcements - paid by a config
     flow the user is watching, and by the setup repair on every failed retry.
     """
-    semaphore = asyncio.Semaphore(_MAX_PARALLEL_IDENTITY_QUERIES)
+    semaphore = asyncio.Semaphore(MAX_PARALLEL_IDENTITY_QUERIES)
 
     async def _one(speaker: DiscoveredSpeaker) -> tuple[DeviceIdentity, DiscoveredSpeaker]:
         async with semaphore:
@@ -552,11 +549,14 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # Repointing an entry moves its history and its stored backups to
             # whatever answers there, so the device has to confirm who it is.
             if str(identity.serial) != str(serial):
+                # Masked: shared logs are a common support attachment, and a
+                # serial identifies a specific piece of hardware. The address
+                # stays readable - without it the warning cannot be acted on.
                 _LOGGER.warning(
                     "Ignoring an announcement for %s: %s answered with serial %s",
-                    serial,
+                    mask_serial(str(serial)),
                     host,
-                    identity.serial,
+                    mask_serial(str(identity.serial)),
                 )
                 return self.async_abort(reason="wrong_device")
             self._abort_if_unique_id_configured(updates=updates)
@@ -568,7 +568,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # later. The manual and reconfigure paths refuse this too.
             _LOGGER.debug(
                 "Ignoring the announcement for %s: %s reports no serial number",
-                serial,
+                mask_serial(str(serial)),
                 host,
             )
             return self.async_abort(reason="no_serial")

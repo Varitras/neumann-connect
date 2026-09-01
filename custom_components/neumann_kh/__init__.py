@@ -26,6 +26,7 @@ from .const import (
     DEFAULT_PORT,
     DEFAULT_TIMEOUT,
     DOMAIN,
+    MAX_PARALLEL_IDENTITY_QUERIES,
     PATH_IDENTITY_SERIAL,
     PATH_IDENTITY_VERSION,
 )
@@ -34,10 +35,6 @@ from .discovery import async_scan_for_speakers
 from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeoutError
 
 _LOGGER = logging.getLogger(__name__)
-
-# Mirrors the config flow: enough parallelism to keep a stale segment from
-# dragging, few enough not to open dozens of sockets at once.
-_MAX_PARALLEL_IDENTITY_QUERIES = 8
 
 PLATFORMS: list[Platform] = [
     Platform.NUMBER,
@@ -89,7 +86,7 @@ async def _async_relocate(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Asked concurrently, a few at a time. One after another this cost the
     # connection timeout per silent candidate, and this runs on every failed
     # setup retry.
-    semaphore = asyncio.Semaphore(_MAX_PARALLEL_IDENTITY_QUERIES)
+    semaphore = asyncio.Semaphore(MAX_PARALLEL_IDENTITY_QUERIES)
 
     async def _serial_of(speaker):
         async with semaphore:

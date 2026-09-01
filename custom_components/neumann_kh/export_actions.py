@@ -204,16 +204,16 @@ async def async_run_discovery(
         ) from err
     try:
         await storage.async_save_discovery(hass, serial, record)
-    except Exception as err:
-        # The file is already on disk at this point. Say so in a
-        # readable way instead of letting a raw store error out - the
-        # export is usable, only the restore button will still offer
-        # the previous snapshot.
-        raise HomeAssistantError(
-            translation_domain=DOMAIN,
-            translation_key="discovery_failed",
-            translation_placeholders={"error": str(err)},
-        ) from err
+    except Exception:
+        # The export is already on disk, and this store is a write-only copy
+        # nothing reads back. Failing the run here sent the user looking for a
+        # discovery that had in fact succeeded. (The raise this replaces
+        # carried the backup path's comment, where the store IS read back by
+        # the restore button - it was never true here.)
+        _LOGGER.warning(
+            "Discovery export written, but the copy in the store failed",
+            exc_info=True,
+        )
     _notify_written(hass, entry, KIND_DISCOVERY, path)
     return path
 
