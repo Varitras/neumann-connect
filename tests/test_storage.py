@@ -61,8 +61,15 @@ async def test_a_device_without_a_serial_writes_nothing(hass, empty):
     await storage.async_save_backup(hass, empty, {"model": "KH 120 II"})
     await storage.async_save_discovery(hass, empty, {"known_paths": {}})
 
+    # Read back through the loaders AND through the raw store. The loaders
+    # carry their own empty-serial guard, so they answer None whatever was
+    # written - a mutation run showed this test passing with the write guard
+    # removed entirely.
     assert await storage.async_get_remembered_name(hass, empty) is None
     assert await storage.async_get_backup(hass, empty) is None
+    for kind in ("names", "backups", "discovery"):
+        raw = await storage._get_store(hass, kind).async_load()
+        assert not raw, f"{kind} store was written under an empty serial: {raw}"
 
 
 async def test_an_unknown_serial_reads_as_missing(hass):

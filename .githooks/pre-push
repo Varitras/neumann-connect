@@ -1,0 +1,24 @@
+#!/bin/sh
+# The push proves; the commit stays fast.
+# Install once per clone:  git config core.hooksPath .githooks
+#
+# Two gates, both fail-closed:
+#   1. The project's definition of done.
+#   2. A machine secret/PII scan over the WHOLE history.
+#
+# The second exists because the prose rule "check before pushing" failed here:
+# a 53 KB .coverage file carrying local user paths was committed and pushed,
+# because the manual scan reads diffs as text and never inspects a binary.
+# A scanner does not have that blind spot.
+set -eu
+cd "$(git rev-parse --show-toplevel)"
+
+.github/scripts/check.sh
+
+if command -v gitleaks >/dev/null 2>&1; then
+    gitleaks git --no-banner || gitleaks detect --no-banner
+else
+    echo "pre-push: gitleaks not installed - secret gate cannot run, push refused" >&2
+    echo "          (after a history rewrite also check refs/original and reflogs)" >&2
+    exit 1
+fi

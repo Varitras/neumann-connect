@@ -1,0 +1,72 @@
+[
+  {
+    "name": "a closed client reconnects again",
+    "path": "custom_components/neumann_kh/ssc_client.py",
+    "find": "        if self._closed:",
+    "replace": "        if False:",
+    "expect": "tests/test_ssc_client.py::test_a_closed_client_does_not_reconnect"
+  },
+  {
+    "name": "the EQ reset runs without the action lock",
+    "path": "custom_components/neumann_kh/eq.py",
+    "find": "        async with self.coordinator.claim_device():",
+    "replace": "        if True:",
+    "expect": "tests/test_eq_reset.py::test_a_reset_cannot_start_while_another_action_owns_the_device"
+  },
+  {
+    "name": "a half-written EQ reset skips the refresh",
+    "path": "custom_components/neumann_kh/eq.py",
+    "find": "                await self.coordinator.async_request_refresh()",
+    "replace": "                pass",
+    "expect": "tests/test_eq_reset.py::test_a_half_written_reset_still_refreshes"
+  },
+  {
+    "name": "the poll drops values confirmed while it ran",
+    "path": "custom_components/neumann_kh/coordinator.py",
+    "find": "        for path, value in self._confirmed_during_poll:",
+    "replace": "        for path, value in []:",
+    "expect": "tests/test_coordinator.py::test_a_value_confirmed_during_a_poll_is_not_overwritten"
+  },
+  {
+    "name": "confirmed values are not recorded during a poll",
+    "path": "custom_components/neumann_kh/coordinator.py",
+    "find": "            if self._poll_in_flight:",
+    "replace": "            if False:",
+    "expect": "tests/test_coordinator.py::test_a_value_confirmed_during_a_poll_is_not_overwritten"
+  },
+  {
+    "name": "a factory reset with a lost reply keeps the stale cache",
+    "path": "custom_components/neumann_kh/button.py",
+    "find": "                await self.coordinator.async_invalidate_and_refresh()\n                raise HomeAssistantError(",
+    "replace": "                raise HomeAssistantError(",
+    "expect": "tests/test_factory_reset.py::test_a_reset_whose_reply_is_lost_still_drops_the_cache"
+  },
+  {
+    "name": "a store failure fails an already written discovery export",
+    "path": "custom_components/neumann_kh/export_actions.py",
+    "find": "        _LOGGER.warning(\n            \"Discovery export written, but the copy in the store failed\",\n            exc_info=True,\n        )",
+    "replace": "        raise HomeAssistantError(\n            translation_domain=DOMAIN, translation_key=\"discovery_failed\"\n        )",
+    "expect": "tests/test_export_actions.py::test_a_store_failure_does_not_undo_a_written_discovery_export"
+  },
+  {
+    "name": "claim_device never refuses a second action",
+    "path": "custom_components/neumann_kh/coordinator.py",
+    "find": "        if self.action_lock.locked():",
+    "replace": "        if False:",
+    "expect": "tests/test_button_helpers.py::test_one_action_at_a_time_per_speaker"
+  },
+  {
+    "name": "a device without a serial writes into the store anyway",
+    "path": "custom_components/neumann_kh/storage.py",
+    "find": "    if not serial:\n        return\n    async with _SAVE_LOCK:",
+    "replace": "    async with _SAVE_LOCK:",
+    "expect": "tests/test_storage.py::test_a_device_without_a_serial_writes_nothing"
+  },
+  {
+    "name": "a serial reaches the log unmasked again",
+    "path": "custom_components/neumann_kh/config_flow.py",
+    "find": "                    mask_serial(str(identity.serial)),",
+    "replace": "                    str(identity.serial),",
+    "expect": "tests/test_log_privacy.py::test_no_log_call_passes_an_unmasked_serial"
+  }
+]
