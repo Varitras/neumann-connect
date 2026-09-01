@@ -32,28 +32,14 @@ jobs:
           # registriert - Icons liegen lokal unter brand/.
           ignore: brands
 
-  lint:
-    name: Ruff-Linter
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.14"
-      # Pinned deliberately: an unpinned Ruff turned the build red on the
-      # 0.16.0 release for rules that did not exist when the code was written.
-      # Bump this on purpose, not by surprise.
-      # --only-binary :all: forbids source distributions, whose build scripts
-      # run arbitrary code at install time. Ruff ships wheels everywhere, so
-      # this costs nothing here.
-      # Quoted: ":all:" contains a colon-space, which YAML would otherwise
-      # read as a nested mapping.
-      - run: 'pip install --only-binary :all: ruff==0.16.1'
-      - run: ruff check .
-      - run: ruff format --check .
-
-  tests:
-    name: Pytest
+  check:
+    # One job for lint, format, tests and the mutation run, because it calls
+    # the SAME script a developer runs. A second list of commands here is a
+    # second definition of "done", and the two drift silently - tests/test_ci_parity.py
+    # fails if this job starts invoking the tools itself again. The cost is
+    # that the heavy install happens before the first lint message; check.sh
+    # still stops at the first failure, so nothing runs past a broken gate.
+    name: Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -67,11 +53,12 @@ jobs:
       # unrelated bumps into broken builds, and it would buy little anyway:
       # a wheel executes on import just as freely, and the tests import
       # everything.
+      #
+      # This also installs the pinned Ruff, so the pin lives in that file
+      # alone. It used to be repeated here, which is one edit away from CI
+      # and the developer linting against different releases.
       - run: pip install -r requirements_test.txt
-      # -m "" overrides the default deselection in pytest.ini: CI always runs
-      # the end-to-end tests as well. They cost ~50 s, which is irrelevant here
-      # and makes every push a full check.
-      - run: python -m pytest tests/ -q -m ""
+      - run: .github/scripts/check.sh
 
   minimum-ha:
     # The full suite runs against the newest stable Home Assistant. That says

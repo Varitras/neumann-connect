@@ -27,6 +27,7 @@ GUARD_FILES = {
     "test_comment_narration.py": "no comment merely restates the code it sits on",
     "test_constant_owners.py": "no constant is defined in two modules",
     "test_device_writes.py": "every device-writing button goes through the action lock",
+    "test_ci_parity.py": "CI runs the same check script a developer runs",
     "test_mutation_harness.py": "the mutation run fails loudly instead of reporting a breakage it never applied",
     "test_log_privacy.py": "no log call hands out a serial number in full",
     "test_guards.py": "the guards stay package-wide and stay present",
@@ -83,6 +84,7 @@ def test_every_guard_scans_a_real_directory():
 # A guard that legitimately targets one named file, with the reason. Anything
 # that scans the integration itself does NOT belong here.
 PINNING_EXEMPT = {
+    "test_ci_parity.py": "CI runs the same check script a developer runs",
     "test_mutation_harness.py": "checks the harness script, not the package",
 }
 
