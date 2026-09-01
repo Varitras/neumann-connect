@@ -1,24 +1,47 @@
 #!/bin/sh
-# The push proves; the commit stays fast.
-# Install once per clone:  git config core.hooksPath .githooks
+# .githooks/pre-push - the secret gate. Install once per clone:
+#   git config core.hooksPath .githooks
 #
-# Two gates, both fail-closed:
-#   1. The project's definition of done.
-#   2. A machine secret/PII scan over the WHOLE history.
+# Scope on purpose: this hook scans, it does not test.
 #
-# The second exists because the prose rule "check before pushing" failed here:
-# a 53 KB .coverage file carrying local user paths was committed and pushed,
-# because the manual scan reads diffs as text and never inspects a binary.
-# A scanner does not have that blind spot.
+# The full check (.github/scripts/check.sh) is NOT run here. CI runs it on
+# every push, and locally it needs $PYTHON pointing at the test virtualenv -
+# a bare `git push` has neither ruff nor pytest on its path, on Windows or in
+# WSL, so the gate would refuse every push instead of proving anything.
+#
+# What it does own is the class CI does not look at. A review reads a diff as
+# text and never opens a binary, so a coverage database, a compiled artefact
+# or an editor backup carries whatever it holds - absolute paths, host names,
+# credentials - straight past it. A scanner has no such blind spot, and it
+# reads the whole history rather than one diff.
+#
+# Fail-closed: a missing scanner is a failed gate, not a skip. Secrets are the
+# one class where "probably fine" is not a defensible answer, because the fix
+# after the fact is a history rewrite and it is never complete.
 set -eu
 cd "$(git rev-parse --show-toplevel)"
 
-.github/scripts/check.sh
-
-if command -v gitleaks >/dev/null 2>&1; then
-    gitleaks git --no-banner || gitleaks detect --no-banner
-else
+if ! command -v gitleaks >/dev/null 2>&1; then
     echo "pre-push: gitleaks not installed - secret gate cannot run, push refused" >&2
-    echo "          (after a history rewrite also check refs/original and reflogs)" >&2
+    echo "          winget install gitleaks   (or apt install gitleaks in WSL)" >&2
+    exit 1
+fi
+
+# The history scan is `git` in current gitleaks and `detect` in older ones,
+# and both are in use here (8.30 on Windows, an older build in WSL). Probing
+# for the subcommand rather than running one and falling back on failure: a
+# fallback triggered by failure cannot tell "this release calls it something
+# else" from "this repository contains a secret".
+if gitleaks git --help >/dev/null 2>&1; then
+    gitleaks git --no-banner -c .gitleaks.toml .
+else
+    gitleaks detect --no-banner -c .gitleaks.toml --source .
+fi
+
+# After a history rewrite the old objects survive in refs/original and the
+# reflogs, where the scan above does not look.
+if git for-each-ref refs/original 2>/dev/null | grep -q .; then
+    echo "pre-push: refs/original still present after a rewrite - check them" >&2
+    echo "          and the reflogs before pushing, then delete them." >&2
     exit 1
 fi

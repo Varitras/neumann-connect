@@ -1,0 +1,22 @@
+# Gitleaks configuration.
+#
+# The default rule set is kept in full; this only removes one class of false
+# positive. Home Assistant entity descriptions carry `key="..."` and
+# `translation_key="..."`, which the generic-api-key rule reads as a secret
+# because a lower-case identifier has enough entropy for it. Those values are
+# entity ids: they appear in the UI, in the translation files and in every
+# user's state machine, so there is nothing to leak.
+#
+# Deliberately narrow: it matches only a line that IS such an assignment, with
+# a value of lower-case letters, digits and underscores. Anything with mixed
+# case, punctuation or length still trips the rule.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Home Assistant entity description keys are identifiers, not secrets"
+regexTarget = "line"
+regexes = [
+  '''^\s*(translation_)?key="[a-z0-9_]+",?\s*$''',
+]
