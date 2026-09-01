@@ -66,7 +66,27 @@ konnten also nie einen Wert tragen oder ihre Aktion ausführen.
 - Ein Abbruch im Config Flow zeigte seinen internen Schlüssel statt einer
   Meldung
 
+- Ein gerade geänderter Wert wird nicht mehr von einem bereits laufenden Poll
+  überschrieben. Der Lautsprecher hatte die neue Einstellung, während die
+  Entity auf den alten Wert zurücksprang - bei selten abgefragten Werten bis zu
+  fünf Minuten lang
+- Ein Reload oder Entfernen eines Geräts lässt ein laufendes Backup, eine
+  Discovery oder ein Restore nicht mehr weiterschreiben. Die Aktion endet,
+  statt die gerade geschlossene Verbindung wieder zu öffnen
+- Ein Werksreset, dessen Antwort verloren geht, verwirft jetzt die
+  zwischengespeicherten Werte. Der Reset startet den Lautsprecher neu, die
+  fehlende Antwort wurde also als "nichts passiert" gelesen, und alle Entities
+  zeigten weiter die Einstellungen von vorher
+- Der Button "EQ zurücksetzen" wartet auf das Ende einer anderen Aktion, statt
+  parallel zu laufen, und gleicht die Werte auch dann ab, wenn nur ein Teil des
+  Resets geschrieben wurde
+- Eine Geräteerkennung, deren Datei auf der Platte gelandet ist, wird nicht mehr
+  als fehlgeschlagen gemeldet. Fehlgeschlagen war nur die interne Kopie, die
+  niemand zurückliest
+
 ### Geändert
+- Seriennummern werden im Log maskiert. In exportierten Dateien geschieht das
+  seit 1.17; zwei Zeilen im Discovery-Pfad gaben sie weiter vollständig aus
 - Die dokumentierte Mindestversion ist Home Assistant 2025.2. Die READMEs
   nannten 2026.3, was nur für das eigene Icon nötig ist
 

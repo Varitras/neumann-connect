@@ -59,7 +59,24 @@ them could never hold a value or carry out their action.
   cycle, and left the dead connection in place
 - One config flow abort showed its internal key instead of a message
 
+- A value you just changed is no longer overwritten by a poll that was already
+  running. The speaker had the new setting while the entity snapped back to the
+  old one - on rarely polled values for up to five minutes
+- Reloading or removing a device no longer leaves a running backup, discovery
+  or restore writing to it. The action now ends instead of reopening the
+  connection that was just closed
+- A factory reset whose reply is lost now drops the cached values. The reset
+  reboots the speaker, so a missing answer was read as "nothing happened" and
+  every entity kept showing the settings from before
+- The "Reset EQ" button waits for another action to finish instead of running
+  alongside it, and refreshes the values even when only part of the reset was
+  written
+- A device discovery whose file reached the disk is no longer reported as
+  failed. Only the internal copy had failed, and nothing reads it back
+
 ### Changed
+- Serial numbers are masked in the log. Exported files have masked them since
+  1.17; two lines on the discovery path still printed them in full
 - The documented minimum version is Home Assistant 2025.2. The READMEs claimed
   2026.3, which is only needed for the custom icon
 
