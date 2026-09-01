@@ -1,0 +1,6 @@
+# Shell scripts keep LF even when checked out on Windows. /bin/sh refuses a
+# script whose lines end in CRLF ("bad interpreter: No such file or
+# directory"), so with core.autocrlf=true check.sh became unrunnable under
+# WSL while CI - checking out on Linux - was perfectly fine.
+*.sh text eol=lf
+.githooks/* text eol=lf
