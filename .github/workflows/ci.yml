@@ -50,6 +50,7 @@ jobs:
       # read as a nested mapping.
       - run: 'pip install --only-binary :all: ruff==0.16.1'
       - run: ruff check .
+      - run: ruff format --check .
 
   tests:
     name: Pytest

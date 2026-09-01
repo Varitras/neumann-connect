@@ -94,9 +94,3 @@ SonarSource's default.
    `test_the_scan_catches_the_line_it_was_written_for` does.
 3. **List it in `GUARD_FILES`.** A guard nobody lists is a guard nobody knows
    to keep.
-
-## Known gap
-
-`ruff format --check` reports 23 files and is **not** a gate yet; `check.sh`
-prints its result without failing. Reformatting is a decision of its own, not
-something to fold into a bug fix.

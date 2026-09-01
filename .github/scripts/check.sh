@@ -20,11 +20,8 @@ step() { printf '\n== %s ==\n' "$1"; }
 step "ruff check"
 "$PYTHON" -m ruff check --no-cache .
 
-# NOT a gate yet: `ruff format --check` reports 23 files at the time of
-# writing, and reformatting them is a decision of its own, not something to
-# smuggle in with a bug fix. Named here so the omission is visible.
-step "ruff format: NOT ENFORCED"
-"$PYTHON" -m ruff format --check --no-cache "$PACKAGE" tests tools || true
+step "ruff format --check"
+"$PYTHON" -m ruff format --check --no-cache "$PACKAGE" tests tools
 
 step "pytest (full run, e2e included)"
 "$PYTHON" -m pytest tests/ -q -m ""
