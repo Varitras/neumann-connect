@@ -75,6 +75,9 @@ them could never hold a value or carry out their action.
   failed. Only the internal copy had failed, and nothing reads it back
 
 ### Changed
+- The READMEs describe installation. Only the manual copy was documented; the
+  HACS route - add the repository as a custom repository - was missing, although
+  the repository ships `hacs.json` and validates against HACS on every push
 - Serial numbers are masked in the log. Exported files have masked them since
   1.17; two lines on the discovery path still printed them in full
 - The documented minimum version is Home Assistant 2025.2. The READMEs claimed

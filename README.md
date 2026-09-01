@@ -55,18 +55,37 @@ manufacturer as "building on the KH 750 DSP") are not yet included in the
 model detection – if you own one of these devices and would like to test,
 feel free to get in touch.
 
-## Setup
+## Installation
+
+### HACS (custom repository)
+
+This integration is not in the HACS default list, so add the repository once
+by hand:
+
+1. **HACS → Integrations → ⋮ → Custom repositories**
+2. Repository `https://github.com/Varitras/neumann-connect`, category
+   **Integration**, then **Add**
+3. Find **Neumann Connect** in HACS and download it
+4. Restart Home Assistant
+
+Pre-releases (`1.18.1b5` and the like) are only offered once beta versions are
+enabled for the repository in HACS.
+
+### Manually
 
 1. Copy the folder `custom_components/neumann_kh` into your Home Assistant
    configuration directory (e.g. `/config/custom_components/neumann_kh`).
 2. Restart Home Assistant.
-3. **Settings → Devices & Services → Add Integration → "Neumann KH (SSC)"**.
-4. You will get a menu with two options:
+
+## Setup
+
+1. **Settings → Devices & Services → Add Integration → "Neumann KH (SSC)"**.
+2. You will get a menu with two options:
    - **"Search the network automatically"** – active mDNS scan (see below),
      results shown as a selection list. The recommended default route.
    - **"Enter manually"** – IP address, interface dropdown, port (fallback in
      case the automatic search does not find a device).
-5. Create a separate entry for **each** loudspeaker (e.g. "KH 120 II Left",
+3. Create a separate entry for **each** loudspeaker (e.g. "KH 120 II Left",
    "KH 120 II Right", "KH 750 DSP Sub 1", "KH 750 DSP Sub 2").
 
 ### Changing connection details later

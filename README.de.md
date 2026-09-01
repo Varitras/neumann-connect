@@ -58,18 +58,37 @@ KH 805 II, KH 810 II, KH 870 II (2024/2025 vorgestellt, laut Hersteller
 hinterlegt - falls du eines dieser Geräte besitzt und testen möchtest,
 gerne melden.
 
-## Einrichtung
+## Installation
+
+### HACS (benutzerdefiniertes Repository)
+
+Diese Integration steht nicht im HACS-Standardkatalog, das Repository wird
+also einmalig von Hand hinzugefügt:
+
+1. **HACS → Integrationen → ⋮ → Benutzerdefinierte Repositories**
+2. Repository `https://github.com/Varitras/neumann-connect`, Kategorie
+   **Integration**, dann **Hinzufügen**
+3. **Neumann Connect** in HACS suchen und herunterladen
+4. Home Assistant neu starten
+
+Vorabversionen (`1.18.1b5` und ähnliche) erscheinen erst, wenn für das
+Repository in HACS Beta-Versionen aktiviert sind.
+
+### Manuell
 
 1. Ordner `custom_components/neumann_kh` in dein Home-Assistant-Konfigurationsverzeichnis kopieren
    (z. B. `/config/custom_components/neumann_kh`).
 2. Home Assistant neu starten.
-3. **Einstellungen → Geräte & Dienste → Integration hinzufügen → "Neumann KH (SSC)"**.
-4. Du bekommst ein Menü mit zwei Wegen:
+
+## Einrichtung
+
+1. **Einstellungen → Geräte & Dienste → Integration hinzufügen → "Neumann KH (SSC)"**.
+2. Du bekommst ein Menü mit zwei Wegen:
    - **"Automatisch im Netzwerk suchen"** – aktiver mDNS-Scan (siehe unten),
      Ergebnis als Auswahlliste. Empfohlener Standardweg.
    - **"Manuell eingeben"** – IP-Adresse, Interface-Dropdown, Port (Fallback,
      falls die automatische Suche ein Gerät nicht findet).
-5. Für **jeden** Lautsprecher einen eigenen Eintrag anlegen (z. B. "KH 120 II Links",
+3. Für **jeden** Lautsprecher einen eigenen Eintrag anlegen (z. B. "KH 120 II Links",
    "KH 120 II Rechts", "KH 750 DSP Sub 1", "KH 750 DSP Sub 2").
 
 ### Verbindungsdaten nachträglich ändern

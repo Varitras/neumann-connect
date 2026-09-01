@@ -85,6 +85,10 @@ konnten also nie einen Wert tragen oder ihre Aktion ausführen.
   niemand zurückliest
 
 ### Geändert
+- Die READMEs beschreiben die Installation. Dokumentiert war nur das manuelle
+  Kopieren; der HACS-Weg - Repository als benutzerdefiniertes Repository
+  hinzufügen - fehlte, obwohl das Repo `hacs.json` mitbringt und bei jedem
+  Push gegen HACS validiert wird
 - Seriennummern werden im Log maskiert. In exportierten Dateien geschieht das
   seit 1.17; zwei Zeilen im Discovery-Pfad gaben sie weiter vollständig aus
 - Die dokumentierte Mindestversion ist Home Assistant 2025.2. Die READMEs
