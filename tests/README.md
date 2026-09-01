@@ -10,8 +10,8 @@ no memory of why any of it is here.
 .github/scripts/check.sh
 ```
 
-Ruff, the full test suite, a compile pass, dead code and the mutation run, in
-that order, stopping at the first failure.
+Ruff, the full test suite, a compile pass and the mutation run, in that
+order, stopping at the first failure.
 
 The suite is **Linux-only**: `pytest-homeassistant-custom-component` imports
 `homeassistant.runner` while collecting, which imports `fcntl`. Run it under

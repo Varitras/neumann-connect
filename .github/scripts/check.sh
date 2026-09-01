@@ -29,14 +29,13 @@ step "pytest (full run, e2e included)"
 step "compile every module"
 "$PYTHON" -m compileall -q "$PACKAGE"
 
-# Dead parallel stacks misled debugging in sibling projects; confidence 90
-# keeps false positives near zero.
-step "dead code (vulture)"
-if "$PYTHON" -c "import vulture" 2>/dev/null; then
-    "$PYTHON" -m vulture "$PACKAGE" --min-confidence 90
-else
-    echo "SKIPPED: vulture not installed - dead parallel stacks stay invisible"
-fi
+# No dead-code gate. vulture was measured against this package and does not
+# work here: at confidence 90 all five hits are framework contracts (zeroconf's
+# callback signature, Home Assistant's **kwargs on async_turn_on/off), at 60 it
+# reports every async_setup_entry, async_press and property, because a Home
+# Assistant integration is almost entirely called by the framework. It also
+# exits 0 with findings, so the gate could never have failed. The two dead
+# functions this project did have were found by review.
 
 if [ -f .github/mutations/plan.json ]; then
     step "mutation run"

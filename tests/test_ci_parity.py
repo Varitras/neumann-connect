@@ -23,7 +23,7 @@ WORKFLOW = REPO / ".github" / "workflows" / "ci.yml"
 CHECK_SCRIPT = REPO / ".github" / "scripts" / "check.sh"
 
 # Tools whose invocation belongs to check.sh alone.
-OWNED_BY_THE_SCRIPT = ("ruff", "pytest", "vulture", "mutate.py")
+OWNED_BY_THE_SCRIPT = ("ruff", "pytest", "mutate.py")
 
 
 def _run_commands(workflow_text: str) -> list[str]:
@@ -115,3 +115,24 @@ jobs:
 
     assert commands, "a block-style run step must be seen at all"
     assert any("pytest" in command for command in commands)
+
+
+def test_no_shell_script_carries_carriage_returns():
+    r"""A single \r makes /bin/sh refuse the file: "bad interpreter".
+
+    .gitattributes keeps the checkout clean, but any tool that rewrites a
+    script in text mode on Windows puts them back - and the breakage shows up
+    only when someone runs it, with an error naming an interpreter rather
+    than the file.
+    """
+    scripts = sorted((REPO / ".github" / "scripts").glob("*.sh"))
+    scripts += sorted((REPO / ".githooks").iterdir())
+    offenders = [
+        script.name for script in scripts if script.is_file() and b"\r" in script.read_bytes()
+    ]
+
+    assert not offenders, (
+        f"shell script(s) with CRLF line endings: {offenders}. Rewrite them "
+        "with LF - .gitattributes keeps the checkout right, an editor writing "
+        "in text mode does not."
+    )
