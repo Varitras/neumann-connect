@@ -144,8 +144,13 @@ def test_read_only_paths_are_not_restorable(model):
     from custom_components.neumann_kh import const
 
     restorable = set(restorable_paths_for_model(model))
-    for name in ("PATH_INPUT_GAIN", "PATH_UI_OUTPUT_LEVEL", "PATH_WARNINGS",
-                 "PATH_IDENTITY_HW_VERSION", "PATH_INPUT_CURRENT"):
+    for name in (
+        "PATH_INPUT_GAIN",
+        "PATH_UI_OUTPUT_LEVEL",
+        "PATH_WARNINGS",
+        "PATH_IDENTITY_HW_VERSION",
+        "PATH_INPUT_CURRENT",
+    ):
         assert getattr(const, name) not in restorable, f"{name} is read-only"
 
 

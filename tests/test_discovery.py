@@ -80,7 +80,9 @@ async def test_resolution_stops_at_a_bound(monkeypatch):
             handlers = kwargs.get("handlers") or args[2]
             for index in range(10):
                 handlers[0](
-                    None, "_ssc._tcp.local.", f"s{index}._ssc._tcp.local.",
+                    None,
+                    "_ssc._tcp.local.",
+                    f"s{index}._ssc._tcp.local.",
                     discovery.ServiceStateChange.Added,
                 )
 
@@ -88,9 +90,11 @@ async def test_resolution_stops_at_a_bound(monkeypatch):
             return None
 
     hass = AsyncMock()
-    with patch.object(discovery, "AsyncServiceBrowser", _FakeBrowser), patch.object(
-        discovery, "AsyncServiceInfo", _FakeInfo
-    ), patch.object(discovery.ha_zeroconf, "async_get_async_instance", AsyncMock()):
+    with (
+        patch.object(discovery, "AsyncServiceBrowser", _FakeBrowser),
+        patch.object(discovery, "AsyncServiceInfo", _FakeInfo),
+        patch.object(discovery.ha_zeroconf, "async_get_async_instance", AsyncMock()),
+    ):
         speakers = await discovery.async_scan_for_speakers(hass, duration=0)
 
     assert len(resolved) == 3, "the resolution pass was not bounded"

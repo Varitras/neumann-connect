@@ -46,9 +46,7 @@ class SimulatorServer:
         self.port: int = 0
 
     async def start(self) -> None:
-        async def connected(
-            reader: asyncio.StreamReader, writer: asyncio.StreamWriter
-        ) -> None:
+        async def connected(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
             await _handle_client(self.simulator, reader, writer)
 
         # IPv4 loopback on purpose: the HA test plugin allows only 127.0.0.1
@@ -101,7 +99,7 @@ async def test_get_and_set_roundtrip(kh120):
 
 
 async def test_missing_path_is_rejected(kh120):
-    """"dimm" exists on neither test model -> the device reports 404."""
+    """ "dimm" exists on neither test model -> the device reports 404."""
     client = _client(kh120.port)
     try:
         with pytest.raises(SSCDeviceError):
@@ -206,10 +204,13 @@ async def test_auto_standby_is_read_only_on_the_subwoofer(kh750):
         await client.close()
 
 
-@pytest.mark.parametrize("path", [
-    ("audio", "out1", "loudspeaker"),
-    ("audio", "out2", "loudspeaker"),
-])
+@pytest.mark.parametrize(
+    "path",
+    [
+        ("audio", "out1", "loudspeaker"),
+        ("audio", "out2", "loudspeaker"),
+    ],
+)
 async def test_output_loudspeaker_is_read_only(kh750, path):
     """Modelled as sensors, so the simulator has to refuse a write.
 

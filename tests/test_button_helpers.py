@@ -34,6 +34,7 @@ def test_one_action_at_a_time_per_speaker():
     writes: the snapshot mixes values from before and after, looks complete,
     and replaces the last good one.
     """
+
     class _Coordinator:
         """The real claim method over a minimal stand-in."""
 

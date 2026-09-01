@@ -127,9 +127,7 @@ class NeumannKHRestoreButton(NeumannKHEntity, ButtonEntity):
                 # The most destructive action of the four, and the only one
                 # that never had a guard.
                 async with self.coordinator.claim_device():
-                    await self.coordinator.client.set(
-                        PATH_RESTORE, RESTORE_FACTORY_DEFAULTS_VALUE
-                    )
+                    await self.coordinator.client.set(PATH_RESTORE, RESTORE_FACTORY_DEFAULTS_VALUE)
             except SSCDeviceError as err:
                 raise HomeAssistantError(
                     translation_domain=DOMAIN,
@@ -238,9 +236,7 @@ class NeumannKHRestoreBackupButton(NeumannKHEntity, ButtonEntity):
             # up a backup created between the two presses, so the user would
             # confirm one snapshot and get another.
             async with self.coordinator.claim_device():
-                await async_run_restore(
-                    self.hass, self._entry, self.coordinator, armed_backup
-                )
+                await async_run_restore(self.hass, self._entry, self.coordinator, armed_backup)
             return
 
         # First press: validate before arming, so a mismatched or missing

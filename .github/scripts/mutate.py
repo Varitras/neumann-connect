@@ -51,7 +51,9 @@ def _apply(plan_entry: dict) -> tuple[str, str]:
             f"{plan_entry['path']} - the code moved and this mutation checks "
             "nothing. Update the entry."
         )
-    target.write_text(original.replace(plan_entry["find"], plan_entry["replace"], 1), encoding="utf-8")
+    target.write_text(
+        original.replace(plan_entry["find"], plan_entry["replace"], 1), encoding="utf-8"
+    )
     return str(target), original
 
 

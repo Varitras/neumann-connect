@@ -73,9 +73,7 @@ def _notify_written(hass: HomeAssistant, entry: ConfigEntry, kind: str, path: st
     _notify(hass, entry, kind, title, body)
 
 
-async def async_run_backup(
-    hass: HomeAssistant, entry: ConfigEntry, client: SSCClient
-) -> str:
+async def async_run_backup(hass: HomeAssistant, entry: ConfigEntry, client: SSCClient) -> str:
     """Read all known values, store them and write them out."""
     serial = entry.data.get(CONF_SERIAL) or entry.entry_id
     model = entry.data.get(CONF_MODEL)
@@ -103,10 +101,7 @@ async def async_run_backup(
     # missing - but that it can restore something. Anything less would replace
     # the last usable snapshot with one that restores nothing, and still
     # report success.
-    if not any(
-        extract(values, path) is not None
-        for path in restorable_paths_for_model(model)
-    ):
+    if not any(extract(values, path) is not None for path in restorable_paths_for_model(model)):
         raise HomeAssistantError(
             translation_domain=DOMAIN,
             translation_key="backup_empty",
@@ -148,9 +143,7 @@ async def async_run_backup(
     return path
 
 
-async def async_run_discovery(
-    hass: HomeAssistant, entry: ConfigEntry, client: SSCClient
-) -> str:
+async def async_run_discovery(hass: HomeAssistant, entry: ConfigEntry, client: SSCClient) -> str:
     """Run a full device discovery, store it and write it out."""
     serial = entry.data.get(CONF_SERIAL) or entry.entry_id
     model = entry.data.get(CONF_MODEL)
@@ -193,9 +186,7 @@ async def async_run_discovery(
     # the run succeeded, and a write failure has to arrive as a readable
     # message rather than a raw OSError.
     try:
-        path = await async_write_export(
-            hass, KIND_DISCOVERY, masked, record, entry.entry_id
-        )
+        path = await async_write_export(hass, KIND_DISCOVERY, masked, record, entry.entry_id)
     except Exception as err:
         raise HomeAssistantError(
             translation_domain=DOMAIN,
@@ -221,9 +212,7 @@ async def async_run_discovery(
 # --- Restore ---------------------------------------------------------------
 
 
-async def async_check_restorable(
-    hass: HomeAssistant, entry: ConfigEntry
-) -> dict[str, Any]:
+async def async_check_restorable(hass: HomeAssistant, entry: ConfigEntry) -> dict[str, Any]:
     """Load the stored backup for this entry and refuse a mismatched one.
 
     Writing one model's settings into another would push values the target has
@@ -234,9 +223,7 @@ async def async_check_restorable(
     serial = entry.data.get(CONF_SERIAL) or entry.entry_id
     backup = await storage.async_get_backup(hass, serial)
     if not backup or not backup.get("values"):
-        raise HomeAssistantError(
-            translation_domain=DOMAIN, translation_key="restore_no_backup"
-        )
+        raise HomeAssistantError(translation_domain=DOMAIN, translation_key="restore_no_backup")
 
     model = entry.data.get(CONF_MODEL)
     backup_model = backup.get("model")
@@ -260,8 +247,7 @@ async def async_check_restorable(
     # from before that check existed, or one taken for a different model - and
     # the restore then reports success after writing nothing at all.
     if not any(
-        extract(backup["values"], path) is not None
-        for path in restorable_paths_for_model(model)
+        extract(backup["values"], path) is not None for path in restorable_paths_for_model(model)
     ):
         raise HomeAssistantError(
             translation_domain=DOMAIN,
@@ -327,9 +313,7 @@ async def async_run_restore(
 
     for path in restorable_paths_for_model(entry.data.get(CONF_MODEL)):
         if asyncio.get_running_loop().time() >= deadline:
-            raise _stop(
-                "restore_timed_out", seconds=f"{DEVICE_ACTION_TIMEOUT_SECONDS:.0f}"
-            )
+            raise _stop("restore_timed_out", seconds=f"{DEVICE_ACTION_TIMEOUT_SECONDS:.0f}")
         value = extract(values, path)
         if value is None:
             skipped += 1

@@ -467,9 +467,7 @@ async def run(model: str, host: str, port: int, enable_schema: bool) -> None:
     """Start the simulator and serve until interrupted."""
     simulator = SSCSimulator(model, enable_schema=enable_schema)
 
-    async def client_connected(
-        reader: asyncio.StreamReader, writer: asyncio.StreamWriter
-    ) -> None:
+    async def client_connected(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         await _handle_client(simulator, reader, writer)
 
     server = await asyncio.start_server(

@@ -58,10 +58,7 @@ class _SchemaClient:
         node: Any = self.tree
         for key in path:
             node = node[key]
-        return {
-            key: {} if isinstance(value, dict) else None
-            for key, value in node.items()
-        }
+        return {key: {} if isinstance(value, dict) else None for key, value in node.items()}
 
     async def request(self, payload: dict[str, Any]) -> dict[str, Any]:
         path = self._path_of(payload)

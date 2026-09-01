@@ -101,9 +101,7 @@ async def async_scan_for_speakers(
         if state_change is ServiceStateChange.Added:
             found_names.add(name)
 
-    browser = AsyncServiceBrowser(
-        aiozc.zeroconf, SSC_ZEROCONF_SERVICE_TYPE, handlers=[_on_change]
-    )
+    browser = AsyncServiceBrowser(aiozc.zeroconf, SSC_ZEROCONF_SERVICE_TYPE, handlers=[_on_change])
     try:
         await asyncio.sleep(duration)
     finally:
@@ -114,8 +112,7 @@ async def async_scan_for_speakers(
     for index, mdns_name in enumerate(sorted(found_names)):
         if index >= _MAX_RESOLVE_SERVICES or asyncio.get_running_loop().time() >= deadline:
             _LOGGER.warning(
-                "Stopped resolving mDNS records after %d of %d - the rest is not "
-                "in this result",
+                "Stopped resolving mDNS records after %d of %d - the rest is not in this result",
                 index,
                 len(found_names),
             )

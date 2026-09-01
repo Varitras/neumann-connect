@@ -38,9 +38,7 @@ class DiscoveryTimeoutError(Exception):
     """The guaranteed part did not finish within DEVICE_ACTION_TIMEOUT_SECONDS."""
 
 
-async def async_discover_all_values(
-    client: SSCClient, model: str | None = None
-) -> dict[str, Any]:
+async def async_discover_all_values(client: SSCClient, model: str | None = None) -> dict[str, Any]:
     """Run both discovery methods and return a merged result."""
     return {
         "known_paths": await _async_query_known_paths(client, model),
@@ -48,17 +46,14 @@ async def async_discover_all_values(
     }
 
 
-async def _async_query_known_paths(
-    client: SSCClient, model: str | None
-) -> dict[str, Any]:
+async def _async_query_known_paths(client: SSCClient, model: str | None) -> dict[str, Any]:
     """Query all known paths individually (guaranteed part, like coordinator.py)."""
     result: dict[str, Any] = {}
     deadline = asyncio.get_running_loop().time() + DEVICE_ACTION_TIMEOUT_SECONDS
     for path in known_paths_for_model(model):
         if asyncio.get_running_loop().time() >= deadline:
             raise DiscoveryTimeoutError(
-                f"reading the known paths took longer than "
-                f"{DEVICE_ACTION_TIMEOUT_SECONDS:.0f}s"
+                f"reading the known paths took longer than {DEVICE_ACTION_TIMEOUT_SECONDS:.0f}s"
             )
         try:
             value = await client.get(path)
@@ -74,9 +69,7 @@ async def _async_query_known_paths(
     return result
 
 
-async def _fetch_schema_subtree(
-    client: SSCClient, path: tuple[str, ...]
-) -> dict[str, Any] | None:
+async def _fetch_schema_subtree(client: SSCClient, path: tuple[str, ...]) -> dict[str, Any] | None:
     """Ask the device for the children of `path`, or None if it will not say.
 
     Best-effort by contract: osc/schema is optional per the SSC specification
@@ -86,9 +79,7 @@ async def _fetch_schema_subtree(
     discovery has already been collected and must survive this.
     """
     request = (
-        {"osc": {"schema": None}}
-        if not path
-        else {"osc": {"schema": [build_nested(path, None)]}}
+        {"osc": {"schema": None}} if not path else {"osc": {"schema": [build_nested(path, None)]}}
     )
     try:
         response = await client.request(request)

@@ -24,7 +24,7 @@ import complexity
 
 PACKAGE = pathlib.Path(__file__).resolve().parents[1] / "custom_components" / "neumann_kh"
 
-# The gap in this package runs between 444 (ssc_client.py) and 785
+# The gap in this package runs between 442 (ssc_client.py) and 776
 # (config_flow.py); the limit sits in it, so only the module carrying real
 # history needs an entry.
 LINE_LIMIT = 500
@@ -32,7 +32,7 @@ LINE_BUDGETS = {
     # Four flows (manual, zeroconf, scan, reconfigure) plus their shared
     # identity handling. Splitting was considered and rejected: the flows
     # share the candidate/identity helpers, and HA discovers the class here.
-    "config_flow.py": 785,
+    "config_flow.py": 776,
 }
 
 # SonarSource's default. Everything above needs a written entry.

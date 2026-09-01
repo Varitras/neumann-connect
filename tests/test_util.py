@@ -8,9 +8,7 @@ def test_build_nested_single_level():
 
 
 def test_build_nested_deep():
-    assert build_nested(("audio", "out", "mute"), True) == {
-        "audio": {"out": {"mute": True}}
-    }
+    assert build_nested(("audio", "out", "mute"), True) == {"audio": {"out": {"mute": True}}}
 
 
 def test_extract_roundtrip():

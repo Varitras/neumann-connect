@@ -36,12 +36,16 @@ class EQContainer:
 # Non-subwoofer models (KH 120 II etc.)
 NON_SUBWOOFER_EQ_CONTAINERS: tuple[EQContainer, ...] = (
     EQContainer(
-        path=("audio", "out", "eq2"), band_count=10,
-        label_en="EQ2 Main output", label_de="EQ2 Hauptausgang",
+        path=("audio", "out", "eq2"),
+        band_count=10,
+        label_en="EQ2 Main output",
+        label_de="EQ2 Hauptausgang",
     ),
     EQContainer(
-        path=("audio", "out", "eq3"), band_count=20,
-        label_en="EQ3 Main output", label_de="EQ3 Hauptausgang",
+        path=("audio", "out", "eq3"),
+        band_count=20,
+        label_en="EQ3 Main output",
+        label_de="EQ3 Hauptausgang",
     ),
 )
 
@@ -50,32 +54,46 @@ NON_SUBWOOFER_EQ_CONTAINERS: tuple[EQContainer, ...] = (
 # appear grouped together alphabetically in the configuration section.
 SUBWOOFER_EQ_CONTAINERS: tuple[EQContainer, ...] = (
     EQContainer(
-        path=("audio", "out", "eq2"), band_count=10,
-        label_en="EQ2 Subwoofer main output", label_de="EQ2 Subwoofer-Hauptausgang",
+        path=("audio", "out", "eq2"),
+        band_count=10,
+        label_en="EQ2 Subwoofer main output",
+        label_de="EQ2 Subwoofer-Hauptausgang",
     ),
     EQContainer(
-        path=("audio", "out1", "eq1"), band_count=2,
-        label_en="EQ Crossover Output 1", label_de="EQ Crossover Ausgang 1",
+        path=("audio", "out1", "eq1"),
+        band_count=2,
+        label_en="EQ Crossover Output 1",
+        label_de="EQ Crossover Ausgang 1",
     ),
     EQContainer(
-        path=("audio", "out1", "eq2"), band_count=10,
-        label_en="EQ2 Output 1", label_de="EQ2 Ausgang 1",
+        path=("audio", "out1", "eq2"),
+        band_count=10,
+        label_en="EQ2 Output 1",
+        label_de="EQ2 Ausgang 1",
     ),
     EQContainer(
-        path=("audio", "out1", "eq3"), band_count=10,
-        label_en="EQ3 Output 1", label_de="EQ3 Ausgang 1",
+        path=("audio", "out1", "eq3"),
+        band_count=10,
+        label_en="EQ3 Output 1",
+        label_de="EQ3 Ausgang 1",
     ),
     EQContainer(
-        path=("audio", "out2", "eq1"), band_count=2,
-        label_en="EQ Crossover Output 2", label_de="EQ Crossover Ausgang 2",
+        path=("audio", "out2", "eq1"),
+        band_count=2,
+        label_en="EQ Crossover Output 2",
+        label_de="EQ Crossover Ausgang 2",
     ),
     EQContainer(
-        path=("audio", "out2", "eq2"), band_count=10,
-        label_en="EQ2 Output 2", label_de="EQ2 Ausgang 2",
+        path=("audio", "out2", "eq2"),
+        band_count=10,
+        label_en="EQ2 Output 2",
+        label_de="EQ2 Ausgang 2",
     ),
     EQContainer(
-        path=("audio", "out2", "eq3"), band_count=10,
-        label_en="EQ3 Output 2", label_de="EQ3 Ausgang 2",
+        path=("audio", "out2", "eq3"),
+        band_count=10,
+        label_en="EQ3 Output 2",
+        label_de="EQ3 Ausgang 2",
     ),
 )
 

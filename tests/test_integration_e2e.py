@@ -65,9 +65,7 @@ async def _simulator(model: str):
     simulator = SSCSimulator(model)
     handlers: set[asyncio.Task] = set()
 
-    async def connected(
-        reader: asyncio.StreamReader, writer: asyncio.StreamWriter
-    ) -> None:
+    async def connected(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         task = asyncio.current_task()
         if task is not None:
             handlers.add(task)
@@ -249,9 +247,7 @@ async def test_restore_needs_two_presses_and_writes_back(hass, socket_enabled, t
             lambda e: e.entity_id.startswith("switch.") and e.entity_id.endswith("_mute"),
             "for the mute switch",
         ).entity_id
-        await hass.services.async_call(
-            "switch", "turn_on", {"entity_id": mute}, blocking=True
-        )
+        await hass.services.async_call("switch", "turn_on", {"entity_id": mute}, blocking=True)
         await hass.async_block_till_done()
         assert hass.states.get(mute).state == "on"
 
@@ -400,8 +396,11 @@ async def test_restore_leaves_command_paths_alone(hass, socket_enabled, tmp_path
         await hass.async_block_till_done()
 
         assert written_paths, "the restore wrote nothing at all"
-        for forbidden in (("device", "restore"), ("device", "save_settings"),
-                          ("device", "identification", "visual")):
+        for forbidden in (
+            ("device", "restore"),
+            ("device", "save_settings"),
+            ("device", "identification", "visual"),
+        ):
             assert forbidden not in written_paths, f"restore wrote {forbidden}"
 
 
@@ -442,9 +441,6 @@ async def test_writing_a_value_reaches_the_device(hass, socket_enabled):
             "for the mute switch",
         ).entity_id
 
-        await hass.services.async_call(
-            "switch", "turn_on", {"entity_id": mute}, blocking=True
-        )
+        await hass.services.async_call("switch", "turn_on", {"entity_id": mute}, blocking=True)
         await hass.async_block_till_done()
         assert hass.states.get(mute).state == "on"
-

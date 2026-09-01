@@ -24,8 +24,18 @@ TESTS = pathlib.Path(__file__).resolve().parent
 WORD = re.compile(r"[A-Za-z][A-Za-z0-9]{2,}")
 EXEMPT_PREFIXES = ("ADAPT:", "ponytail:", "noqa", "type:", "TODO", "FIXME", "!")
 FILLER = set(keyword.kwlist) | {
-    "the", "and", "for", "with", "this", "that", "into", "from",
-    "set", "get", "value", "values",
+    "the",
+    "and",
+    "for",
+    "with",
+    "this",
+    "that",
+    "into",
+    "from",
+    "set",
+    "get",
+    "value",
+    "values",
 }
 
 # ADAPT: ("file.py", "verbatim comment text") for hits that earn their place.
@@ -77,7 +87,8 @@ def test_no_comment_merely_narrates_the_adjacent_code():
             offenders.append(f"{source_file.name}:{line}: # {text}")
 
     assert not offenders, (
-        "comment(s) that only restate the code:\n  " + "\n  ".join(offenders)
+        "comment(s) that only restate the code:\n  "
+        + "\n  ".join(offenders)
         + "\nSay WHY (decision, constraint, incident) or delete the comment; "
         "a genuinely earned hit goes into EXEMPTIONS with its verbatim text."
     )

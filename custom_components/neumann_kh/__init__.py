@@ -90,9 +90,7 @@ async def _async_relocate(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     async def _serial_of(speaker):
         async with semaphore:
-            client = SSCClient(
-                host=speaker.host, port=speaker.port, timeout=DEFAULT_TIMEOUT
-            )
+            client = SSCClient(host=speaker.host, port=speaker.port, timeout=DEFAULT_TIMEOUT)
             try:
                 return await client.get(PATH_IDENTITY_SERIAL)
             except (SSCConnectionError, SSCTimeoutError, SSCDeviceError):
@@ -180,9 +178,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         timeout=DEFAULT_TIMEOUT,
     )
 
-    coordinator = NeumannKHCoordinator(
-        hass, client, entry.title, model=entry.data.get(CONF_MODEL)
-    )
+    coordinator = NeumannKHCoordinator(hass, client, entry.title, model=entry.data.get(CONF_MODEL))
     try:
         await coordinator.async_config_entry_first_refresh()
     except Exception:
@@ -226,4 +222,3 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             hass.data[DOMAIN].pop(entry.entry_id, None)
 
     return unload_ok
-

@@ -140,9 +140,7 @@ async def test_reconfigure_updates_the_entry_in_place(hass, _custom_integration)
 async def test_reconfigure_refuses_a_different_speaker(hass, _custom_integration):
     """Repointing an entry at another unit would graft its history onto it."""
     entry = _entry(hass)
-    identity = DeviceIdentity(
-        product="KH 750", serial="SIM0007500", vendor="Georg Neumann GmbH"
-    )
+    identity = DeviceIdentity(product="KH 750", serial="SIM0007500", vendor="Georg Neumann GmbH")
 
     result = await _run_reconfigure(hass, entry, identity)
 
@@ -192,9 +190,7 @@ async def test_reconfigure_rejects_link_local_without_interface(hass, _custom_in
 # The speakers were reachable the whole time and kept announcing themselves.
 
 
-def _zeroconf_info(
-    host="fe80::2%2", serial=_EXISTING_SERIAL, port=45, model="KH 120 II"
-):
+def _zeroconf_info(host="fe80::2%2", serial=_EXISTING_SERIAL, port=45, model="KH 120 II"):
     """An announcement shaped like the ones the real speakers send.
 
     Verified against all four devices on 2026-07-27: the TXT record carries
@@ -287,17 +283,13 @@ async def test_zeroconf_without_a_serial_is_ignored(hass, _custom_integration):
     assert entry.data[CONF_HOST] == "fe80::1"  # untouched
 
 
-async def test_zeroconf_of_another_speaker_does_not_touch_this_entry(
-    hass, _custom_integration
-):
+async def test_zeroconf_of_another_speaker_does_not_touch_this_entry(hass, _custom_integration):
     entry = _entry(hass)
 
     result = await _run_zeroconf(
         hass,
         _zeroconf_info(serial="SIM0007500", model="KH 750"),
-        identity=DeviceIdentity(
-            product="KH 750", serial="SIM0007500", vendor="Georg Neumann GmbH"
-        ),
+        identity=DeviceIdentity(product="KH 750", serial="SIM0007500", vendor="Georg Neumann GmbH"),
     )
     await hass.async_block_till_done()
 
@@ -315,16 +307,12 @@ async def test_zeroconf_of_an_unknown_speaker_offers_setup(hass, _custom_integra
         vendor="Georg Neumann GmbH",
     )
 
-    result = await _run_zeroconf(
-        hass, _zeroconf_info(serial="SIM0009999"), identity=identity
-    )
+    result = await _run_zeroconf(hass, _zeroconf_info(serial="SIM0009999"), identity=identity)
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "zeroconf_confirm"
 
     # Creating the entry sets it up for real, which would open a socket.
-    with patch(
-        "custom_components.neumann_kh.async_setup_entry", return_value=True
-    ):
+    with patch("custom_components.neumann_kh.async_setup_entry", return_value=True):
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"], {CONF_NAME: "New speaker"}
         )
@@ -352,10 +340,7 @@ def test_manifest_declares_the_zeroconf_type():
     """
     manifest = json.loads(
         (
-            Path(__file__).parent.parent
-            / "custom_components"
-            / "neumann_kh"
-            / "manifest.json"
+            Path(__file__).parent.parent / "custom_components" / "neumann_kh" / "manifest.json"
         ).read_text(encoding="utf-8")
     )
     assert manifest.get("zeroconf") == [SSC_ZEROCONF_SERVICE_TYPE]
@@ -384,18 +369,14 @@ async def test_zeroconf_verifies_before_repointing_an_entry(hass, _custom_integr
     assert entry.data[CONF_HOST] == "fe80::1", "the entry was repointed on an unverified claim"
 
 
-async def test_zeroconf_does_not_contact_a_speaker_that_has_not_moved(
-    hass, _custom_integration
-):
+async def test_zeroconf_does_not_contact_a_speaker_that_has_not_moved(hass, _custom_integration):
     """The common case by far: an announcement that changes nothing."""
     entry = _entry(hass)
     hass.config_entries.async_update_entry(
         entry, data={**entry.data, CONF_HOST: _PICKED_HOST, CONF_INTERFACE: ""}
     )
 
-    with patch(
-        "custom_components.neumann_kh.config_flow._async_test_connection"
-    ) as connect:
+    with patch("custom_components.neumann_kh.config_flow._async_test_connection") as connect:
         result = await hass.config_entries.flow.async_init(
             DOMAIN, context={"source": SOURCE_ZEROCONF}, data=_zeroconf_info()
         )
@@ -411,13 +392,9 @@ async def test_zeroconf_anchors_on_the_serial_the_device_reports(hass, _custom_i
     Storing the announced serial as the unique ID while the data carries the
     one the device reported would leave the entry contradicting itself.
     """
-    identity = DeviceIdentity(
-        product="KH 120 II", serial="SIM0009999", vendor="Georg Neumann GmbH"
-    )
+    identity = DeviceIdentity(product="KH 120 II", serial="SIM0009999", vendor="Georg Neumann GmbH")
 
-    result = await _run_zeroconf(
-        hass, _zeroconf_info(serial="SIM0001111"), identity=identity
-    )
+    result = await _run_zeroconf(hass, _zeroconf_info(serial="SIM0001111"), identity=identity)
     assert result["type"] is FlowResultType.FORM
 
     with patch("custom_components.neumann_kh.async_setup_entry", return_value=True):
@@ -465,13 +442,9 @@ async def test_zeroconf_of_a_device_without_a_serial_is_not_set_up(hass, _custom
     real speaker needs later. The manual and reconfigure paths refuse a device
     that reports none, and this one has to as well.
     """
-    identity = DeviceIdentity(
-        product="KH 120 II", serial=None, vendor="Georg Neumann GmbH"
-    )
+    identity = DeviceIdentity(product="KH 120 II", serial=None, vendor="Georg Neumann GmbH")
 
-    result = await _run_zeroconf(
-        hass, _zeroconf_info(serial="SIM0009999"), identity=identity
-    )
+    result = await _run_zeroconf(hass, _zeroconf_info(serial="SIM0009999"), identity=identity)
 
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "no_serial"
@@ -496,19 +469,13 @@ async def _run_manual(hass, identity, user_input):
             "custom_components.neumann_kh.config_flow._async_test_connection",
             return_value=identity,
         ),
-        patch(
-            "custom_components.neumann_kh.async_setup_entry", return_value=True
-        ),
+        patch("custom_components.neumann_kh.async_setup_entry", return_value=True),
     ):
-        result = await hass.config_entries.flow.async_init(
-            DOMAIN, context={"source": "user"}
-        )
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"], {"next_step_id": "manual"}
         )
-        return await hass.config_entries.flow.async_configure(
-            result["flow_id"], user_input
-        )
+        return await hass.config_entries.flow.async_configure(result["flow_id"], user_input)
 
 
 _GOOD_IDENTITY = DeviceIdentity(
@@ -573,7 +540,7 @@ async def test_manual_setup_rejects_link_local_without_interface(hass, _custom_i
 
 
 async def test_manual_setup_takes_the_scope_id_out_of_the_host(hass, _custom_integration):
-    """"fe80::1%eth0" in the address field is accepted and split."""
+    """ "fe80::1%eth0" in the address field is accepted and split."""
     result = await _run_manual(
         hass,
         _GOOD_IDENTITY,
@@ -626,9 +593,7 @@ async def _run_scan(hass, found, identities):
             return_value=list(zip(identities, found, strict=True)),
         ),
     ):
-        result = await hass.config_entries.flow.async_init(
-            DOMAIN, context={"source": "user"}
-        )
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         return await hass.config_entries.flow.async_configure(
             result["flow_id"], {"next_step_id": "scan"}
         )
@@ -671,9 +636,7 @@ async def test_a_speaker_already_set_up_is_marked_as_such(hass, _custom_integrat
 
     result = await _run_scan(hass, [_speaker()], [_GOOD_IDENTITY])
 
-    device = [
-        label for label in _scan_option_labels(result) if _GOOD_IDENTITY.serial in label
-    ]
+    device = [label for label in _scan_option_labels(result) if _GOOD_IDENTITY.serial in label]
     assert device and ("already connected" in device[0] or "bereits verbunden" in device[0])
 
 
@@ -710,9 +673,7 @@ async def test_the_retry_button_starts_another_scan(hass, _custom_integration):
 
 async def test_scan_without_any_answer_offers_a_retry(hass, _custom_integration):
     """A silent candidate is not a device: the list must not offer it."""
-    result = await _run_scan(
-        hass, [_speaker()], [DeviceIdentity(error_key="cannot_connect")]
-    )
+    result = await _run_scan(hass, [_speaker()], [DeviceIdentity(error_key="cannot_connect")])
 
     assert result["type"] is FlowResultType.FORM
     assert result["errors"] == {"base": "no_devices_found"}
@@ -723,9 +684,7 @@ async def test_a_failing_scan_says_so(hass, _custom_integration):
         "custom_components.neumann_kh.config_flow.async_scan_for_speakers",
         side_effect=OSError("no network"),
     ):
-        result = await hass.config_entries.flow.async_init(
-            DOMAIN, context={"source": "user"}
-        )
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"], {"next_step_id": "scan"}
         )
@@ -739,9 +698,7 @@ async def _pick_and_name(hass, result, name):
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"], {"selected_device": _GOOD_IDENTITY.serial}
         )
-        return await hass.config_entries.flow.async_configure(
-            result["flow_id"], {CONF_NAME: name}
-        )
+        return await hass.config_entries.flow.async_configure(result["flow_id"], {CONF_NAME: name})
 
 
 async def test_scan_creates_the_entry_from_the_selected_device(hass, _custom_integration):
@@ -778,9 +735,7 @@ async def test_scan_confirm_of_a_foreign_device_asks_first(hass, _custom_integra
             return_value=[(foreign, _speaker())],
         ),
     ):
-        result = await hass.config_entries.flow.async_init(
-            DOMAIN, context={"source": "user"}
-        )
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"], {"next_step_id": "scan"}
         )
@@ -841,9 +796,7 @@ async def test_reconfigure_rejects_a_non_ipv6_host(hass, _custom_integration):
 async def test_reconfigure_reports_an_unreachable_device(hass, _custom_integration):
     entry = _entry(hass)
 
-    result = await _run_reconfigure(
-        hass, entry, DeviceIdentity(error_key="cannot_connect")
-    )
+    result = await _run_reconfigure(hass, entry, DeviceIdentity(error_key="cannot_connect"))
 
     assert result["type"] is FlowResultType.FORM
     assert result["errors"] == {"base": "cannot_connect"}
@@ -859,9 +812,7 @@ async def test_reconfigure_takes_the_scope_id_out_of_the_host(hass, _custom_inte
         vendor="Georg Neumann GmbH",
     )
 
-    result = await _run_reconfigure(
-        hass, entry, identity, host="fe80::9%eth5", interface=""
-    )
+    result = await _run_reconfigure(hass, entry, identity, host="fe80::9%eth5", interface="")
 
     assert result["type"] is FlowResultType.ABORT, result.get("errors")
     assert result["reason"] == "reconfigure_successful"

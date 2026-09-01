@@ -105,9 +105,7 @@ async def async_setup_entry(
     else:
         descriptions.extend(SUBWOOFER_SWITCH_DESCRIPTIONS)
 
-    entities = [
-        NeumannKHSwitch(coordinator, entry, description) for description in descriptions
-    ]
+    entities = [NeumannKHSwitch(coordinator, entry, description) for description in descriptions]
     entities += build_eq_switches(coordinator, entry, entry.data.get(CONF_MODEL))
     async_add_entities(entities)
 

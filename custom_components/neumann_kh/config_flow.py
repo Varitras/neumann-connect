@@ -59,9 +59,12 @@ from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeou
 
 _LOGGER = logging.getLogger(__name__)
 
-_NO_INTERFACE_VALUE = ""  # "no interface specified" (e.g. for a global, non-link-local IPv6 address)
+_NO_INTERFACE_VALUE = (
+    ""  # "no interface specified" (e.g. for a global, non-link-local IPv6 address)
+)
 _SELECTED_DEVICE = "selected_device"
 _RESCAN_VALUE = "__rescan__"
+
 
 async def _async_get_interface_options(hass: HomeAssistant) -> list[selector.SelectOptionDict]:
     """Determine the network interfaces known on the HA host for the dropdown."""
@@ -152,9 +155,7 @@ def _split_scope_id(host: str, interface: str | None) -> tuple[str, str | None]:
 def _already_configured_serials(hass: HomeAssistant) -> set[str]:
     """Collect the serial numbers of all already configured speakers."""
     return {
-        entry.unique_id
-        for entry in hass.config_entries.async_entries(DOMAIN)
-        if entry.unique_id
+        entry.unique_id for entry in hass.config_entries.async_entries(DOMAIN) if entry.unique_id
     }
 
 
@@ -247,9 +248,7 @@ async def _async_identify_all(
 
     async def _one(speaker: DiscoveredSpeaker) -> tuple[DeviceIdentity, DiscoveredSpeaker]:
         async with semaphore:
-            identity = await _async_test_connection(
-                speaker.host, speaker.port, interface=None
-            )
+            identity = await _async_test_connection(speaker.host, speaker.port, interface=None)
         return identity, speaker
 
     return list(await asyncio.gather(*(_one(speaker) for speaker in speakers)))
@@ -338,9 +337,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return await self._show_manual_form(user_input, "invalid_ipv6")
 
         if SSCClient.is_link_local(host) and not interface:
-            return await self._show_manual_form(
-                user_input, "interface_required_for_link_local"
-            )
+            return await self._show_manual_form(user_input, "interface_required_for_link_local")
 
         identity = await _async_test_connection(host, port, interface)
         if identity.error_key:
@@ -427,9 +424,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         identity = await _async_test_connection(host, port, interface)
         if identity.error_key:
-            return await self._show_reconfigure_form(
-                entry, user_input, identity.error_key
-            )
+            return await self._show_reconfigure_form(entry, user_input, identity.error_key)
 
         # Guard against pointing an entry at a different speaker: that would
         # silently attach one device's history to another. Entries created
@@ -484,9 +479,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     # --- Passive: mDNS announcement handed in by Home Assistant --------------
 
-    async def async_step_zeroconf(
-        self, discovery_info: ZeroconfServiceInfo
-    ) -> ConfigFlowResult:
+    async def async_step_zeroconf(self, discovery_info: ZeroconfServiceInfo) -> ConfigFlowResult:
         """Keep a known speaker's address current, or offer an unknown one.
 
         A global IPv6 address is built from the prefix the ISP delegates and
@@ -624,9 +617,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         suggested = None
         if identity.serial:
-            suggested = await storage.async_get_remembered_name(
-                self.hass, identity.serial
-            )
+            suggested = await storage.async_get_remembered_name(self.hass, identity.serial)
 
         schema = vol.Schema({vol.Required(CONF_NAME): str})
         if suggested:
@@ -692,9 +683,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Ask for a name, pre-filled if this speaker carried one before."""
         remembered_name = None
         if identity.serial:
-            remembered_name = await storage.async_get_remembered_name(
-                self.hass, identity.serial
-            )
+            remembered_name = await storage.async_get_remembered_name(self.hass, identity.serial)
 
         schema = vol.Schema({vol.Required(CONF_NAME): str})
         if remembered_name:
@@ -715,7 +704,9 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="scan", data_schema=vol.Schema({}), errors={"base": error}
         )
 
-    async def async_step_scan_confirm(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+    async def async_step_scan_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Second step: assign a name (pre-filled if the device is known)."""
         candidate = self._discovered.get(self._pending_key or "")
         identity = self._discovery_info.get(self._pending_key or "")

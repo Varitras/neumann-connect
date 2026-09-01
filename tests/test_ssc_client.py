@@ -168,9 +168,7 @@ async def server(socket_enabled):
 
 
 def _client(port: int) -> SSCClient:
-    return SSCClient(
-        host="127.0.0.1", port=port, timeout=_TIMEOUT, settle_time=_SETTLE
-    )
+    return SSCClient(host="127.0.0.1", port=port, timeout=_TIMEOUT, settle_time=_SETTLE)
 
 
 async def test_get_returns_value(server):
@@ -224,9 +222,7 @@ async def test_first_answer_for_the_path_ends_the_read(server):
 
 
 async def test_osc_error_raises_device_error(server):
-    server.responder = lambda req: [
-        {"osc": {"error": [400, {"desc": "message not understood"}]}}
-    ]
+    server.responder = lambda req: [{"osc": {"error": [400, {"desc": "message not understood"}]}}]
     client = _client(server.port)
     try:
         with pytest.raises(SSCDeviceError, match="message not understood"):
@@ -375,9 +371,7 @@ async def test_cancellation_in_the_drain_window_drops_the_connection(server, mon
         with pytest.raises(asyncio.CancelledError):
             await task
 
-        assert client._writer is None, (
-            "cancellation during the drain window kept the connection"
-        )
+        assert client._writer is None, "cancellation during the drain window kept the connection"
     finally:
         await client.close()
 
@@ -531,9 +525,7 @@ def test_connect_host_appends_scope_for_link_local():
     assert client2._connect_host == "2001:db8::1"
 
 
-async def test_stale_drain_gives_up_instead_of_stalling_a_request(
-    socket_enabled, monkeypatch
-):
+async def test_stale_drain_gives_up_instead_of_stalling_a_request(socket_enabled, monkeypatch):
     """An endpoint talking inside the drain window must not block the request.
 
     Only the per-line wait was short, so an endpoint producing complete lines
@@ -612,6 +604,7 @@ async def test_a_line_that_is_not_utf8_is_skipped(socket_enabled):
     Only JSONDecodeError was caught, so a device emitting a stray byte took
     the whole request down instead of the one unusable line.
     """
+
     async def _handle(reader, writer):
         await reader.readline()
         writer.write(b"\xff\xfe not utf-8 at all\r\n")
@@ -637,6 +630,7 @@ async def test_a_reset_while_reading_becomes_a_connection_error(socket_enabled):
     only special-cases the SSC errors, logs a traceback for every remaining
     path of the cycle instead of failing it once.
     """
+
     async def _handle(reader, writer):
         await reader.readline()
         # Abort rather than close: SO_LINGER 0 makes the peer see a reset

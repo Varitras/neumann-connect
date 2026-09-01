@@ -186,6 +186,7 @@ async def test_a_failed_file_write_leaves_the_store_untouched(monkeypatch):
     Otherwise the store points at a snapshot the user cannot see, while the
     file on disk is the older one.
     """
+
     def _boom():
         raise OSError("disk full")
 
@@ -203,9 +204,7 @@ async def test_a_failed_file_write_leaves_the_store_untouched(monkeypatch):
 
 
 async def test_a_good_backup_reaches_both(monkeypatch):
-    saved, written = await _run_backup(
-        None, monkeypatch, values={"device": {"name": "x"}}
-    )
+    saved, written = await _run_backup(None, monkeypatch, values={"device": {"name": "x"}})
 
     path = await export_actions.async_run_backup(
         _FakeHass(), _FakeEntryWithSerial(), _FakeClient(answers_none=set())
@@ -250,7 +249,7 @@ async def test_a_failed_discovery_file_write_leaves_the_store_untouched(monkeypa
 
 
 async def test_a_backup_without_any_restorable_value_is_refused(monkeypatch):
-    """"Read something" is not the bar - "can restore something" is.
+    """ "Read something" is not the bar - "can restore something" is.
 
     A run that only picked up a diagnostic value would otherwise count as a
     success and replace the last usable snapshot with one that restores
@@ -273,9 +272,7 @@ async def test_a_backup_without_any_restorable_value_is_refused(monkeypatch):
 
 async def test_a_backup_with_one_restorable_value_is_kept(monkeypatch):
     """Guard against the check above rejecting a partial but usable backup."""
-    saved, _ = await _run_backup(
-        None, monkeypatch, values={"device": {"name": "Speaker"}}
-    )
+    saved, _ = await _run_backup(None, monkeypatch, values={"device": {"name": "Speaker"}})
 
     await export_actions.async_run_backup(
         _FakeHass(), _FakeEntryWithSerial(), _FakeClient(answers_none=set())
@@ -286,6 +283,7 @@ async def test_a_backup_with_one_restorable_value_is_kept(monkeypatch):
 
 async def test_a_failing_store_is_reported_readably(monkeypatch):
     """The file is already written by then; the error must still be legible."""
+
     async def _boom(hass_, serial, record):
         raise OSError("store is locked")
 
@@ -313,11 +311,14 @@ async def test_a_discovery_that_read_nothing_does_not_replace_the_last_one(monke
 
     monkeypatch.setattr(export_actions, "async_discover_all_values", _discover)
     monkeypatch.setattr(
-        export_actions.storage, "async_save_discovery",
+        export_actions.storage,
+        "async_save_discovery",
         lambda *a, **k: saved.append(a),
     )
     monkeypatch.setattr(
-        export_actions, "async_write_export", lambda *a, **k: written.append(a),
+        export_actions,
+        "async_write_export",
+        lambda *a, **k: written.append(a),
     )
     monkeypatch.setattr(export_actions, "_notify_written", lambda *a, **k: None)
 
@@ -401,9 +402,9 @@ async def test_a_backup_with_one_restorable_value_is_accepted(monkeypatch):
 
     monkeypatch.setattr(export_actions.storage, "async_get_backup", _get_backup)
 
-    assert await export_actions.async_check_restorable(
-        _FakeHass(), _FakeEntryWithSerial()
-    ) is stored
+    assert (
+        await export_actions.async_check_restorable(_FakeHass(), _FakeEntryWithSerial()) is stored
+    )
 
 
 class _SlowClient(_FakeClient):

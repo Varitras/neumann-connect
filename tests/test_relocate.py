@@ -65,10 +65,13 @@ async def _run(hass, entry, speakers, serial_answer):
     client = AsyncMock()
     client.get = AsyncMock(return_value=serial_answer)
     client.close = AsyncMock()
-    with patch(
-        "custom_components.neumann_kh.async_scan_for_speakers",
-        return_value=speakers,
-    ), patch("custom_components.neumann_kh.SSCClient", return_value=client):
+    with (
+        patch(
+            "custom_components.neumann_kh.async_scan_for_speakers",
+            return_value=speakers,
+        ),
+        patch("custom_components.neumann_kh.SSCClient", return_value=client),
+    ):
         return await _async_relocate(hass, entry)
 
 
@@ -134,12 +137,13 @@ async def test_a_failed_setup_actually_triggers_the_search(hass, _custom_integra
     """
     entry = _entry(hass)
 
-    with patch(
-        "custom_components.neumann_kh.NeumannKHCoordinator.async_config_entry_first_refresh",
-        side_effect=ConfigEntryNotReady("device offline"),
-    ), patch(
-        "custom_components.neumann_kh._async_relocate", return_value=False
-    ) as relocate:
+    with (
+        patch(
+            "custom_components.neumann_kh.NeumannKHCoordinator.async_config_entry_first_refresh",
+            side_effect=ConfigEntryNotReady("device offline"),
+        ),
+        patch("custom_components.neumann_kh._async_relocate", return_value=False) as relocate,
+    ):
         assert await hass.config_entries.async_setup(entry.entry_id) is False
         await hass.async_block_till_done()
 
@@ -151,12 +155,13 @@ async def test_a_working_setup_does_not_search(hass, _custom_integration):
     """The scan costs four seconds - it must not run when nothing is wrong."""
     entry = _entry(hass)
 
-    with patch(
-        "custom_components.neumann_kh.NeumannKHCoordinator.async_config_entry_first_refresh",
-        return_value=None,
-    ), patch(
-        "custom_components.neumann_kh._async_relocate", return_value=False
-    ) as relocate:
+    with (
+        patch(
+            "custom_components.neumann_kh.NeumannKHCoordinator.async_config_entry_first_refresh",
+            return_value=None,
+        ),
+        patch("custom_components.neumann_kh._async_relocate", return_value=False) as relocate,
+    ):
         assert await hass.config_entries.async_setup(entry.entry_id) is True
         await hass.async_block_till_done()
 
@@ -188,12 +193,16 @@ async def _run_setup(hass, entry, version, stored=None):
     client = AsyncMock()
     client.get = AsyncMock(return_value=version)
     client.close = AsyncMock()
-    with patch(
-        "custom_components.neumann_kh.NeumannKHCoordinator.async_config_entry_first_refresh",
-        return_value=None,
-    ), patch("custom_components.neumann_kh.SSCClient", return_value=client), patch(
-        "homeassistant.config_entries.ConfigEntries.async_forward_entry_setups",
-        return_value=True,
+    with (
+        patch(
+            "custom_components.neumann_kh.NeumannKHCoordinator.async_config_entry_first_refresh",
+            return_value=None,
+        ),
+        patch("custom_components.neumann_kh.SSCClient", return_value=client),
+        patch(
+            "homeassistant.config_entries.ConfigEntries.async_forward_entry_setups",
+            return_value=True,
+        ),
     ):
         assert await hass.config_entries.async_setup(entry.entry_id) is True
         await hass.async_block_till_done()
@@ -255,9 +264,10 @@ async def test_silent_candidates_are_asked_concurrently(hass, _custom_integratio
         async def close(self):  # skipcq: PYL-R0201 - a stand-in, not a design
             return None
 
-    with patch(
-        "custom_components.neumann_kh.async_scan_for_speakers", return_value=found
-    ), patch("custom_components.neumann_kh.SSCClient", _SlowClient):
+    with (
+        patch("custom_components.neumann_kh.async_scan_for_speakers", return_value=found),
+        patch("custom_components.neumann_kh.SSCClient", _SlowClient),
+    ):
         start = time.monotonic()
         assert await _async_relocate(hass, entry) is False
         elapsed = time.monotonic() - start

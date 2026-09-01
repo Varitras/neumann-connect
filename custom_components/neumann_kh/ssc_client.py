@@ -236,9 +236,7 @@ class SSCClient:
                 # Broken or flooded connection - let the actual request fail.
                 self._drop_connection()
                 return
-            _LOGGER.debug(
-                "Discarded a stale line from %s: %s", self._host, leftover[:200]
-            )
+            _LOGGER.debug("Discarded a stale line from %s: %s", self._host, leftover[:200])
 
         # Still talking after the bound: whatever is on this socket cannot be
         # told apart from the next answer any more, so start over.
@@ -289,9 +287,7 @@ class SSCClient:
             remaining = deadline - asyncio.get_running_loop().time()
             breach = _limit_breached(remaining, lines, total_bytes)
             if breach is not None:
-                _LOGGER.warning(
-                    "Device %s %s, dropping the connection", self._host, breach
-                )
+                _LOGGER.warning("Device %s %s, dropping the connection", self._host, breach)
                 limit_hit = True
                 break
             try:
@@ -330,9 +326,7 @@ class SSCClient:
                 # that drops the socket, so the dead connection would stay in
                 # place, and the coordinator would log a traceback for every
                 # remaining path of the cycle instead of failing it once.
-                raise SSCConnectionError(
-                    f"Reading from {self._host} failed: {err}"
-                ) from err
+                raise SSCConnectionError(f"Reading from {self._host} failed: {err}") from err
 
             if len(raw_line) > _MAX_LINE_BYTES:
                 raise SSCConnectionError(f"Response from {self._host} implausibly large")
@@ -398,9 +392,7 @@ class SSCClient:
             if priority:
                 self._priority_waiting.clear()
 
-    async def _locked_request(
-        self, payload: dict, expect_path: tuple[str, ...] | None
-    ) -> dict:
+    async def _locked_request(self, payload: dict, expect_path: tuple[str, ...] | None) -> dict:
         """Send one message and read its answer. Caller holds the lock."""
         try:
             # Connecting and draining are inside the try on purpose: both
@@ -432,17 +424,14 @@ class SSCClient:
                     if isinstance(part, dict) and "desc" in part:
                         description = part["desc"]
             raise SSCDeviceError(
-                f"Device {self._host} rejected the request: "
-                f"{description or osc_error}"
+                f"Device {self._host} rejected the request: {description or osc_error}"
             )
 
         return merged
 
     async def get(self, path: tuple[str, ...], priority: bool = False) -> Any:
         """Queries a single value (get = request with JSON null)."""
-        response = await self.request(
-            build_nested(path, None), priority=priority, expect_path=path
-        )
+        response = await self.request(build_nested(path, None), priority=priority, expect_path=path)
         return extract(response, path)
 
     async def set(self, path: tuple[str, ...], value: Any, priority: bool = True) -> Any:

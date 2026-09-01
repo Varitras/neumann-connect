@@ -42,8 +42,7 @@ def _presses():
 def _claims_the_device(node) -> bool:
     """`self.coordinator.claim_device()` - an attribute, not a bare name."""
     return any(
-        isinstance(inner, ast.Attribute) and inner.attr == LOCK_HELPER
-        for inner in ast.walk(node)
+        isinstance(inner, ast.Attribute) and inner.attr == LOCK_HELPER for inner in ast.walk(node)
     )
 
 

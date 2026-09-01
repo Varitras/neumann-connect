@@ -86,5 +86,3 @@ async def async_get_backup(hass: HomeAssistant, serial: str) -> dict[str, Any] |
 async def async_save_discovery(hass: HomeAssistant, serial: str, discovery: dict[str, Any]) -> None:
     """Store a discovery result (all known values/ranges) for a serial number."""
     await _save_entry(hass, "discovery", serial, discovery)
-
-

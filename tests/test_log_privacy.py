@@ -27,9 +27,7 @@ SENSITIVE = "serial"
 def _is_masked(node) -> bool:
     """A call to mask_serial(...) anywhere inside the argument."""
     return any(
-        isinstance(inner, ast.Call)
-        and isinstance(inner.func, ast.Name)
-        and inner.func.id == MASK
+        isinstance(inner, ast.Call) and isinstance(inner.func, ast.Name) and inner.func.id == MASK
         for inner in ast.walk(node)
     )
 
@@ -63,9 +61,7 @@ def test_no_log_call_passes_an_unmasked_serial():
     offenders = [
         f"{source_file.name}:{line}: {argument}"
         for source_file in sorted(PACKAGE.glob("*.py"))
-        for line, argument in _unmasked_log_arguments(
-            source_file.read_text(encoding="utf-8")
-        )
+        for line, argument in _unmasked_log_arguments(source_file.read_text(encoding="utf-8"))
     ]
 
     assert not offenders, (

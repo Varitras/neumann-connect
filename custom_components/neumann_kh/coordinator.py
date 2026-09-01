@@ -111,10 +111,7 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Query each path individually; a rejected/faulty single path is skipped."""
-        include_slow = (
-            self._slow_poll_pending
-            or self._cycle_count % SLOW_POLL_EVERY_N_CYCLES == 0
-        )
+        include_slow = self._slow_poll_pending or self._cycle_count % SLOW_POLL_EVERY_N_CYCLES == 0
         self._cycle_count += 1
         if include_slow:
             # Stays set until the slow poll succeeded (see below).
@@ -132,8 +129,7 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             )
         except TimeoutError as err:
             raise UpdateFailed(
-                f"Neumann KH: poll cycle exceeded the time limit of "
-                f"{POLL_CYCLE_TIMEOUT_SECONDS}s"
+                f"Neumann KH: poll cycle exceeded the time limit of {POLL_CYCLE_TIMEOUT_SECONDS}s"
             ) from err
         finally:
             self._poll_in_flight = False
@@ -183,9 +179,7 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 except SSCDeviceError:
                     # Path not supported by this device - skip.
                     reachable = True
-                    _LOGGER.debug(
-                        "Path %s is not supported by the device, skipping", path
-                    )
+                    _LOGGER.debug("Path %s is not supported by the device, skipping", path)
                     continue
                 except (SSCConnectionError, SSCTimeoutError):
                     # A connection problem affects the whole cycle, not just
@@ -195,9 +189,7 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     # failing) connection attempt.
                     raise
                 except Exception:
-                    _LOGGER.exception(
-                        "Unexpected error while querying path %s, skipping", path
-                    )
+                    _LOGGER.exception("Unexpected error while querying path %s, skipping", path)
                     continue
                 reachable = True
                 deep_merge(merged, build_nested(path, value))
@@ -231,9 +223,7 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Apply a single device-confirmed value directly into the data."""
         self.apply_confirmed_values([(path, value)])
 
-    def apply_confirmed_values(
-        self, values: list[tuple[tuple[str, ...], Any]]
-    ) -> None:
+    def apply_confirmed_values(self, values: list[tuple[tuple[str, ...], Any]]) -> None:
         """Apply several device-confirmed values in one update.
 
         If a path is in the slow poll, the _slow_data cache is additionally
