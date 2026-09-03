@@ -18,4 +18,4 @@ pytest-timeout
 # Pinned to the same version the lint job installs. Unpinned here, the local
 # environment could lint against a different release than CI does - which is
 # how a Ruff upgrade turned the build red once already.
-ruff==0.16.1
+ruff==0.16.5
