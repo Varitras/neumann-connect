@@ -181,6 +181,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     coordinator = NeumannKHCoordinator(hass, client, entry.title, model=entry.data.get(CONF_MODEL))
     try:
         await coordinator.async_config_entry_first_refresh()
+    except asyncio.CancelledError:
+        # `except Exception` does not catch this - CancelledError derives from
+        # BaseException so a cancellation cannot be swallowed by accident - so
+        # a setup cancelled rather than failed used to walk straight past the
+        # cleanup below and leave the socket open. Not a failed setup, so no
+        # relocate: just give the connection back.
+        await client.close()
+        raise
     except Exception:
         # Setup fails (e.g. ConfigEntryNotReady with a powered-off
         # device): close the open socket. HA retries the setup later
@@ -199,6 +207,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     try:
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    except asyncio.CancelledError:
+        hass.data[DOMAIN].pop(entry.entry_id, None)
+        await client.close()
+        raise
     except Exception:
         # A platform failing to set up leaves async_unload_entry unreached, so
         # nothing else would close the socket or drop the coordinator - the
