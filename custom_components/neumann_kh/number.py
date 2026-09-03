@@ -45,7 +45,7 @@ from .const import (
     STANDBY_LEVEL_MIN,
     STANDBY_LEVEL_UNIT,
 )
-from .coordinator import NeumannKHCoordinator
+from .coordinator import NeumannKHConfigEntry, NeumannKHCoordinator
 from .entity import NeumannKHEntity
 from .ssc_client import SSCConnectionError, SSCDeviceError, SSCTimeoutError
 
@@ -185,10 +185,10 @@ def _build_output_delay_description(is_subwoofer: bool) -> NeumannKHNumberDescri
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+    hass: HomeAssistant, entry: NeumannKHConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Sets up the number entities for a speaker."""
-    coordinator: NeumannKHCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator = entry.runtime_data
     model = entry.data.get(CONF_MODEL)
     is_subwoofer = model in MODELS_WITH_SUBWOOFER_FEATURES
 

@@ -39,7 +39,7 @@ from .const import (
     PATH_RESTORE,
     RESTORE_FACTORY_DEFAULTS_VALUE,
 )
-from .coordinator import NeumannKHCoordinator
+from .coordinator import NeumannKHConfigEntry, NeumannKHCoordinator
 from .entity import NeumannKHEntity
 from .eq import build_eq_reset_buttons
 from .export_actions import (
@@ -84,10 +84,10 @@ DISCOVERY_DESCRIPTION = ButtonEntityDescription(
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+    hass: HomeAssistant, entry: NeumannKHConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Creates the button entities for a speaker."""
-    coordinator: NeumannKHCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator = entry.runtime_data
 
     entities: list[ButtonEntity] = [
         NeumannKHRestoreButton(coordinator, entry),

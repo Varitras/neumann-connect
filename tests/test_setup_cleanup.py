@@ -5,7 +5,7 @@ BaseException so that a cancellation cannot be swallowed by accident. Both
 cleanup handlers in `async_setup_entry` are written as `except Exception`, so
 a setup cancelled while it waits - Home Assistant's setup timeout, a reload or
 a removal during setup, a shutdown - walks past them: the socket stays open
-and the coordinator stays in `hass.data`.
+and the connection stays open.
 
 Measured against the hardware on 2026-09-02: a speaker answers two
 simultaneous connections and the first survives the second, so a leaked socket
@@ -103,9 +103,6 @@ async def test_a_cancelled_setup_still_releases_the_connection(hass, _custom_int
             await setup
 
     assert client.closed, "the connection was left open when the setup was cancelled"
-    assert entry.entry_id not in hass.data.get(DOMAIN, {}), (
-        "a coordinator for an entry that never finished setting up stayed behind"
-    )
 
 
 class _AnsweringClient:
@@ -157,6 +154,3 @@ async def test_a_setup_cancelled_while_adding_platforms_cleans_up_too(hass, _cus
             await setup
 
     assert client.closed, "the connection was left open when adding platforms was cancelled"
-    assert entry.entry_id not in hass.data.get(DOMAIN, {}), (
-        "the coordinator stayed registered for an entry that never came up"
-    )

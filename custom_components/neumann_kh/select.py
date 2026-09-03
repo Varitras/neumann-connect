@@ -21,7 +21,7 @@ from .const import (
     PATH_INPUT_INTERFACE_TYPE,
     PATH_UI_CONTROL_MODE,
 )
-from .coordinator import NeumannKHCoordinator
+from .coordinator import NeumannKHConfigEntry, NeumannKHCoordinator
 from .entity import NeumannKHEntity
 from .ssc_client import SSCConnectionError, SSCDeviceError, SSCTimeoutError
 
@@ -59,10 +59,10 @@ INPUT_INTERFACE_DESCRIPTION = NeumannKHSelectDescription(
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+    hass: HomeAssistant, entry: NeumannKHConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Sets up the select entities for a speaker."""
-    coordinator: NeumannKHCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator = entry.runtime_data
 
     descriptions = [
         CONTROL_MODE_DESCRIPTION,

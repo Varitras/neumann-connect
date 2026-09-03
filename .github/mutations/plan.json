@@ -79,7 +79,7 @@
   {
     "name": "a cancellation while adding platforms leaks again",
     "path": "custom_components/neumann_kh/__init__.py",
-    "find": "    except asyncio.CancelledError:\n        hass.data[DOMAIN].pop(entry.entry_id, None)\n        await client.close()\n        raise\n",
+    "find": "    except asyncio.CancelledError:\n        await client.close()\n        raise\n",
     "replace": "",
     "expect": "tests/test_setup_cleanup.py::test_a_setup_cancelled_while_adding_platforms_cleans_up_too"
   },

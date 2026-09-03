@@ -23,7 +23,6 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
     CONF_MODEL,
-    DOMAIN,
     MODELS_WITH_SUBWOOFER_FEATURES,
     PATH_DEVICE_TEMPERATURE,
     PATH_IDENTITY_HW_VERSION,
@@ -50,7 +49,7 @@ from .const import (
     PATH_UI_SUB_PHASE_INVERSION,
     PATH_UI_TREBLE_GAIN,
 )
-from .coordinator import NeumannKHCoordinator
+from .coordinator import NeumannKHConfigEntry, NeumannKHCoordinator
 from .entity import NeumannKHEntity
 
 _LOGGER = logging.getLogger(__name__)
@@ -300,10 +299,10 @@ SUBWOOFER_SENSOR_DESCRIPTIONS: tuple[NeumannKHSensorDescription, ...] = (
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+    hass: HomeAssistant, entry: NeumannKHConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Sets up the sensor entities for a speaker."""
-    coordinator: NeumannKHCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator = entry.runtime_data
 
     descriptions = list(COMMON_SENSOR_DESCRIPTIONS)
     if entry.data.get(CONF_MODEL) in MODELS_WITH_SUBWOOFER_FEATURES:

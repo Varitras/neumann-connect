@@ -29,7 +29,7 @@ from .const import (
     PATH_OUTPUT_PHASE_INVERSION,
     PATH_STANDBY_ENABLED,
 )
-from .coordinator import NeumannKHCoordinator
+from .coordinator import NeumannKHConfigEntry, NeumannKHCoordinator
 from .entity import NeumannKHEntity
 from .eq import build_eq_switches
 from .ssc_client import SSCConnectionError, SSCDeviceError, SSCTimeoutError
@@ -94,10 +94,10 @@ SUBWOOFER_SWITCH_DESCRIPTIONS: tuple[NeumannKHSwitchDescription, ...] = (
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+    hass: HomeAssistant, entry: NeumannKHConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Sets up the switch entities for a speaker."""
-    coordinator: NeumannKHCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator = entry.runtime_data
 
     descriptions = list(COMMON_SWITCH_DESCRIPTIONS)
     if entry.data.get(CONF_MODEL) not in MODELS_WITH_SUBWOOFER_FEATURES:

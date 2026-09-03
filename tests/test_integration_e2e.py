@@ -318,7 +318,7 @@ async def test_restore_updates_entities_once(hass, socket_enabled, tmp_path):
         await _press(hass, entry, "_create_backup")
         await _enable(hass, entry, "_restore_backup")
 
-        coordinator = hass.data[DOMAIN][entry.entry_id]
+        coordinator = entry.runtime_data
         updates = 0
         original = coordinator.async_set_updated_data
 
@@ -381,7 +381,7 @@ async def test_restore_leaves_command_paths_alone(hass, socket_enabled, tmp_path
         await _press(hass, entry, "_create_backup")
         await _enable(hass, entry, "_restore_backup")
 
-        coordinator = hass.data[DOMAIN][entry.entry_id]
+        coordinator = entry.runtime_data
         written_paths = []
         original_set = coordinator.client.set
 

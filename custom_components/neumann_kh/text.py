@@ -9,7 +9,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DEVICE_NAME_MAX_LENGTH, DOMAIN, PATH_DEVICE_NAME
-from .coordinator import NeumannKHCoordinator
+from .coordinator import NeumannKHConfigEntry, NeumannKHCoordinator
 from .entity import NeumannKHEntity
 from .ssc_client import SSCConnectionError, SSCDeviceError, SSCTimeoutError
 
@@ -24,10 +24,10 @@ DEVICE_NAME_DESCRIPTION = TextEntityDescription(
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+    hass: HomeAssistant, entry: NeumannKHConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Sets up the device-name text entity for a speaker."""
-    coordinator: NeumannKHCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator = entry.runtime_data
     async_add_entities([NeumannKHDeviceNameText(coordinator, entry)])
 
 

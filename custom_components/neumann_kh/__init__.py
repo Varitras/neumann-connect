@@ -1,7 +1,7 @@
 """Neumann KH (SSC) integration - entry point.
 
 Per config entry (= one physical speaker), an SSCClient and a
-DataUpdateCoordinator are created and stored in hass.data, so that the
+DataUpdateCoordinator are created and stored on the config entry, so that the
 platforms (number, select, switch, sensor, binary_sensor, button, text)
 can access them.
 
@@ -25,12 +25,11 @@ from .const import (
     CONF_SERIAL,
     DEFAULT_PORT,
     DEFAULT_TIMEOUT,
-    DOMAIN,
     MAX_PARALLEL_IDENTITY_QUERIES,
     PATH_IDENTITY_SERIAL,
     PATH_IDENTITY_VERSION,
 )
-from .coordinator import NeumannKHCoordinator
+from .coordinator import NeumannKHConfigEntry, NeumannKHCoordinator
 from .discovery import async_scan_for_speakers
 from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeoutError
 
@@ -169,7 +168,7 @@ async def _async_refresh_firmware_version(
     )
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_setup_entry(hass: HomeAssistant, entry: NeumannKHConfigEntry) -> bool:
     """Set up a config entry (one speaker)."""
     client = SSCClient(
         host=entry.data[CONF_HOST],
@@ -203,34 +202,32 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await _async_refresh_firmware_version(hass, entry, client)
 
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
+    entry.runtime_data = coordinator
 
     try:
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     except asyncio.CancelledError:
-        hass.data[DOMAIN].pop(entry.entry_id, None)
         await client.close()
         raise
     except Exception:
         # A platform failing to set up leaves async_unload_entry unreached, so
-        # nothing else would close the socket or drop the coordinator - the
-        # next setup attempt would stack another one on top.
-        hass.data[DOMAIN].pop(entry.entry_id, None)
+        # nothing else would close the socket. The coordinator needs no undoing
+        # any more: it lives on the entry, and the next attempt overwrites it.
         await client.close()
         raise
 
     return True
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_unload_entry(hass: HomeAssistant, entry: NeumannKHConfigEntry) -> bool:
     """Unload a config entry and close the TCP connection cleanly."""
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
-    coordinator: NeumannKHCoordinator | None = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+    # Always close the connection, regardless of the platform unload result.
+    # Guarded because a setup that failed before reaching the assignment leaves
+    # the entry without one, and Home Assistant still unloads it.
+    coordinator = getattr(entry, "runtime_data", None)
     if coordinator is not None:
-        # Always close the connection, regardless of the platform unload result.
         await coordinator.client.close()
-        if unload_ok:
-            hass.data[DOMAIN].pop(entry.entry_id, None)
 
     return unload_ok

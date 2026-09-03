@@ -24,7 +24,6 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
     CONF_MODEL,
-    DOMAIN,
     MODELS_WITH_SUBWOOFER_FEATURES,
     PATH_DIGITAL_BYPASS,
     PATH_METER_CLIP,
@@ -32,7 +31,7 @@ from .const import (
     PATH_STANDBY_ENABLED,
     PATH_WARNINGS,
 )
-from .coordinator import NeumannKHCoordinator
+from .coordinator import NeumannKHConfigEntry, NeumannKHCoordinator
 from .entity import NeumannKHEntity
 
 # Value in the normal, warning-free state.
@@ -93,10 +92,10 @@ SUBWOOFER_BINARY_SENSOR_DESCRIPTIONS: tuple[NeumannKHBinarySensorDescription, ..
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+    hass: HomeAssistant, entry: NeumannKHConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Sets up the binary sensor entities for a speaker."""
-    coordinator: NeumannKHCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator = entry.runtime_data
 
     descriptions = list(BINARY_SENSOR_DESCRIPTIONS)
     if entry.data.get(CONF_MODEL) in MODELS_WITH_SUBWOOFER_FEATURES:

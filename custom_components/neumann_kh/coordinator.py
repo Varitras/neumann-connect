@@ -18,6 +18,7 @@ import logging
 from datetime import timedelta
 from typing import Any
 
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -41,6 +42,12 @@ from .eq_containers import eq_containers_for_model
 from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeoutError
 
 _LOGGER = logging.getLogger(__name__)
+
+
+# The coordinator travels on the config entry itself rather than in hass.data:
+# Home Assistant types it, hands it to every platform, and drops it with the
+# entry, so there is no dictionary to keep in step with the entry's lifetime.
+type NeumannKHConfigEntry = ConfigEntry[NeumannKHCoordinator]
 
 
 class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
