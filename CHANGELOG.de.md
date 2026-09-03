@@ -84,6 +84,12 @@ konnten also nie einen Wert tragen oder ihre Aktion ausführen.
   als fehlgeschlagen gemeldet. Fehlgeschlagen war nur die interne Kopie, die
   niemand zurückliest
 
+- Ein Textwert, den der Lautsprecher nicht meldet, zeigt jetzt Home Assistants
+  eigenes "Unbekannt" statt "Nicht zugewiesen". Nur ein Subwoofer-Ausgang kann
+  unbelegt sein; bei einer Hardware-Version war die Aussage schlicht falsch
+- Ein Reload oder Entfernen eines Geräts, während dessen Einrichtung noch
+  läuft, lässt die Verbindung dorthin nicht mehr offen
+
 ### Geändert
 - Die READMEs beschreiben die Installation. Dokumentiert war nur das manuelle
   Kopieren; der HACS-Weg - Repository als benutzerdefiniertes Repository

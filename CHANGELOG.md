@@ -74,6 +74,13 @@ them could never hold a value or carry out their action.
 - A device discovery whose file reached the disk is no longer reported as
   failed. Only the internal copy had failed, and nothing reads it back
 
+- A text value the speaker does not report now shows Home Assistant's own
+  "Unknown" instead of "Not assigned". Only a subwoofer output can have
+  nothing assigned to it; saying that about a hardware version stated
+  something untrue
+- Reloading or removing a device while its setup is still running no longer
+  leaves the connection to it open
+
 ### Changed
 - The READMEs describe installation. Only the manual copy was documented; the
   HACS route - add the repository as a custom repository - was missing, although
