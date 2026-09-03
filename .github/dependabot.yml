@@ -1,0 +1,29 @@
+# The update cadence, so drift stops being something to remember. Monthly and
+# grouped keeps it at one pull request per ecosystem, and CI runs on
+# pull_request - so a bump arrives with proof rather than as a claim.
+version: 2
+updates:
+  # Bumps `uses:` lines only. It does not see `with:` inputs such as
+  # python-version, and hassfest/hacs are pinned to a branch on purpose, so
+  # those stay where they are.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    groups:
+      pip:
+        patterns: ["*"]
+    ignore:
+      # Deliberately manual. The plugin publishes a release for every Home
+      # Assistant BETA as well, so its newest release regularly pins a beta.
+      # Choosing this pin means looking at which Home Assistant a candidate
+      # carries - see the comment in requirements_test.txt.
+      - dependency-name: "pytest-homeassistant-custom-component"
