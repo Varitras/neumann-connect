@@ -55,12 +55,21 @@ from .entity import NeumannKHEntity
 
 _LOGGER = logging.getLogger(__name__)
 
-# What a subwoofer output reports while nothing is assigned, and the state it
-# is exposed as. The mapping exists because Home Assistant only translates
-# states matching [a-z0-9-_]+ - "UNKNOWN" is rejected by hassfest, and a plain
-# lowercase "unknown" would collide with Home Assistant's own reserved state.
-_UNASSIGNED_RAW = "UNKNOWN"
+# The devices answer the literal string "UNKNOWN" in two different meanings,
+# and only one of them is "nothing is connected".
+_UNKNOWN_RAW = "UNKNOWN"
 _UNASSIGNED_STATE = "not_assigned"
+
+# The sensors where "UNKNOWN" means an unassigned subwoofer output. Only these
+# are exposed as `not_assigned`, which reads as "Not assigned" - saying that
+# about a hardware version the device simply does not report would be wrong.
+# Measured 2026-09-02: of the seventeen text sensors, these two are the only
+# ones a KH 120 II or KH 750 ever answers "UNKNOWN" for.
+#
+# Kept in step with the translations by tests/test_sensor_states.py: a sensor
+# listed here needs a `not_assigned` state text, and one that has such a text
+# has to be listed here.
+_UNASSIGNED_KEYS = frozenset({"out1_loudspeaker", "out2_loudspeaker"})
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -333,15 +342,20 @@ class NeumannKHSensor(NeumannKHEntity, SensorEntity):
             # language change and automations comparing against it would only
             # work in one language.
             #
-            # The exception is the sentinel a subwoofer output reports while
-            # nothing is assigned. It is mapped to a slug so it can carry a
-            # "state" translation: Home Assistant only translates states that
-            # match [a-z0-9-_]+, and hassfest rejects anything else outright.
-            # The device's own "UNKNOWN" would also collide with Home
-            # Assistant's reserved "unknown" if merely lowercased. Everything
-            # else here is a loudspeaker model name and passes through.
-            if value == _UNASSIGNED_RAW:
-                return _UNASSIGNED_STATE
+            # The exception is "UNKNOWN". On a subwoofer output it means
+            # nothing is assigned, and it becomes a slug carrying a "state"
+            # translation - Home Assistant only translates states matching
+            # [a-z0-9-_]+, hassfest rejects anything else, and a lowercase
+            # "unknown" would collide with the reserved state.
+            #
+            # Anywhere else "UNKNOWN" means the device does not report the
+            # value, and that IS Home Assistant's reserved state - returning
+            # None gets it, translated in every language, without claiming
+            # something is unassigned.
+            if value == _UNKNOWN_RAW:
+                if self.entity_description.key in _UNASSIGNED_KEYS:
+                    return _UNASSIGNED_STATE
+                return None
             return value
 
         # Live levels return a LIST (one value per channel) - show the loudest channel.

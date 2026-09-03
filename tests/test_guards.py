@@ -29,6 +29,7 @@ GUARD_FILES = {
     "test_device_writes.py": "every device-writing button goes through the action lock",
     "test_ci_parity.py": "CI runs the same check script a developer runs",
     "test_mutation_harness.py": "the mutation run fails loudly instead of reporting a breakage it never applied",
+    "test_sensor_states.py": "the not_assigned mapping and its translations stay in step",
     "test_log_privacy.py": "no log call hands out a serial number in full",
     "test_guards.py": "the guards stay package-wide and stay present",
 }

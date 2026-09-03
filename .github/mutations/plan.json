@@ -82,5 +82,19 @@
     "find": "    except asyncio.CancelledError:\n        hass.data[DOMAIN].pop(entry.entry_id, None)\n        await client.close()\n        raise\n",
     "replace": "",
     "expect": "tests/test_setup_cleanup.py::test_a_setup_cancelled_while_adding_platforms_cleans_up_too"
+  },
+  {
+    "name": "every text sensor claims to be unassigned again",
+    "path": "custom_components/neumann_kh/sensor.py",
+    "find": "                if self.entity_description.key in _UNASSIGNED_KEYS:\n                    return _UNASSIGNED_STATE\n                return None",
+    "replace": "                return _UNASSIGNED_STATE",
+    "expect": "tests/test_sensor.py::test_a_text_sensor_that_is_not_an_output_reports_no_value_for_unknown"
+  },
+  {
+    "name": "the assignment register loses a sensor",
+    "path": "custom_components/neumann_kh/sensor.py",
+    "find": "_UNASSIGNED_KEYS = frozenset({\"out1_loudspeaker\", \"out2_loudspeaker\"})",
+    "replace": "_UNASSIGNED_KEYS = frozenset({\"out1_loudspeaker\"})",
+    "expect": "tests/test_sensor_states.py::test_the_mapped_sensors_are_exactly_the_translated_ones"
   }
 ]

@@ -69,6 +69,20 @@ def test_an_unassigned_output_reports_a_language_independent_state(key):
     assert _sensor(key, "UNKNOWN", language="en").native_value == "not_assigned"
 
 
+@pytest.mark.parametrize("key", ["hw_version", "input_select", "bass_management"])
+def test_a_text_sensor_that_is_not_an_output_reports_no_value_for_unknown(key):
+    """ "UNKNOWN" means two different things, and only one of them is "unassigned".
+
+    On a subwoofer output it means nothing is connected. On a hardware version
+    it means the device does not report one - calling that "Not assigned"
+    would state something untrue. No value gets Home Assistant's own reserved
+    "unknown" instead, translated in every language without a claim.
+    """
+    assert _sensor(key, "UNKNOWN").native_value is None
+    # A real answer still passes through untouched.
+    assert _sensor(key, "ANALOG").native_value == "ANALOG"
+
+
 @pytest.mark.parametrize("key", ["out1_loudspeaker", "out2_loudspeaker"])
 def test_the_unassigned_state_is_translated_for_display(key):
     """Stable state, translated presentation - both languages have to carry it."""
