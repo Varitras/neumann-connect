@@ -7,9 +7,9 @@
 # a candidate pins before bumping - naming today's beta series here would go
 # stale within weeks, the rule does not.
 #
-# 0.13.357 pins Home Assistant 2026.8.3, verified as the current stable
-# on PyPI 2026-09-01.
-pytest-homeassistant-custom-component==0.13.357
+# 0.13.363 pins Home Assistant 2026.9.0, verified as the current stable on
+# PyPI 2026-09-02.
+pytest-homeassistant-custom-component==0.13.363
 # Declared rather than inherited. It arrives through the plugin above
 # today, and pytest.ini relies on it (`timeout = 30`) - so the day that
 # transitive dependency changes, pytest only warns "Unknown config
