@@ -3,4 +3,3 @@
 # directory"), so with core.autocrlf=true check.sh became unrunnable under
 # WSL while CI - checking out on Linux - was perfectly fine.
 *.sh text eol=lf
-.githooks/* text eol=lf

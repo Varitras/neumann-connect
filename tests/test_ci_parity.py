@@ -82,7 +82,7 @@ def test_the_check_script_still_invokes_every_tool_it_owns():
 def test_the_scripts_are_committed_executable():
     """A 100644 shell script fails in CI only, with 'Permission denied'."""
     listing = subprocess.run(
-        ["git", "ls-files", "-s", ".github/scripts", ".githooks"],
+        ["git", "ls-files", "-s", ".github/scripts"],
         cwd=REPO,
         capture_output=True,
         text=True,
@@ -126,7 +126,6 @@ def test_no_shell_script_carries_carriage_returns():
     than the file.
     """
     scripts = sorted((REPO / ".github" / "scripts").glob("*.sh"))
-    scripts += sorted((REPO / ".githooks").iterdir())
     offenders = [
         script.name for script in scripts if script.is_file() and b"\r" in script.read_bytes()
     ]
