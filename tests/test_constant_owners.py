@@ -1,9 +1,9 @@
 """Every constant has exactly one owning module.
 
-The rule (CLAUDE.md): a value needed across module boundaries is defined once
-in the module that owns the term and imported from there. A second
-hand-written definition is the bug of tomorrow - whoever turns one dial
-leaves the other standing.
+A value needed across module boundaries is defined once in the module
+that owns the term and imported from there. A second hand-written
+definition is the bug of tomorrow - whoever turns one dial leaves the
+other standing.
 
 Found by audit, not by any analyser: `_MAX_PARALLEL_IDENTITY_QUERIES = 8`
 lived in both `__init__.py` and `config_flow.py`, and the comment on one of
