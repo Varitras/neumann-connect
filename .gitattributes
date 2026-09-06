@@ -3,3 +3,8 @@
 # directory"), so with core.autocrlf=true check.sh became unrunnable under
 # WSL while CI - checking out on Linux - was perfectly fine.
 *.sh text eol=lf
+# mutate.py carries a shebang and is run directly during development;
+# with CRLF that fails as `env: python3: No such file or directory`.
+# check.sh calls it as `$PYTHON mutate.py`, where the shebang is ignored -
+# which is why CI never noticed.
+.github/scripts/* text eol=lf

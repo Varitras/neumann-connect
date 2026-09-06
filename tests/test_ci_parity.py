@@ -125,7 +125,7 @@ def test_no_shell_script_carries_carriage_returns():
     only when someone runs it, with an error naming an interpreter rather
     than the file.
     """
-    scripts = sorted((REPO / ".github" / "scripts").glob("*.sh"))
+    scripts = sorted((REPO / ".github" / "scripts").iterdir())
     offenders = [
         script.name for script in scripts if script.is_file() and b"\r" in script.read_bytes()
     ]
