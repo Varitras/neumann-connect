@@ -21,6 +21,25 @@ from .const import DEFAULT_QUERY_SETTLE
 
 _LOGGER = logging.getLogger(__name__)
 
+
+def mask_host(host: str) -> str:
+    """Mask a host, leaving the network prefix and the last two characters.
+
+    A link-local address is derived from the MAC (fe80::0a1b:2cff:fe3d:4e5f
+    carries 08:1b:2c:3d:4e:5f), and logs are the routine attachment to a bug
+    report. Two characters still tell a pair of speakers apart in a support
+    thread, which is what the reader of such a report actually needs.
+
+    Debug logging keeps the address in full: it is off by default, and whoever
+    turns it on is chasing a connection problem.
+    """
+    address, separator, scope = host.partition("%")
+    prefix, delimiter, identifier = address.rpartition("::")
+    if len(identifier) <= 2:
+        return host
+    return f"{prefix}{delimiter}xx{identifier[-2:]}{separator}{scope}"
+
+
 # Terminator per the SSC specification: CR+LF or LF alone are allowed.
 _MESSAGE_TERMINATOR = b"\n"
 
@@ -158,7 +177,7 @@ class SSCClient:
             # must keep catching TimeoutError BEFORE OSError - swapping those
             # two turns every settle-window timeout into a connection error.
             raise SSCConnectionError(
-                f"Connection to {self._connect_host}:{self._port} failed: {err}"
+                f"Connection to {mask_host(self._connect_host)}:{self._port} failed: {err}"
             ) from err
 
     def _drop_connection(self) -> None:
@@ -184,7 +203,7 @@ class SSCClient:
             # Should be ruled out by _ensure_connected() before every call -
             # explicit check instead of `assert`, since assert statements can be
             # optimized away depending on Python startup options (-O).
-            raise SSCConnectionError(f"No active connection to {self._host}")
+            raise SSCConnectionError(f"No active connection to {mask_host(self._host)}")
         message = json.dumps(payload).encode("utf-8") + b"\r\n"
         try:
             self._writer.write(message)
@@ -194,7 +213,7 @@ class SSCClient:
             # connecting and writing. Surface it as a connection error so the
             # caller drops the socket instead of waiting for a reply that can
             # never arrive.
-            raise SSCConnectionError(f"Writing to {self._host} failed: {err}") from err
+            raise SSCConnectionError(f"Writing to {mask_host(self._host)} failed: {err}") from err
 
     async def _discard_stale_lines(self) -> None:
         """Drop anything the previous answer left on the socket.
@@ -242,7 +261,7 @@ class SSCClient:
         # told apart from the next answer any more, so start over.
         _LOGGER.warning(
             "Device %s kept sending while draining stale lines, dropping the connection",
-            self._host,
+            mask_host(self._host),
         )
         self._drop_connection()
 
@@ -275,7 +294,7 @@ class SSCClient:
         risk for other firmware rather than for the hardware in use.
         """
         if self._reader is None:
-            raise SSCConnectionError(f"No active connection to {self._host}")
+            raise SSCConnectionError(f"No active connection to {mask_host(self._host)}")
         merged: dict[str, Any] = {}
         received = False
         limit_hit = False
@@ -287,7 +306,9 @@ class SSCClient:
             remaining = deadline - asyncio.get_running_loop().time()
             breach = _limit_breached(remaining, lines, total_bytes)
             if breach is not None:
-                _LOGGER.warning("Device %s %s, dropping the connection", self._host, breach)
+                _LOGGER.warning(
+                    "Device %s %s, dropping the connection", mask_host(self._host), breach
+                )
                 limit_hit = True
                 break
             try:
@@ -303,21 +324,23 @@ class SSCClient:
             except TimeoutError as err:
                 if not received:
                     raise SSCTimeoutError(
-                        f"No response from {self._host} within {self._timeout}s"
+                        f"No response from {mask_host(self._host)} within {self._timeout}s"
                     ) from err
                 break
             except asyncio.IncompleteReadError as err:
                 if err.partial:
                     raw_line = err.partial
                 else:
-                    raise SSCConnectionError(f"Connection to {self._host} interrupted") from err
+                    raise SSCConnectionError(
+                        f"Connection to {mask_host(self._host)} interrupted"
+                    ) from err
             except asyncio.LimitOverrunError as err:
                 # A response without a line break grew unexpectedly large (well
                 # above any realistic SSC message) - treat the connection as
                 # broken instead of continuing to buffer a huge/never-ending
                 # line.
                 raise SSCConnectionError(
-                    f"Response from {self._host} exceeds the line limit"
+                    f"Response from {mask_host(self._host)} exceeds the line limit"
                 ) from err
             except OSError as err:
                 # A reset while reading (the speaker rebooting, the segment
@@ -326,10 +349,12 @@ class SSCClient:
                 # that drops the socket, so the dead connection would stay in
                 # place, and the coordinator would log a traceback for every
                 # remaining path of the cycle instead of failing it once.
-                raise SSCConnectionError(f"Reading from {self._host} failed: {err}") from err
+                raise SSCConnectionError(
+                    f"Reading from {mask_host(self._host)} failed: {err}"
+                ) from err
 
             if len(raw_line) > _MAX_LINE_BYTES:
-                raise SSCConnectionError(f"Response from {self._host} implausibly large")
+                raise SSCConnectionError(f"Response from {mask_host(self._host)} implausibly large")
 
             line = raw_line.strip()
             if not line:
@@ -424,7 +449,7 @@ class SSCClient:
                     if isinstance(part, dict) and "desc" in part:
                         description = part["desc"]
             raise SSCDeviceError(
-                f"Device {self._host} rejected the request: {description or osc_error}"
+                f"Device {mask_host(self._host)} rejected the request: {description or osc_error}"
             )
 
         return merged

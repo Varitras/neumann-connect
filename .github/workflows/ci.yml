@@ -2,7 +2,12 @@ name: CI
 
 on:
   push:
-    branches: [main, testing]
+    # Every branch, so a feature branch is proven before it reaches main.
+    # Dependabot's own branches are excluded here and covered by the
+    # pull_request trigger instead, which spares them a double run.
+    # Never a second `branches-ignore` alongside this: GitHub rejects the
+    # whole file and nothing runs at all, with no red cross to notice.
+    branches: ['**', '!dependabot/**']
   pull_request:
   workflow_dispatch:
 
@@ -14,22 +19,22 @@ permissions:
 
 jobs:
   hassfest:
-    name: Hassfest-Validierung
+    name: Hassfest validation
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: home-assistant/actions/hassfest@master
 
   hacs:
-    name: HACS-Validierung
+    name: HACS validation
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: hacs/action@main
         with:
           category: integration
-          # Integration ist (noch) nicht im home-assistant/brands-Repo
-          # registriert - Icons liegen lokal unter brand/.
+          # The integration is not (yet) registered in the
+          # home-assistant/brands repository - icons live locally under brand/.
           ignore: brands
 
   check:
@@ -66,7 +71,7 @@ jobs:
     # theoretical: 1.18.0 shipped an import that only exists from 2025.2 while
     # the manifest still claimed 2024.11. Importing every module is enough to
     # catch that class of mistake and costs a fraction of a test run.
-    name: Import auf der Mindestversion
+    name: Import on the minimum version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

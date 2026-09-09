@@ -31,7 +31,7 @@ from .const import (
 )
 from .coordinator import NeumannKHConfigEntry, NeumannKHCoordinator
 from .discovery import async_scan_for_speakers
-from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeoutError
+from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeoutError, mask_host
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -106,8 +106,8 @@ async def _async_relocate(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER.info(
             "Speaker %s answers at %s now instead of %s, updating the entry",
             entry.title,
-            speaker.host,
-            entry.data.get(CONF_HOST),
+            mask_host(speaker.host),
+            mask_host(str(entry.data.get(CONF_HOST))),
         )
         hass.config_entries.async_update_entry(
             entry,
