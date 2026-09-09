@@ -5,6 +5,20 @@
 All notable changes to this integration are documented here.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.18.2] – Quieter logs when a speaker is off
+
+### Changed
+- A speaker that does not answer is logged at info level instead of error.
+  Home Assistant's own guidance asks for info here, and a monitor switched
+  off overnight is an ordinary state, not a fault. The entities still go
+  unavailable, and a genuine failure - a poll cycle over its time limit, a
+  device that answers but rejects everything - is still an error
+- Addresses are masked in log output above debug level
+  (`fe80::0a1b:2cff:fe3d:4e5f` becomes `fe80::xx5f`). A link-local address
+  is derived from the MAC, and logs are the routine attachment to a bug
+  report. Enough is left to tell two speakers apart. Debug logging keeps
+  the address in full
+
 ## [1.18.1] – Two entities no speaker answered
 
 Reading the values off both test speakers settled several open questions.

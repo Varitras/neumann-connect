@@ -5,6 +5,21 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
+## [1.18.2] – Ruhigere Logs, wenn ein Lautsprecher aus ist
+
+### Geändert
+- Ein Lautsprecher, der nicht antwortet, wird auf „info“ statt auf „error“
+  protokolliert. Home Assistant selbst verlangt hier „info“, und ein nachts
+  ausgeschalteter Monitor ist ein gewöhnlicher Zustand, kein Fehler. Die
+  Entitäten werden weiterhin unverfügbar, und ein echter Fehlschlag - ein
+  Abfragezyklus über seiner Zeitgrenze, ein Gerät, das antwortet, aber alles
+  ablehnt - bleibt ein Fehler
+- Adressen werden ab „info“ im Log maskiert (`fe80::0a1b:2cff:fe3d:4e5f`
+  wird zu `fe80::xx5f`). Eine Link-Local-Adresse ist aus der MAC gebildet,
+  und Logs sind der übliche Anhang an eine Fehlermeldung. Es bleibt genug
+  stehen, um zwei Lautsprecher zu unterscheiden. Auf „debug“ steht die
+  Adresse weiterhin vollständig da
+
 ## [1.18.1] – Zwei Entities, die kein Lautsprecher beantwortet hat
 
 Das Auslesen beider Testlautsprecher hat mehrere offene Fragen geklärt. Zwei
