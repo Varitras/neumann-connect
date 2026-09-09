@@ -44,6 +44,36 @@ from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeou
 _LOGGER = logging.getLogger(__name__)
 
 
+class SpeakerUnreachable(UpdateFailed):
+    """The speaker answered nothing at all - normal while it is switched off."""
+
+
+class _OfflineIsNotAnError(logging.Filter):
+    """Downgrade the coordinator's "device is gone" line from error to info.
+
+    Home Assistant's own quality scale (log-when-unavailable) asks for info
+    level, but DataUpdateCoordinator logs the first failed cycle at error and
+    offers no way to configure that. A monitor switched off overnight would
+    post a red entry every morning for the most ordinary state there is.
+
+    The case is recognised by the exception object, which arrives unformatted
+    in the record arguments; matching on the message text would not survive
+    Home Assistant rewording its own line.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        is_expected_offline = record.levelno == logging.ERROR and any(
+            isinstance(argument, SpeakerUnreachable) for argument in record.args or ()
+        )
+        if is_expected_offline:
+            record.levelno = logging.INFO
+            record.levelname = logging.getLevelName(logging.INFO)
+        return True
+
+
+_LOGGER.addFilter(_OfflineIsNotAnError())
+
+
 # The coordinator travels on the config entry itself rather than in hass.data:
 # Home Assistant types it, hands it to every platform, and drops it with the
 # entry, so there is no dictionary to keep in step with the entry's lifetime.
@@ -201,7 +231,7 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 reachable = True
                 deep_merge(merged, build_nested(path, value))
         except (SSCConnectionError, SSCTimeoutError) as err:
-            raise UpdateFailed(f"Neumann KH unreachable: {err}") from err
+            raise SpeakerUnreachable(f"Neumann KH unreachable: {err}") from err
 
         if not reachable:
             raise UpdateFailed("Neumann KH: none of the queried properties were reachable")
