@@ -63,11 +63,18 @@
     "expect": "tests/test_storage.py::test_a_device_without_a_serial_writes_nothing"
   },
   {
+    "name": "a host reaches the log unmasked again",
+    "path": "custom_components/neumann_kh/ssc_client.py",
+    "find": "f\"No response from {mask_host(self._host)} within {self._timeout}s\"",
+    "replace": "f\"No response from {self._host} within {self._timeout}s\"",
+    "expect": "tests/test_log_privacy.py::test_no_raised_message_carries_an_unmasked_host"
+  },
+  {
     "name": "a serial reaches the log unmasked again",
     "path": "custom_components/neumann_kh/config_flow.py",
     "find": "                    mask_serial(str(identity.serial)),",
     "replace": "                    str(identity.serial),",
-    "expect": "tests/test_log_privacy.py::test_no_log_call_passes_an_unmasked_serial"
+    "expect": "tests/test_log_privacy.py::test_no_log_call_passes_an_unmasked_identifier"
   },
   {
     "name": "a cancelled setup leaks its connection again",

@@ -55,7 +55,7 @@ from .const import (
 )
 from .discovery import DiscoveredSpeaker, async_scan_for_speakers, pick_host
 from .export_actions import mask_serial
-from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeoutError
+from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeoutError, mask_host
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -222,7 +222,7 @@ async def _async_test_connection(host: str, port: int, interface: str | None) ->
     except SSCDeviceError:
         return DeviceIdentity(error_key="cannot_connect")
     except Exception:
-        _LOGGER.exception("Unexpected error while testing the connection to %s", host)
+        _LOGGER.exception("Unexpected error while testing the connection to %s", mask_host(host))
         return DeviceIdentity(error_key="unknown")
     else:
         return DeviceIdentity(
@@ -542,13 +542,13 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # Repointing an entry moves its history and its stored backups to
             # whatever answers there, so the device has to confirm who it is.
             if str(identity.serial) != str(serial):
-                # Masked: shared logs are a common support attachment, and a
-                # serial identifies a specific piece of hardware. The address
-                # stays readable - without it the warning cannot be acted on.
+                # Masked: shared logs are a common support attachment, and both
+                # a serial and a link-local address name specific hardware. What
+                # is left of the address still tells two announcements apart.
                 _LOGGER.warning(
                     "Ignoring an announcement for %s: %s answered with serial %s",
                     mask_serial(str(serial)),
-                    host,
+                    mask_host(host),
                     mask_serial(str(identity.serial)),
                 )
                 return self.async_abort(reason="wrong_device")
