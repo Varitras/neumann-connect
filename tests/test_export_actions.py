@@ -44,12 +44,25 @@ class _FakeClient:
 
 
 class _FakeCoordinator:
+    """Records what the restore applies, and whether it was published at all.
+
+    A restore applies every confirmation as it arrives and publishes once at
+    the end; a value applied but never published would be invisible to the
+    entities, so `published` is asserted alongside `applied`.
+    """
+
     def __init__(self, client: _FakeClient) -> None:
         self.client = client
         self.applied: list[tuple[tuple[str, ...], Any]] = []
+        self.published = 0
 
-    def apply_confirmed_values(self, values: list[tuple[tuple[str, ...], Any]]) -> None:
-        self.applied.extend(values)
+    def apply_confirmed_value(self, path: tuple[str, ...], value: Any, *, publish=True) -> None:
+        self.applied.append((path, value))
+        if publish:
+            self.published += 1
+
+    def async_update_listeners(self) -> None:
+        self.published += 1
 
 
 class _FakeEntry:
@@ -119,6 +132,7 @@ async def test_confirmed_values_still_reach_the_coordinator():
     assert written == len(paths)
     assert (adjusted, skipped) == (0, 0)
     assert len(coordinator.applied) == len(paths)
+    assert coordinator.published == 1, "one publish for the whole restore, not one per path"
 
 
 # --- Backup bookkeeping -----------------------------------------------------
@@ -437,6 +451,7 @@ async def test_a_restore_that_runs_out_of_time_reports_how_far_it_got(monkeypatc
     # Some paths made it, and what the device confirmed reached the entities.
     assert client.written, "the restore stopped before writing anything at all"
     assert coordinator.applied, "confirmed values were dropped on the way out"
+    assert coordinator.published == 1, "what was applied before the stop was never published"
     assert len(client.written) < len(restorable_paths_for_model(_KH_120_II))
 
 
