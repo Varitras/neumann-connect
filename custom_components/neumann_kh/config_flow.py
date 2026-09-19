@@ -55,6 +55,7 @@ from .const import (
 )
 from .discovery import DiscoveredSpeaker, async_scan_for_speakers, pick_host
 from .export_actions import mask_serial
+from .identity import as_identity_text, serial_matches
 from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeoutError, mask_host
 
 _LOGGER = logging.getLogger(__name__)
@@ -182,22 +183,6 @@ class DeviceIdentity(NamedTuple):
         return VENDOR_MARKER_NEUMANN in self.vendor.lower()
 
 
-def _as_identity_text(value: Any) -> str | None:
-    """Coerce an identity field to text, or None if it carries nothing usable.
-
-    SSC answers are plain JSON, so a field can arrive as a list, a number or a
-    dict - from a firmware quirk or simply from a device that is not a Neumann
-    speaker. Passing those on unchecked reaches code that assumes text: the
-    vendor check calls .lower(), the serial becomes a unique ID and a dict key,
-    and mask_serial() slices it. Coercing here keeps that guesswork out of
-    every later caller.
-    """
-    if value is None or isinstance(value, (list, dict, bool)):
-        return None
-    text = str(value).strip()
-    return text or None
-
-
 async def _async_test_connection(host: str, port: int, interface: str | None) -> DeviceIdentity:
     """Test the SSC connection and read out the device identity.
 
@@ -226,10 +211,10 @@ async def _async_test_connection(host: str, port: int, interface: str | None) ->
         return DeviceIdentity(error_key="unknown")
     else:
         return DeviceIdentity(
-            product=_as_identity_text(product),
-            serial=_as_identity_text(serial),
-            version=_as_identity_text(version),
-            vendor=_as_identity_text(vendor),
+            product=as_identity_text(product),
+            serial=as_identity_text(serial),
+            version=as_identity_text(version),
+            vendor=as_identity_text(vendor),
         )
     finally:
         await client.close()
@@ -433,7 +418,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # would attach this entry, its history and its stored exports, to
         # whatever answered at the new address.
         known_serial = entry.data.get(CONF_SERIAL)
-        if known_serial and identity.serial != known_serial:
+        if known_serial and not serial_matches(known_serial, identity.serial):
             return self.async_abort(reason="wrong_device")
 
         return self.async_update_reload_and_abort(
@@ -541,7 +526,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if known is not None:
             # Repointing an entry moves its history and its stored backups to
             # whatever answers there, so the device has to confirm who it is.
-            if str(identity.serial) != str(serial):
+            if not serial_matches(serial, identity.serial):
                 # Masked: shared logs are a common support attachment, and both
                 # a serial and a link-local address name specific hardware. What
                 # is left of the address still tells two announcements apart.
@@ -566,7 +551,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
             return self.async_abort(reason="no_serial")
 
-        if str(identity.serial) != str(serial):
+        if not serial_matches(serial, identity.serial):
             # Unknown speaker whose announcement disagrees with the device.
             # The device is the authority, so anchor on what it reports -
             # otherwise the entry would carry one serial as its unique ID and

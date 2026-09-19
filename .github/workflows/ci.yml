@@ -2,12 +2,10 @@ name: CI
 
 on:
   push:
-    # Every branch, so a feature branch is proven before it reaches main.
-    # Dependabot's own branches are excluded here and covered by the
-    # pull_request trigger instead, which spares them a double run.
-    # Never a second `branches-ignore` alongside this: GitHub rejects the
-    # whole file and nothing runs at all, with no red cross to notice.
-    branches: ['**', '!dependabot/**']
+    # main only: the merge commit and the release SHA get checked. A
+    # feature branch is proven through its pull request instead, so a
+    # push there does not run twice.
+    branches: [main]
   pull_request:
   workflow_dispatch:
 

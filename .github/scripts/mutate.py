@@ -22,10 +22,17 @@ from __future__ import annotations
 
 import json
 import pathlib
+import re
 import subprocess
 import sys
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
+
+# pytest's exit code for "tests ran and at least one failed". A collection
+# error is 2, an unknown node 4, an empty selection 5 - and any of those
+# used to pass as "caught" because the check was merely "non-zero".
+PYTEST_EXIT_TESTS_FAILED = 1
+_FAILED_COUNT = re.compile(r"\b(\d+) failed\b")
 
 
 def _run_expected_test(node_id: str) -> bool:
@@ -38,7 +45,12 @@ def _run_expected_test(node_id: str) -> bool:
         # A failing run is the expected outcome here, not an error.
         check=False,
     )
-    return finished.returncode != 0
+    if finished.returncode != PYTEST_EXIT_TESTS_FAILED:
+        return False
+    # Exit code 1 also covers a fixture that raised, which the summary counts
+    # as "error", not "failed" - and an error is not the assertion noticing.
+    failed = _FAILED_COUNT.search(finished.stdout)
+    return failed is not None and int(failed.group(1)) > 0
 
 
 def _apply(plan_entry: dict) -> tuple[str, str]:

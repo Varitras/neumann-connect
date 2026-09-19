@@ -17,6 +17,7 @@ import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PORT, Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryNotReady
 
 from .const import (
     CONF_FIRMWARE_VERSION,
@@ -31,6 +32,8 @@ from .const import (
 )
 from .coordinator import NeumannKHConfigEntry, NeumannKHCoordinator
 from .discovery import async_scan_for_speakers
+from .export_actions import mask_serial
+from .identity import serial_matches
 from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeoutError, mask_host
 
 _LOGGER = logging.getLogger(__name__)
@@ -100,7 +103,7 @@ async def _async_relocate(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     found_serials = await asyncio.gather(*(_serial_of(s) for s in candidates))
 
     for speaker, found in zip(candidates, found_serials, strict=True):
-        if found is None or str(found) != str(serial):
+        if not serial_matches(serial, found):
             continue
 
         _LOGGER.info(
@@ -168,6 +171,32 @@ async def _async_refresh_firmware_version(
     )
 
 
+async def _async_verify_identity(entry: ConfigEntry, client: SSCClient) -> None:
+    """Refuse to run an entry against a device that is not its speaker.
+
+    Relocate, reconfigure and zeroconf all compared serials; the regular setup
+    - the path every restart takes - never did. An address handed to another
+    SSC device kept the entry running under its old identity, and a restore or
+    a confirmed factory reset would have hit the wrong speaker. Checked before
+    the first poll, so nothing of the stranger's state is ever published.
+
+    Entries created before serials were stored cannot be checked; relocate
+    skips those for the same reason.
+    """
+    expected = entry.data.get(CONF_SERIAL)
+    if not expected:
+        return
+    try:
+        answered = await client.get(PATH_IDENTITY_SERIAL)
+    except (SSCConnectionError, SSCTimeoutError, SSCDeviceError) as err:
+        raise ConfigEntryNotReady(f"Could not read the serial of {entry.title}: {err}") from err
+    if not serial_matches(expected, answered):
+        raise ConfigEntryNotReady(
+            f"{entry.title} expected serial {mask_serial(str(expected))} but the device at "
+            f"its address answered {mask_serial(str(answered))}"
+        )
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: NeumannKHConfigEntry) -> bool:
     """Set up a config entry (one speaker)."""
     client = SSCClient(
@@ -179,6 +208,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: NeumannKHConfigEntry) ->
 
     coordinator = NeumannKHCoordinator(hass, client, entry.title, model=entry.data.get(CONF_MODEL))
     try:
+        await _async_verify_identity(entry, client)
         await coordinator.async_config_entry_first_refresh()
     except asyncio.CancelledError:
         # `except Exception` does not catch this - CancelledError derives from

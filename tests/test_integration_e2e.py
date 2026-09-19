@@ -318,16 +318,18 @@ async def test_restore_updates_entities_once(hass, socket_enabled, tmp_path):
         await _press(hass, entry, "_create_backup")
         await _enable(hass, entry, "_restore_backup")
 
+        # What costs is the notification, whichever way it is triggered:
+        # async_set_updated_data() ends in async_update_listeners() too.
         coordinator = entry.runtime_data
         updates = 0
-        original = coordinator.async_set_updated_data
+        original = coordinator.async_update_listeners
 
-        def counting(data):
+        def counting():
             nonlocal updates
             updates += 1
-            return original(data)
+            return original()
 
-        coordinator.async_set_updated_data = counting
+        coordinator.async_update_listeners = counting
 
         await _press(hass, entry, "_restore_backup")
         await _press(hass, entry, "_restore_backup")

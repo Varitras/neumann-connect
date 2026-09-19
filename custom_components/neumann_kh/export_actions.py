@@ -301,7 +301,7 @@ async def async_run_restore(
         and a bare error would not say how much was already written.
         """
         if confirmed_values:
-            coordinator.apply_confirmed_values(confirmed_values)
+            coordinator.async_update_listeners()
         return HomeAssistantError(
             translation_domain=DOMAIN,
             translation_key=translation_key,
@@ -335,6 +335,9 @@ async def async_run_restore(
                 # slow cycle, up to five minutes.
                 skipped += 1
                 continue
+            # Applied now, published later: the device has this value from
+            # this moment on, and a write that lands after it must win.
+            coordinator.apply_confirmed_value(path, confirmed, publish=False)
             confirmed_values.append((path, confirmed))
             if confirmed != value:
                 # The device clamped or normalised the value. Reporting it as
@@ -343,12 +346,9 @@ async def async_run_restore(
             else:
                 written += 1
 
-    # One update for the whole restore instead of one per path: each call
-    # copies the coordinator data and notifies every entity of the device, so
-    # per-path updates produced thousands of state changes for a single press.
-    # apply_confirmed_values() also maintains the slow-poll cache - without
-    # that, the next fast cycle would re-merge stale values and the restore
-    # would snap back (see the 1.15.1 regression).
+    # One notification for the whole restore instead of one per path: each
+    # publish notifies every entity of the device, so per-path publishing
+    # produced thousands of state changes for a single press.
     if not confirmed_values:
         # Every path was refused or went unconfirmed. Announcing a successful
         # restore of nothing is worse than an error: the user walks away
@@ -359,7 +359,7 @@ async def async_run_restore(
             translation_placeholders={"skipped": str(skipped)},
         )
 
-    coordinator.apply_confirmed_values(confirmed_values)
+    coordinator.async_update_listeners()
 
     _LOGGER.debug(
         "Restore for %s: %d written, %d adjusted, %d skipped",

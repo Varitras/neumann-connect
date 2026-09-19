@@ -145,6 +145,10 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # These two carry such values across the poll (see _async_update_data).
         self._poll_in_flight = False
         self._confirmed_during_poll: list[tuple[tuple[str, ...], Any]] = []
+        # Bumped by every invalidation. A poll that started before one holds
+        # a snapshot of the device as it no longer is; the counter lets it
+        # notice that and keep its stale slow values out of the cache.
+        self._cache_generation = 0
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Query each path individually; a rejected/faulty single path is skipped."""
@@ -160,6 +164,7 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         self._confirmed_during_poll = []
         self._poll_in_flight = True
+        generation_at_start = self._cache_generation
         try:
             merged = await asyncio.wait_for(
                 self._poll_all_paths(paths), timeout=POLL_CYCLE_TIMEOUT_SECONDS
@@ -179,28 +184,41 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             deep_merge(merged, build_nested(path, value))
         self._confirmed_during_poll = []
 
-        if include_slow:
-            # Slow values polled freshly and successfully - refresh cache for
-            # the next fast cycles, clear the catch-up flag.
-            self._slow_poll_pending = False
-            # Updated in place rather than rebuilt. Emptying it first meant a
-            # single path that happened to fail this round lost its value
-            # everywhere - the entity dropped to unknown and stayed there
-            # until the next slow cycle, up to five minutes later, over one
-            # missed answer.
-            for path in self._slow_poll_paths:
-                value = extract(merged, path)
-                if value is not None:
-                    deep_merge(self._slow_data, build_nested(path, value))
-            # Fill in whatever did not answer this round. Every value that did
-            # is already in the cache above, so this cannot overwrite a fresh
-            # one with a stale one.
-            deep_merge(merged, self._slow_data)
-        else:
-            # Fast cycle: merge the last known slow values back in.
-            deep_merge(merged, self._slow_data)
+        invalidated_meanwhile = generation_at_start != self._cache_generation
+        if include_slow and invalidated_meanwhile:
+            # A factory reset landed while this cycle was reading. Every slow
+            # value it holds predates the reset: writing them into the cache
+            # would undo the invalidation, and clearing the catch-up flag
+            # would turn the poll the reset asked for into a fast one that
+            # merges that stale cache straight back in. Keep the data as
+            # it stands: on a Home Assistant that serialises refreshes it
+            # is what this poll would have replaced anyway, and on one that
+            # does not, the poll the reset asked for may already have
+            # published the post-reset state - which this must not undo.
+            if self.data is None:
+                return merged
+            return self.data
 
+        if include_slow:
+            self._refresh_slow_cache(merged)
+        # Every cycle carries the last known slow values; a slow cycle has
+        # just renewed them, a fast cycle merely repeats them.
+        deep_merge(merged, self._slow_data)
         return merged
+
+    def _refresh_slow_cache(self, merged: dict[str, Any]) -> None:
+        """Take the slow values a successful slow cycle read into the cache."""
+        self._slow_poll_pending = False
+        # Updated in place rather than rebuilt. Emptying it first meant a
+        # single path that happened to fail this round lost its value
+        # everywhere - the entity dropped to unknown and stayed there until
+        # the next slow cycle, up to five minutes later, over one missed
+        # answer. Every value that did answer lands in the cache before the
+        # cache is merged back, so a stale one cannot overwrite a fresh one.
+        for path in self._slow_poll_paths:
+            value = extract(merged, path)
+            if value is not None:
+                deep_merge(self._slow_data, build_nested(path, value))
 
     async def _poll_all_paths(self, paths: list[tuple[str, ...]]) -> dict[str, Any]:
         merged: dict[str, Any] = {}
@@ -256,12 +274,24 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             )
         return self.action_lock
 
-    def apply_confirmed_value(self, path: tuple[str, ...], value: Any) -> None:
+    def apply_confirmed_value(
+        self, path: tuple[str, ...], value: Any, *, publish: bool = True
+    ) -> None:
         """Apply a single device-confirmed value directly into the data."""
-        self.apply_confirmed_values([(path, value)])
+        self.apply_confirmed_values([(path, value)], publish=publish)
 
-    def apply_confirmed_values(self, values: list[tuple[tuple[str, ...], Any]]) -> None:
+    def apply_confirmed_values(
+        self, values: list[tuple[tuple[str, ...], Any]], *, publish: bool = True
+    ) -> None:
         """Apply several device-confirmed values in one update.
+
+        `publish=False` takes the values into the data without notifying the
+        entities yet; `async_update_listeners()` does that later. A restore
+        applies each confirmation the moment the device gives it and publishes
+        once at the end. Collecting them and applying the batch at the end
+        instead let a rename that reached the device AFTER the restore wrote
+        the name be overwritten by the batch: the order in which the device
+        was written is the order the data must be applied in.
 
         If a path is in the slow poll, the _slow_data cache is additionally
         updated. Without that, the next FAST cycle would overwrite the
@@ -287,7 +317,10 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 deep_merge(self._slow_data, build_nested(path, value))
             if self._poll_in_flight:
                 self._confirmed_during_poll.append((path, value))
-        self.async_set_updated_data(new_data)
+        if publish:
+            self.async_set_updated_data(new_data)
+        else:
+            self.data = new_data
 
     async def async_invalidate_and_refresh(self) -> None:
         """Drop every cached value and poll again, slow paths included.
@@ -300,6 +333,7 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """
         self._slow_data = {}
         self._slow_poll_pending = True
+        self._cache_generation += 1
         await self.async_request_refresh()
 
     def value(self, path: tuple[str, ...]) -> Any:
