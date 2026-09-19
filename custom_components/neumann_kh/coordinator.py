@@ -190,32 +190,35 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             # value it holds predates the reset: writing them into the cache
             # would undo the invalidation, and clearing the catch-up flag
             # would turn the poll the reset asked for into a fast one that
-            # merges that stale cache straight back in. Publish what was
-            # read - the requested slow poll is already queued behind it.
-            return merged
+            # merges that stale cache straight back in. Keep the data as
+            # it stands: on a Home Assistant that serialises refreshes it
+            # is what this poll would have replaced anyway, and on one that
+            # does not, the poll the reset asked for may already have
+            # published the post-reset state - which this must not undo.
+            if self.data is None:
+                return merged
+            return self.data
 
         if include_slow:
-            # Slow values polled freshly and successfully - refresh cache for
-            # the next fast cycles, clear the catch-up flag.
-            self._slow_poll_pending = False
-            # Updated in place rather than rebuilt. Emptying it first meant a
-            # single path that happened to fail this round lost its value
-            # everywhere - the entity dropped to unknown and stayed there
-            # until the next slow cycle, up to five minutes later, over one
-            # missed answer.
-            for path in self._slow_poll_paths:
-                value = extract(merged, path)
-                if value is not None:
-                    deep_merge(self._slow_data, build_nested(path, value))
-            # Fill in whatever did not answer this round. Every value that did
-            # is already in the cache above, so this cannot overwrite a fresh
-            # one with a stale one.
-            deep_merge(merged, self._slow_data)
-        else:
-            # Fast cycle: merge the last known slow values back in.
-            deep_merge(merged, self._slow_data)
-
+            self._refresh_slow_cache(merged)
+        # Every cycle carries the last known slow values; a slow cycle has
+        # just renewed them, a fast cycle merely repeats them.
+        deep_merge(merged, self._slow_data)
         return merged
+
+    def _refresh_slow_cache(self, merged: dict[str, Any]) -> None:
+        """Take the slow values a successful slow cycle read into the cache."""
+        self._slow_poll_pending = False
+        # Updated in place rather than rebuilt. Emptying it first meant a
+        # single path that happened to fail this round lost its value
+        # everywhere - the entity dropped to unknown and stayed there until
+        # the next slow cycle, up to five minutes later, over one missed
+        # answer. Every value that did answer lands in the cache before the
+        # cache is merged back, so a stale one cannot overwrite a fresh one.
+        for path in self._slow_poll_paths:
+            value = extract(merged, path)
+            if value is not None:
+                deep_merge(self._slow_data, build_nested(path, value))
 
     async def _poll_all_paths(self, paths: list[tuple[str, ...]]) -> dict[str, Any]:
         merged: dict[str, Any] = {}

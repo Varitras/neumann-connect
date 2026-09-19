@@ -82,7 +82,7 @@ class _SpeakerWithSerial:
         self.closed = True
 
 
-async def _set_up(hass, entry, client) -> bool:
+async def _set_up(hass, entry, client) -> tuple[bool, bool]:
     with (
         patch("custom_components.neumann_kh.SSCClient", return_value=client),
         patch("custom_components.neumann_kh._async_relocate", return_value=False) as relocate,
