@@ -103,5 +103,26 @@
     "find": "_UNASSIGNED_KEYS = frozenset({\"out1_loudspeaker\", \"out2_loudspeaker\"})",
     "replace": "_UNASSIGNED_KEYS = frozenset({\"out1_loudspeaker\"})",
     "expect": "tests/test_sensor_states.py::test_the_mapped_sensors_are_exactly_the_translated_ones"
+  },
+  {
+    "name": "a different speaker at the stored address is set up anyway",
+    "path": "custom_components/neumann_kh/__init__.py",
+    "find": "    if not serial_matches(expected, answered):",
+    "replace": "    if False:",
+    "expect": "tests/test_wrong_device_at_stored_address.py::test_a_different_speaker_at_the_address_is_refused"
+  },
+  {
+    "name": "a slow poll writes its pre-reset snapshot back again",
+    "path": "custom_components/neumann_kh/coordinator.py",
+    "find": "        if include_slow and invalidated_meanwhile:",
+    "replace": "        if False:",
+    "expect": "tests/test_stale_snapshot_overwrites_newer_state.py::test_a_reset_during_a_slow_poll_is_not_undone_by_it"
+  },
+  {
+    "name": "the restore applies its confirmations late again",
+    "path": "custom_components/neumann_kh/export_actions.py",
+    "find": "    coordinator.async_update_listeners()\n\n    _LOGGER.debug(\n        \"Restore for %s",
+    "replace": "    coordinator.apply_confirmed_values(confirmed_values)\n\n    _LOGGER.debug(\n        \"Restore for %s",
+    "expect": "tests/test_stale_snapshot_overwrites_newer_state.py::test_a_rename_after_the_restore_wrote_the_name_survives_the_batch"
   }
 ]
