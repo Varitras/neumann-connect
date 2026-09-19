@@ -27,6 +27,7 @@ from custom_components.neumann_kh.const import (
     CONF_MODEL,
     CONF_SERIAL,
     DOMAIN,
+    PATH_IDENTITY_SERIAL,
 )
 from custom_components.neumann_kh.discovery import DiscoveredSpeaker
 
@@ -55,6 +56,22 @@ def _entry(hass, serial=_SERIAL, host=_OLD_HOST) -> MockConfigEntry:
     )
     entry.add_to_hass(hass)
     return entry
+
+
+def _own_speaker(answer_for_other_paths=None):
+    """A client whose device carries the entry's serial.
+
+    Setup verifies the serial before the first poll, so a fake that answers
+    the same thing for every path would be refused as a different speaker.
+    """
+    client = AsyncMock()
+    client.get = AsyncMock(
+        side_effect=lambda path, **_: (
+            _SERIAL if path == PATH_IDENTITY_SERIAL else answer_for_other_paths
+        )
+    )
+    client.close = AsyncMock()
+    return client
 
 
 def _found(host=_NEW_HOST, port=45):
@@ -138,6 +155,7 @@ async def test_a_failed_setup_actually_triggers_the_search(hass, _custom_integra
     entry = _entry(hass)
 
     with (
+        patch("custom_components.neumann_kh.SSCClient", return_value=_own_speaker()),
         patch(
             "custom_components.neumann_kh.NeumannKHCoordinator.async_config_entry_first_refresh",
             side_effect=ConfigEntryNotReady("device offline"),
@@ -156,6 +174,7 @@ async def test_a_working_setup_does_not_search(hass, _custom_integration):
     entry = _entry(hass)
 
     with (
+        patch("custom_components.neumann_kh.SSCClient", return_value=_own_speaker()),
         patch(
             "custom_components.neumann_kh.NeumannKHCoordinator.async_config_entry_first_refresh",
             return_value=None,
@@ -190,9 +209,7 @@ async def _run_setup(hass, entry, version, stored=None):
         hass.config_entries.async_update_entry(
             entry, data={**entry.data, CONF_FIRMWARE_VERSION: stored}
         )
-    client = AsyncMock()
-    client.get = AsyncMock(return_value=version)
-    client.close = AsyncMock()
+    client = _own_speaker(answer_for_other_paths=version)
     with (
         patch(
             "custom_components.neumann_kh.NeumannKHCoordinator.async_config_entry_first_refresh",

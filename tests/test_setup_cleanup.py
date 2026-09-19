@@ -30,6 +30,7 @@ from custom_components.neumann_kh.const import (
     CONF_MODEL,
     CONF_SERIAL,
     DOMAIN,
+    PATH_IDENTITY_SERIAL,
 )
 
 
@@ -106,13 +107,15 @@ async def test_a_cancelled_setup_still_releases_the_connection(hass, _custom_int
 
 
 class _AnsweringClient:
-    """Answers everything, so setup gets past the first refresh."""
+    """Answers everything, so setup gets past the identity check and the first refresh."""
 
     def __init__(self, **kwargs) -> None:
         self.closed = False
         self.priority_waiting = asyncio.Event()
 
     async def get(self, path, priority: bool = False):
+        if path == PATH_IDENTITY_SERIAL:
+            return "SIM0001234"
         return 0.0
 
     async def set(self, path, value, priority: bool = False):

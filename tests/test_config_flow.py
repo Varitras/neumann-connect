@@ -422,14 +422,14 @@ def test_unusable_identity_values_become_none(raw):
     key, and mask_serial() slices it - each of which raises on the wrong type
     rather than reporting an unusable device.
     """
-    from custom_components.neumann_kh.config_flow import _as_identity_text
+    from custom_components.neumann_kh.identity import as_identity_text as _as_identity_text
 
     assert _as_identity_text(raw) is None
 
 
 def test_a_numeric_serial_is_kept_as_text():
     """Real records carry the serial as a string, but a number still means one."""
-    from custom_components.neumann_kh.config_flow import _as_identity_text
+    from custom_components.neumann_kh.identity import as_identity_text as _as_identity_text
 
     assert _as_identity_text(1234567890) == "1234567890"
     assert _as_identity_text("  KH 120 II  ") == "KH 120 II"
