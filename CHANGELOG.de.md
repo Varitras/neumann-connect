@@ -5,6 +5,34 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
+## [1.18.3] – Der richtige Lautsprecher, und der neueste Schreibzugriff gewinnt
+
+### Behoben
+- Eine gespeicherte Adresse, die inzwischen einem anderen Lautsprecher
+  gehört, wird beim Setup abgewiesen. Adresswechsel, Neukonfiguration und
+  Erkennung verglichen bereits die vom Gerät gemeldete Seriennummer mit der
+  gespeicherten; das reguläre Setup – der Weg, den jeder Neustart nimmt – tat
+  das nie, sodass der Eintrag unter seiner alten Identität weiterlief und ein
+  Zurückspielen oder ein bestätigter Werksreset das falsche Gerät hätte
+  treffen können. Die Prüfung läuft vor der ersten Abfrage; eine Abweichung
+  startet dieselbe Suche wie ein fehlgeschlagenes Setup. Einträge, die vor
+  der Speicherung von Seriennummern angelegt wurden, lassen sich nicht
+  prüfen und starten wie bisher
+- Ein Wert, der während eines laufenden Zurückspielens geschrieben wird,
+  wird nicht mehr vom Zurückspielen überschrieben. Bestätigungen wurden
+  bisher am Ende gesammelt angewendet, sodass eine Umbenennung, die den
+  Lautsprecher nach dem Schreiben des Namens erreichte, bis zu fünf Minuten
+  lang den zurückgespielten Namen zeigte, während der Lautsprecher den neuen
+  trug. Jede Bestätigung wird jetzt sofort übernommen; die Entitäten werden
+  weiterhin nur einmal benachrichtigt
+- Ein Werksreset während einer langsamen Abfrage wird von dieser nicht mehr
+  rückgängig gemacht. Die Abfrage schrieb ihre Werte von vor dem Reset
+  zurück in den Cache, und die angeforderte Neuabfrage mischte sie wieder
+  ein; sie lässt den Cache jetzt unangetastet
+
+### Geändert
+- Tests laufen gegen Home Assistant 2026.9.3
+
 ## [1.18.2] – Ruhigere Logs, wenn ein Lautsprecher aus ist
 
 ### Geändert

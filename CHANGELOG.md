@@ -5,6 +5,30 @@
 All notable changes to this integration are documented here.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.18.3] – The right speaker, and the newest write wins
+
+### Fixed
+- A stored address that now belongs to a different speaker is refused at
+  setup. Relocate, reconfigure and discovery already compared the serial the
+  device answers with the one the entry stores; the regular setup - the path
+  every restart takes - never did, so the entry kept running under its old
+  identity and a restore or a confirmed factory reset could have hit the
+  wrong device. The check runs before the first poll, and a mismatch starts
+  the same search a failed setup does. Entries created before serials were
+  stored cannot be checked and are set up as before
+- A value written while a restore was running is no longer overwritten by
+  the restore. Confirmations used to be applied as one batch at the end, so
+  a rename that reached the speaker after the restore had written the name
+  showed the restored name for up to five minutes while the speaker carried
+  the new one. Each confirmation is now applied the moment the device gives
+  it; the entities are still notified once
+- A factory reset during a slow poll is no longer undone by that poll. The
+  poll wrote its pre-reset values back into the cache and the requested
+  re-read then merged them in; it now leaves the cache alone
+
+### Changed
+- Tests run against Home Assistant 2026.9.3
+
 ## [1.18.2] – Quieter logs when a speaker is off
 
 ### Changed
