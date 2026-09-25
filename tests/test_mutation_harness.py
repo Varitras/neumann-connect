@@ -120,3 +120,30 @@ def test_only_a_failing_test_counts_as_a_catch(source, counts_as_caught):
 @pytest.mark.timeout(120)
 def test_a_test_that_does_not_exist_is_not_a_catch():
     assert _harness()._run_expected_test("tests/test_mutation_harness.py::test_nowhere") is False
+
+
+def test_a_mutated_file_comes_back_byte_for_byte():
+    """The run restores what it broke, line endings included.
+
+    Reading the backup with read_text() translated CRLF to LF on the way in,
+    so under WSL on a Windows checkout every mutated file came back with LF
+    and showed up as modified - same content, different bytes, after every
+    single run.
+    """
+    probe = REPO / "tests" / "harness_crlf_probe.txt"
+    before = b"first line\r\nsecond line\r\n"
+    probe.write_bytes(before)
+    harness = _harness()
+    try:
+        target, original = harness._apply(
+            {
+                "name": "crlf probe",
+                "path": "tests/harness_crlf_probe.txt",
+                "find": "second line",
+                "replace": "mutated line",
+            }
+        )
+        harness._restore(target, original)
+        assert probe.read_bytes() == before
+    finally:
+        probe.unlink()

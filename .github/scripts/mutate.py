@@ -53,20 +53,28 @@ def _run_expected_test(node_id: str) -> bool:
     return failed is not None and int(failed.group(1)) > 0
 
 
-def _apply(plan_entry: dict) -> tuple[str, str]:
+def _apply(plan_entry: dict) -> tuple[str, bytes]:
     target = REPO / plan_entry["path"]
-    original = target.read_text(encoding="utf-8")
-    occurrences = original.count(plan_entry["find"])
+    # The backup is the raw bytes. read_text() translates CRLF to LF, so a
+    # text backup was already not the original, and every run left the
+    # mutated files of a Windows checkout rewritten with LF. The mutation
+    # itself works on the translated text: the plan's multi-line `find`
+    # strings are written with plain newlines.
+    original = target.read_bytes()
+    text = target.read_text(encoding="utf-8")
+    occurrences = text.count(plan_entry["find"])
     if occurrences != 1:
         raise LookupError(
             f"{plan_entry['name']}: `find` matches {occurrences} times in "
             f"{plan_entry['path']} - the code moved and this mutation checks "
             "nothing. Update the entry."
         )
-    target.write_text(
-        original.replace(plan_entry["find"], plan_entry["replace"], 1), encoding="utf-8"
-    )
+    target.write_text(text.replace(plan_entry["find"], plan_entry["replace"], 1), encoding="utf-8")
     return str(target), original
+
+
+def _restore(target: str, original: bytes) -> None:
+    pathlib.Path(target).write_bytes(original)
 
 
 def main(plan_path: str) -> int:
@@ -83,7 +91,7 @@ def main(plan_path: str) -> int:
         try:
             caught = _run_expected_test(entry["expect"])
         finally:
-            pathlib.Path(target).write_text(original, encoding="utf-8")
+            _restore(target, original)
         status = "caught" if caught else "SURVIVED"
         print(f"{status:9} {entry['name']}")
         if not caught:
