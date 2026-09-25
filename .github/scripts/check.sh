@@ -10,7 +10,11 @@
 # homeassistant.runner -> fcntl), so run this under WSL2 or CI, not native
 # Windows.
 set -eu
-cd "$(git rev-parse --show-toplevel)"
+# On its own line: inside `cd "$(...)"` a failing git leaves an empty
+# argument, `cd ""` succeeds and set -e never sees the failure - the gates
+# then ran against whatever directory the script was started from.
+top=$(git rev-parse --show-toplevel)
+cd "$top"
 
 PYTHON="${PYTHON:-python3}"
 PACKAGE="custom_components/neumann_kh"

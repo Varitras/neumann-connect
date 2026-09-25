@@ -135,3 +135,39 @@ def test_no_shell_script_carries_carriage_returns():
         "with LF - .gitattributes keeps the checkout right, an editor writing "
         "in text mode does not."
     )
+
+
+def test_the_check_script_refuses_to_run_outside_the_repository(tmp_path):
+    """Found by starting it from the project folder one level up.
+
+    The first line was `cd "$(git rev-parse --show-toplevel)"`. Outside a
+    working tree git prints an error and an empty string, `cd ""` succeeds,
+    and `set -e` does not look at a failure inside an argument. So the script
+    ran every gate against whatever directory it was started in - and ruff
+    reported "All checks passed" having looked at nothing of this repository.
+
+    The interpreter is a stub that records every call, so the proof is that
+    no gate ran at all, not merely that something failed along the way.
+    """
+    calls = tmp_path / "calls.log"
+    stub = tmp_path / "python-stub"
+    stub.write_text(f'#!/bin/sh\necho "$@" >> "{calls}"\n', encoding="utf-8")
+    stub.chmod(0o755)
+    outside = tmp_path / "not-a-repository"
+    outside.mkdir()
+
+    finished = subprocess.run(
+        ["sh", str(CHECK_SCRIPT)],
+        cwd=outside,
+        env={
+            "PATH": "/usr/bin:/bin",
+            "PYTHON": str(stub),
+            "GIT_CEILING_DIRECTORIES": str(tmp_path),
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert finished.returncode != 0, "the check script reported success outside the repository"
+    assert not calls.exists(), f"gates ran outside the repository: {calls.read_text()!r}"
