@@ -206,11 +206,11 @@ because a second list is one that drifts out of step with the first.
 | Phase invert (non-subwoofer only) | `switch` | – | `audio/out/phaseinversion` |
 | Auto standby (non-subwoofer only; `binary_sensor` on the KH 750 DSP instead) | `switch` | – | `device/standby/enabled` |
 | Input interface (writable, confirmed on KH 120 II and KH 750 DSP) | `select` | ANALOG ONLY/DIGITAL ONLY/DIGITAL DISCARDS ANALOG | `audio/in/interface` |
-| Control mode (default: disabled, see "Known limitations") | `select` | NETWORK/LOCAL | `ui/control_mode` |
 | Device name (default: disabled) | `text` | max. 52 characters | `device/name` |
 | Input level (live) | `sensor` | dB | `m/in/level` |
 | Standby countdown (default: disabled, diagnostic) | `sensor` | min | `device/standby/countdown` |
 | Hardware version, current input (diagnostic) | `sensor` | text | `device/identity/hw_version`, `audio/in/current_input` |
+| Control mode (diagnostic; the CONTROL switch on the back, see "Known limitations") | `sensor` | NETWORK/LOCAL | `ui/control_mode` |
 | Input gain, input select, bass gain, mid gain, treble gain, output level (SPL) (non-subwoofer only; confirmed by testing not to be writable, diagnostic) | `sensor` | dB or text | `ui/input_gain`, `ui/input_select`, `ui/bass_gain`, `ui/mid_gain`, `ui/treble_gain`, `ui/output_level` |
 | Input clipping | `binary_sensor` | – | `m/in/clip` |
 | Warning (diagnostic) | `binary_sensor` | – | `warnings` |
@@ -284,10 +284,17 @@ The retry timing is Home Assistant's own. In addition, after every failed
 setup the integration searches the network for the speaker by its serial
 number and stores the new address if it has moved.
 
+**Too many connections:** a speaker accepts only about four network
+connections at a time (measured on the KH 120 II and the KH 750 DSP). Home
+Assistant keeps one open per speaker. If the Neumann app, MA 1 or other tools
+hold the rest, a new connection times out and the entities show as
+unavailable until one is closed.
+
 ## Known limitations
 
 - Auto standby is only non-writable on the KH 750 DSP (it works on the
-  KH 120 II). Hence: KH 120 II → `switch`, KH 750 DSP → `binary_sensor`.
+  KH 120 II), where it follows the AUTO STANDBY switch on the back. Hence:
+  KH 120 II → `switch`, KH 750 DSP → `binary_sensor`.
 - `ui/input_select` stays read-only. The writable path is
   `audio/in/interface`, confirmed on both the KH 120 II and the KH 750 DSP and
   enabled by default there.
@@ -299,8 +306,12 @@ number and stores the new address if it has moved.
   are discarded before the next request; only one that
   lands in between is affected. Both test devices answer with exactly one
   line, so this concerns other firmware rather than the hardware in use.
-- Control mode (`ui/control_mode`) is disabled by default and should stay
-  that way: switching to `LOCAL` could cut network control off from the device.
+- Control mode (`ui/control_mode`) is set with the CONTROL switch on the
+  back (KH 750 DSP: CONTROL MODE) and cannot be changed over the network, so
+  it is a sensor. On `LOCAL` the speaker keeps answering, so its values stay
+  visible, but it refuses every change ("authorisation needed") and reports
+  the settings of its back panel. Set the switch to `NETWORK` to control it
+  from Home Assistant. Measured on the KH 750 DSP.
 - Restore backup has the same two-step safety confirmation as the factory
   reset below: the first press only arms it, a second press between 2 s and 30 s
   later writes the backup.
