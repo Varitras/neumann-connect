@@ -55,6 +55,10 @@ class _FakeCoordinator:
         self.client = client
         self.applied: list[tuple[tuple[str, ...], Any]] = []
         self.published = 0
+        self.reread: list[tuple[str, ...]] = []
+
+    async def async_request_reread(self, path: tuple[str, ...]) -> None:
+        self.reread.append(path)
 
     def apply_confirmed_value(self, path: tuple[str, ...], value: Any, *, publish=True) -> None:
         self.applied.append((path, value))
@@ -117,6 +121,22 @@ async def test_unconfirmed_value_is_skipped_not_counted_as_adjusted():
     assert skipped == 1
     assert adjusted == 0, "an unconfirmed value must not count as adjusted"
     assert written == len(paths) - 1
+
+
+async def test_an_unconfirmed_restore_value_is_read_back_from_the_device():
+    """No echo does not mean the device kept its old value.
+
+    Without a re-read a slow-polled path kept showing the pre-restore value
+    until the next scheduled slow cycle, up to five minutes.
+    """
+    unconfirmed = restorable_paths_for_model(_KH_120_II)[0]
+    coordinator = _FakeCoordinator(_FakeClient(answers_none={unconfirmed}))
+
+    await async_run_restore(
+        _FakeHass(), _FakeEntry(_KH_120_II), coordinator, backup=_backup_covering(_KH_120_II)
+    )
+
+    assert coordinator.reread == [unconfirmed]
 
 
 async def test_confirmed_values_still_reach_the_coordinator():

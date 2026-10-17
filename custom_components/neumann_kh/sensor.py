@@ -8,6 +8,7 @@ of in number.py/select.py.
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass
 
 from homeassistant.components.sensor import (
@@ -53,6 +54,8 @@ from .coordinator import NeumannKHConfigEntry, NeumannKHCoordinator
 from .entity import NeumannKHEntity
 
 _LOGGER = logging.getLogger(__name__)
+
+_KELVIN_OFFSET = 273.15
 
 # The devices answer the literal string "UNKNOWN" in two different meanings,
 # and only one of them is "nothing is connected".
@@ -359,7 +362,7 @@ class NeumannKHSensor(NeumannKHEntity, SensorEntity):
 
         # Live levels return a LIST (one value per channel) - show the loudest channel.
         if isinstance(value, list):
-            numeric_items = [v for v in value if isinstance(v, (int, float))]
+            numeric_items = [v for v in value if isinstance(v, (int, float)) and math.isfinite(v)]
             if not numeric_items:
                 return None
             value = max(numeric_items)
@@ -368,12 +371,18 @@ class NeumannKHSensor(NeumannKHEntity, SensorEntity):
         try:
             numeric_value = float(value)
         except (ValueError, TypeError):
+            numeric_value = math.nan
+        # Home Assistant refuses a non-finite state for a sensor with a unit;
+        # the entity would freeze or never be added.
+        if not math.isfinite(numeric_value):
             _LOGGER.debug(
-                "Non-numeric value for %s: %r - showing 'unknown'",
+                "Unusable value for %s: %r - showing 'unknown'",
                 self.entity_description.key,
                 value,
             )
             return None
         if self.entity_description.kelvin_to_celsius:
-            numeric_value -= 273.15
+            # The device reports whole Kelvin; rounding drops the float noise
+            # of the subtraction (310 K is 36.85, not 36.850000000000023).
+            numeric_value = round(numeric_value - _KELVIN_OFFSET, 2)
         return numeric_value

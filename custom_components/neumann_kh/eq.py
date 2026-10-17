@@ -74,21 +74,7 @@ class NeumannKHEQContainerSwitch(NeumannKHEntity, SwitchEntity):
 
     async def _async_set(self, value: bool) -> None:
         array = [value] * self._container.band_count
-        try:
-            confirmed = await self.coordinator.client.set(self._path, array)
-        except SSCDeviceError as err:
-            raise HomeAssistantError(
-                translation_domain=DOMAIN,
-                translation_key="change_rejected",
-                translation_placeholders={"error": str(err)},
-            ) from err
-        except (SSCConnectionError, SSCTimeoutError) as err:
-            raise HomeAssistantError(
-                translation_domain=DOMAIN,
-                translation_key="device_unreachable",
-                translation_placeholders={"error": str(err)},
-            ) from err
-        await self._apply_confirmed_value(self._path, confirmed)
+        await self._async_write(self._path, array)
 
     async def async_turn_on(self, **kwargs) -> None:
         await self._async_set(True)

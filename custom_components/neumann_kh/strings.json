@@ -260,6 +260,9 @@
     "device_unreachable": {
       "message": "The speaker is unreachable: {error}"
     },
+    "invalid_number": {
+      "message": "The value {value} is not a number the speaker can store."
+    },
     "change_rejected": {
       "message": "The speaker rejected this change (possibly not supported by this model/firmware): {error}"
     },

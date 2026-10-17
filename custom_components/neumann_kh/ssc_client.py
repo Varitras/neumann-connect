@@ -218,7 +218,15 @@ class SSCClient:
             # explicit check instead of `assert`, since assert statements can be
             # optimized away depending on Python startup options (-O).
             raise SSCConnectionError(f"No active connection to {mask_host(self._host)}")
-        message = json.dumps(payload).encode("utf-8") + b"\r\n"
+        try:
+            # json.dumps writes NaN/Infinity by default, which is not JSON. The
+            # number entity refuses them first; this catches every other
+            # writer, a restore of a hand-edited backup included.
+            message = json.dumps(payload, allow_nan=False).encode("utf-8") + b"\r\n"
+        except ValueError as err:
+            raise SSCDeviceError(
+                f"Refused to send a non-finite number to {mask_host(self._host)}"
+            ) from err
         try:
             self._writer.write(message)
             await self._writer.drain()

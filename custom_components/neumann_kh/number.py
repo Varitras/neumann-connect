@@ -5,6 +5,7 @@ plus (only on a detected subwoofer) the out1/out2 outputs.
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass
 from typing import Any
 
@@ -47,7 +48,6 @@ from .const import (
 )
 from .coordinator import NeumannKHConfigEntry, NeumannKHCoordinator
 from .entity import NeumannKHEntity
-from .ssc_client import SSCConnectionError, SSCDeviceError, SSCTimeoutError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -56,8 +56,8 @@ _LOGGER = logging.getLogger(__name__)
 class NeumannKHNumberDescription(NumberEntityDescription):
     """Description of a number entity including the SSC path.
 
-    integer: Whether to convert to int() instead of float() when writing
-    (e.g. delay values in samples).
+    integer: The device reports and expects whole numbers (delay in samples,
+    standby values, logo brightness); the value is rounded to an int.
     """
 
     ssc_path: tuple[str, ...] = ()
@@ -86,6 +86,7 @@ COMMON_NUMBER_DESCRIPTIONS: tuple[NeumannKHNumberDescription, ...] = (
         native_unit_of_measurement="min",
         mode=NumberMode.BOX,
         ssc_path=PATH_STANDBY_AUTO_TIME,
+        integer=True,
     ),
     NeumannKHNumberDescription(
         key="standby_level",
@@ -97,6 +98,7 @@ COMMON_NUMBER_DESCRIPTIONS: tuple[NeumannKHNumberDescription, ...] = (
         native_unit_of_measurement=STANDBY_LEVEL_UNIT,
         mode=NumberMode.BOX,
         ssc_path=PATH_STANDBY_LEVEL,
+        integer=True,
     ),
 )
 
@@ -111,6 +113,7 @@ BRIGHTNESS_DESCRIPTION = NeumannKHNumberDescription(
     native_unit_of_measurement="%",
     mode=NumberMode.SLIDER,
     ssc_path=PATH_LOGO_BRIGHTNESS,
+    integer=True,
 )
 
 # Only on a detected subwoofer (see MODELS_WITH_SUBWOOFER_FEATURES)
@@ -228,33 +231,27 @@ class NeumannKHNumber(NeumannKHEntity, NumberEntity):
             return None
         # Defensive conversion: non-numeric value -> "unknown" instead of an exception.
         try:
-            return float(value)
+            number = float(value)
         except (ValueError, TypeError):
+            number = math.nan
+        if not math.isfinite(number):
             _LOGGER.debug(
-                "Non-numeric value for %s: %r - showing 'unknown'",
+                "Unusable value for %s: %r - showing 'unknown'",
                 self.entity_description.key,
                 value,
             )
             return None
+        return number
 
     async def async_set_native_value(self, value: float) -> None:
         """Writes the new value via SSC "set" and then updates the cache."""
-        payload_value: Any = int(value) if self.entity_description.integer else float(value)
-
-        try:
-            confirmed = await self.coordinator.client.set(
-                self.entity_description.ssc_path, payload_value
+        # Home Assistant's range check lets NaN through: every comparison with
+        # it is false, so neither "below min" nor "above max" fires.
+        if not math.isfinite(value):
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="invalid_number",
+                translation_placeholders={"value": str(value)},
             )
-        except SSCDeviceError as err:
-            raise HomeAssistantError(
-                translation_domain=DOMAIN,
-                translation_key="change_rejected",
-                translation_placeholders={"error": str(err)},
-            ) from err
-        except (SSCConnectionError, SSCTimeoutError) as err:
-            raise HomeAssistantError(
-                translation_domain=DOMAIN,
-                translation_key="device_unreachable",
-                translation_placeholders={"error": str(err)},
-            ) from err
-        await self._apply_confirmed_value(self.entity_description.ssc_path, confirmed)
+        payload_value: Any = round(value) if self.entity_description.integer else float(value)
+        await self._async_write(self.entity_description.ssc_path, payload_value)

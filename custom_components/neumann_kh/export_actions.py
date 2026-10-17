@@ -324,16 +324,18 @@ async def async_run_restore(
             # Not writable on this model or firmware.
             skipped += 1
         except (SSCConnectionError, SSCTimeoutError) as err:
+            # The request may have landed before the line dropped.
+            await coordinator.async_request_reread(path)
             raise _stop("restore_interrupted", error=str(err)) from err
         else:
             if confirmed is None:
                 # The device answered, but not for this path (the settle window
                 # can end after an unrelated line). Nothing was confirmed:
                 # counting it as adjusted would misreport it, and handing None
-                # to the coordinator would drop the entity to unknown - and for
-                # a slow-polled path that sticks in the cache until the next
-                # slow cycle, up to five minutes.
+                # to the coordinator would drop the entity to unknown. It may
+                # still hold the new value, so the path is read back.
                 skipped += 1
+                await coordinator.async_request_reread(path)
                 continue
             # Applied now, published later: the device has this value from
             # this moment on, and a write that lands after it must win.
