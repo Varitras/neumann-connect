@@ -827,3 +827,47 @@ async def test_a_device_error_without_a_numeric_code_has_no_code(server):
         assert caught.value.code is None
     finally:
         await client.close()
+
+
+def _recording(received: list, answer):
+    def _respond(request):
+        received.append(request)
+        return [answer(request)]
+
+    return _respond
+
+
+async def test_an_aliased_get_asks_the_device_path(server):
+    received: list = []
+    server.responder = _recording(received, lambda req: {"audio": {"out5": {"level": 87.0}}})
+    client = _client(server.port)
+    try:
+        client.use_path_aliases({("audio", "out", "level"): ("audio", "out5", "level")})
+        assert await client.get(("audio", "out", "level")) == 87.0
+        assert received == [{"audio": {"out5": {"level": None}}}]
+    finally:
+        await client.close()
+
+
+async def test_an_aliased_set_writes_the_device_path(server):
+    received: list = []
+    server.responder = _recording(received, lambda req: req)
+    client = _client(server.port)
+    try:
+        client.use_path_aliases({("audio", "out", "mute"): ("audio", "out5", "mute")})
+        assert await client.set(("audio", "out", "mute"), True) is True
+        assert received == [{"audio": {"out5": {"mute": True}}}]
+    finally:
+        await client.close()
+
+
+async def test_an_unaliased_path_is_sent_unchanged(server):
+    received: list = []
+    server.responder = _recording(received, lambda req: {"audio": {"out": {"delay": 0}}})
+    client = _client(server.port)
+    try:
+        client.use_path_aliases({("audio", "out", "level"): ("audio", "out5", "level")})
+        await client.get(("audio", "out", "delay"))
+        assert received == [{"audio": {"out": {"delay": None}}}]
+    finally:
+        await client.close()

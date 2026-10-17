@@ -33,9 +33,9 @@ LINE_BUDGETS = {
     # identity handling. Splitting was considered and rejected: the flows
     # share the candidate/identity helpers, and HA discovers the class here.
     "config_flow.py": 752,
-    # Raised from 500 for the device error code the KH 750 out5 detection
-    # reads; the alternative was splitting the read loop out of its owner.
-    "ssc_client.py": 515,
+    # Raised from 500 for the KH 750 out5 support (device error code, path
+    # aliases); the alternative was splitting the read loop out of its owner.
+    "ssc_client.py": 530,
 }
 
 # SonarSource's default. Everything above needs a written entry.

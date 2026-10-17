@@ -164,6 +164,8 @@ class SSCClient:
         # Signals the poll loop that a user action is waiting on the lock
         # (see request(priority=True)) - poll then releases the lock.
         self._priority_waiting = asyncio.Event()
+        # Logical path -> path on this device (see use_path_aliases).
+        self._path_aliases: dict[tuple[str, ...], tuple[str, ...]] = {}
 
     @property
     def priority_waiting(self) -> asyncio.Event:
@@ -501,15 +503,28 @@ class SSCClient:
 
         return merged
 
+    def use_path_aliases(self, aliases: dict[tuple[str, ...], tuple[str, ...]]) -> None:
+        """Send these logical paths to a different path on this device.
+
+        Everything above the client - entities, cache, backups - keeps the
+        logical path, so a backup from one firmware layout restores onto the
+        other. request() is not aliased: the discovery walks the raw tree.
+        """
+        self._path_aliases = dict(aliases)
+
     async def get(self, path: tuple[str, ...]) -> Any:
         """Queries a single value (get = request with JSON null)."""
-        response = await self.request(build_nested(path, None), expect_path=path)
-        return extract(response, path)
+        device_path = self._path_aliases.get(path, path)
+        response = await self.request(build_nested(device_path, None), expect_path=device_path)
+        return extract(response, device_path)
 
     async def set(self, path: tuple[str, ...], value: Any) -> Any:
         """Sets a value and returns the value confirmed by the device.
 
         Every write comes from a user action, so it always jumps the poll.
         """
-        response = await self.request(build_nested(path, value), priority=True, expect_path=path)
-        return extract(response, path)
+        device_path = self._path_aliases.get(path, path)
+        response = await self.request(
+            build_nested(device_path, value), priority=True, expect_path=device_path
+        )
+        return extract(response, device_path)
