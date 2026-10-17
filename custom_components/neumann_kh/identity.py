@@ -27,6 +27,20 @@ def as_identity_text(value: Any) -> str | None:
     return text or None
 
 
+def mask_serial(serial: Any) -> str:
+    """Mask a serial number, leaving only the last 3 characters visible.
+
+    Coerced first: str(None) used to become the fake masked serial "xone", and
+    a non-text answer leaked fragments of its repr into the message.
+    """
+    text = as_identity_text(serial)
+    if text is None:
+        return "no serial"
+    if len(text) <= 3:
+        return text
+    return "x" * (len(text) - 3) + text[-3:]
+
+
 def serial_matches(expected: Any, answered: Any) -> bool:
     """True only if the device answered exactly the serial we expect.
 

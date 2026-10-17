@@ -32,8 +32,7 @@ from .const import (
 )
 from .coordinator import NeumannKHConfigEntry, NeumannKHCoordinator
 from .discovery import async_scan_for_speakers
-from .export_actions import mask_serial
-from .identity import serial_matches
+from .identity import mask_serial, serial_matches
 from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeoutError, mask_host
 
 _LOGGER = logging.getLogger(__name__)
@@ -192,8 +191,8 @@ async def _async_verify_identity(entry: ConfigEntry, client: SSCClient) -> None:
         raise ConfigEntryNotReady(f"Could not read the serial of {entry.title}: {err}") from err
     if not serial_matches(expected, answered):
         raise ConfigEntryNotReady(
-            f"{entry.title} expected serial {mask_serial(str(expected))} but the device at "
-            f"its address answered {mask_serial(str(answered))}"
+            f"{entry.title} expected serial {mask_serial(expected)} but the device at "
+            f"its address answered {mask_serial(answered)}"
         )
 
 

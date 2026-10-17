@@ -55,8 +55,7 @@ from .const import (
     VENDOR_MARKER_NEUMANN,
 )
 from .discovery import DiscoveredSpeaker, async_scan_for_speakers, pick_host
-from .export_actions import mask_serial
-from .identity import as_identity_text, serial_matches
+from .identity import as_identity_text, mask_serial, serial_matches
 from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeoutError, mask_host
 
 _LOGGER = logging.getLogger(__name__)
@@ -545,9 +544,9 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 # is left of the address still tells two announcements apart.
                 _LOGGER.warning(
                     "Ignoring an announcement for %s: %s answered with serial %s",
-                    mask_serial(str(serial)),
+                    mask_serial(serial),
                     mask_host(host),
-                    mask_serial(str(identity.serial)),
+                    mask_serial(identity.serial),
                 )
                 return self.async_abort(reason="wrong_device")
             self._abort_if_unique_id_configured(updates=updates)
@@ -556,10 +555,11 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # Nothing to anchor the entry on. Keeping the announced serial
             # would make an unauthenticated record the device's identity, and
             # a forged one could then occupy a serial the real speaker needs
-            # later. The manual and reconfigure paths refuse this too.
+            # later. Manual setup and the scan do accept such a device: there
+            # the user picked it on purpose, here only a broadcast vouches.
             _LOGGER.debug(
                 "Ignoring the announcement for %s: %s reports no serial number",
-                mask_serial(str(serial)),
+                mask_serial(serial),
                 host,
             )
             return self.async_abort(reason="no_serial")

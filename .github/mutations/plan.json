@@ -79,8 +79,8 @@
   {
     "name": "a serial reaches the log unmasked again",
     "path": "custom_components/neumann_kh/config_flow.py",
-    "find": "                    mask_serial(str(identity.serial)),",
-    "replace": "                    str(identity.serial),",
+    "find": "                    mask_serial(identity.serial),",
+    "replace": "                    identity.serial,",
     "expect": "tests/test_log_privacy.py::test_no_log_call_passes_an_unmasked_identifier"
   },
   {

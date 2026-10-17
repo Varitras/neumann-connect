@@ -24,19 +24,13 @@ from .backup_export import (
 from .const import CONF_MODEL, CONF_SERIAL, DEVICE_ACTION_TIMEOUT_SECONDS, DOMAIN
 from .discovery_export import DiscoveryTimeoutError, async_discover_all_values
 from .export_file import async_write_export
+from .identity import mask_serial
 from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeoutError
 
 _LOGGER = logging.getLogger(__name__)
 
 KIND_BACKUP = "backup"
 KIND_DISCOVERY = "discovery"
-
-
-def mask_serial(serial: str) -> str:
-    """Mask a serial number, leaving only the last 3 characters visible."""
-    if len(serial) <= 3:
-        return serial
-    return "x" * (len(serial) - 3) + serial[-3:]
 
 
 def _notify(hass: HomeAssistant, entry: ConfigEntry, kind: str, title: str, body: str) -> None:
@@ -235,7 +229,9 @@ async def async_check_restorable(hass: HomeAssistant, entry: ConfigEntry) -> dic
         )
 
     backup_serial = backup.get("serial")
-    if backup_serial and backup_serial != mask_serial(serial):
+    # Masked on both sides: backups before 1.15 stored the serial in full, and
+    # masking an already masked serial leaves it unchanged.
+    if backup_serial and mask_serial(backup_serial) != mask_serial(serial):
         raise HomeAssistantError(
             translation_domain=DOMAIN,
             translation_key="restore_serial_mismatch",

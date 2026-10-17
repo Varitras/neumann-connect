@@ -23,6 +23,7 @@ from custom_components.neumann_kh.backup_export import (
 )
 from custom_components.neumann_kh.const import CONF_MODEL, CONF_SERIAL
 from custom_components.neumann_kh.export_actions import async_run_restore
+from custom_components.neumann_kh.identity import mask_serial
 from custom_components.neumann_kh.ssc_client import SSCDeviceError
 
 _KH_120_II = "KH 120 II"
@@ -405,7 +406,7 @@ async def test_a_backup_without_restorable_values_is_refused_at_restore(monkeypa
     """
     stored = {
         "model": _KH_120_II,
-        "serial": export_actions.mask_serial("SIM0001234"),
+        "serial": mask_serial("SIM0001234"),
         "values": {"device": {"identity": {"product": _KH_120_II}}},
     }
 
@@ -427,7 +428,7 @@ async def test_a_backup_with_one_restorable_value_is_accepted(monkeypatch):
     deep_merge(values, build_nested(restorable_paths_for_model(_KH_120_II)[0], 1))
     stored = {
         "model": _KH_120_II,
-        "serial": export_actions.mask_serial("SIM0001234"),
+        "serial": mask_serial("SIM0001234"),
         "values": values,
     }
 
@@ -439,6 +440,32 @@ async def test_a_backup_with_one_restorable_value_is_accepted(monkeypatch):
     assert (
         await export_actions.async_check_restorable(_FakeHass(), _FakeEntryWithSerial()) is stored
     )
+
+
+@pytest.mark.parametrize(
+    ("stored_serial", "accepted"),
+    [("SIM0001234", True), ("xxxxxxx234", True), ("SIM0009999", False), ("xxxxxxx999", False)],
+    ids=["legacy-unmasked", "masked", "other-unmasked", "other-masked"],
+)
+async def test_a_backup_is_matched_by_serial_however_it_was_stored(
+    monkeypatch, stored_serial, accepted
+):
+    """Backups before 1.15 stored the serial unmasked - same speaker all the same."""
+    values: dict[str, Any] = {}
+    deep_merge(values, build_nested(restorable_paths_for_model(_KH_120_II)[0], 1))
+    stored = {"model": _KH_120_II, "serial": stored_serial, "values": values}
+
+    async def _get_backup(hass_, serial):
+        return stored
+
+    monkeypatch.setattr(export_actions.storage, "async_get_backup", _get_backup)
+
+    if accepted:
+        assert await export_actions.async_check_restorable(_FakeHass(), _FakeEntryWithSerial())
+    else:
+        with pytest.raises(HomeAssistantError) as err:
+            await export_actions.async_check_restorable(_FakeHass(), _FakeEntryWithSerial())
+        assert err.value.translation_key == "restore_serial_mismatch"
 
 
 class _SlowClient(_FakeClient):
