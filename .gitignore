@@ -16,11 +16,11 @@ venv/
 .DS_Store
 Thumbs.db
 
-# Home Assistant (falls Repo mal versehentlich neben einer echten HA-Config liegt)
+# Home Assistant (in case the repo ever sits next to a real HA config)
 .storage/
 *.log
 
-# Test- und Linter-Caches
+# Test and linter caches
 .pytest_cache/
 .ruff_cache/
 
