@@ -23,6 +23,7 @@ from .const import (
     DEFAULT_VENDOR,
     DOMAIN,
     FALLBACK_MODEL,
+    PATH_IDENTIFY,
 )
 from .coordinator import NeumannKHCoordinator
 from .ssc_client import SSCConnectionError, SSCDeviceError, SSCTimeoutError
@@ -78,4 +79,6 @@ class NeumannKHEntity(CoordinatorEntity[NeumannKHCoordinator]):
             self.coordinator.request_reread(path)
         else:
             self.coordinator.apply_confirmed_value(path, confirmed)
-        await self.coordinator.async_persist()
+        # A blinking logo is a momentary action, not a setting to keep.
+        if path != PATH_IDENTIFY:
+            await self.coordinator.async_persist()

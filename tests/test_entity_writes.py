@@ -295,6 +295,18 @@ async def test_every_accepted_write_is_persisted(label, build, write, path, payl
     assert coordinator.persisted == 1
 
 
+@pytest.mark.parametrize("value", [True, False])
+async def test_blinking_the_logo_is_not_persisted(value):
+    """Identify is a momentary action, not a setting worth a flash write."""
+    identify = next(d for d in COMMON_SWITCH_DESCRIPTIONS if d.key == "identify")
+    coordinator = _Coordinator(_Client())
+    switch = NeumannKHSwitch(coordinator, _entry(serial="SIM0001234"), identify)
+
+    await (switch.async_turn_on() if value else switch.async_turn_off())
+
+    assert coordinator.persisted == 0
+
+
 async def test_a_rejected_write_is_not_persisted():
     coordinator = _Coordinator(_Client(SSCDeviceError("rejected")))
     with pytest.raises(HomeAssistantError):
