@@ -14,7 +14,7 @@ pytest.importorskip("homeassistant")
 from homeassistant.exceptions import HomeAssistantError
 
 from custom_components.neumann_kh.coordinator import NeumannKHCoordinator
-from custom_components.neumann_kh.export_actions import mask_serial
+from custom_components.neumann_kh.identity import mask_serial
 
 
 def test_mask_serial_keeps_last_three():
@@ -24,6 +24,16 @@ def test_mask_serial_keeps_last_three():
 def test_mask_serial_short_values_unchanged():
     assert mask_serial("AB") == "AB"
     assert mask_serial("ABC") == "ABC"
+
+
+@pytest.mark.parametrize("missing", [None, "", True, ["x"], {"a": 1}])
+def test_a_missing_serial_is_named_not_disguised_as_one(missing):
+    """str(None) masked to "xone" - it read like a real, masked serial."""
+    assert mask_serial(missing) == "no serial"
+
+
+def test_a_numeric_serial_is_masked_like_text():
+    assert mask_serial(12345678) == "xxxxx678"
 
 
 def test_one_action_at_a_time_per_speaker():
