@@ -131,5 +131,12 @@
     "find": "    coordinator.async_update_listeners()\n\n    _LOGGER.debug(\n        \"Restore for %s",
     "replace": "    coordinator.apply_confirmed_values(confirmed_values)\n\n    _LOGGER.debug(\n        \"Restore for %s",
     "expect": "tests/test_stale_snapshot_overwrites_newer_state.py::test_a_rename_after_the_restore_wrote_the_name_survives_the_batch"
+  },
+  {
+    "name": "a 400 answer switches the output to out5",
+    "path": "custom_components/neumann_kh/__init__.py",
+    "find": "        return err.code == _NOT_FOUND",
+    "replace": "        return True",
+    "expect": "tests/test_output_path_detection.py::test_the_output_container_falls_back_to_out_unless_out5_is_conclusive"
   }
 ]

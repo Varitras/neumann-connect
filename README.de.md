@@ -341,6 +341,9 @@ umgezogen ist.
 - „Identifizieren“ ist ein Schalter, kein Auto-Stopp-Button: Das Blinken
   hört erst nach mehreren Minuten von selbst auf.
 - Gerätetemperatur (KH 750 DSP): Einheit Kelvin, umgerechnet in °C.
+- Auf KH-750-Firmware 1.2.x liegen Ausgangspegel und Stummschaltung auf einem
+  anderen Pfad; die Integration erkennt das beim Einrichten. Diese Variante ist
+  nicht auf echter Hardware getestet.
 
 ## Namensgedächtnis, Backup & Geräte-Discovery
 

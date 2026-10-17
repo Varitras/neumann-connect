@@ -327,6 +327,9 @@ number and stores the new address if it has moved.
 - "Identify" is a switch, not an auto-stop button: the flashing only stops by
   itself after several minutes.
 - Device temperature (KH 750 DSP): reported in Kelvin, converted to °C.
+- On KH 750 firmware 1.2.x the output level and mute use a different path,
+  which the integration detects at setup. This variant has not been tested on
+  hardware.
 
 ## Name memory, backup & device discovery
 
