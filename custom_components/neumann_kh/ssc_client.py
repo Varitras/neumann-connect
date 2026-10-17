@@ -131,11 +131,26 @@ class SSCDeviceError(Exception):
         self.code = code
 
 
-def _error_code(osc_error: Any) -> int | None:
-    """The numeric code of an osc/error answer, e.g. 404 in [404, {"desc": ...}]."""
-    if not isinstance(osc_error, list) or not osc_error or type(osc_error[0]) is not int:
-        return None
-    return osc_error[0]
+def _error_details(osc_error: Any) -> tuple[int | None, str]:
+    """Code and description of an osc/error answer, or (None, "") if it has none.
+
+    Real speakers nest the [code, {"desc": ...}] pair at the first missing node
+    of the request - [{"audio": {"out5": [404, {...}]}}] - and a flat pair right
+    under osc/error is read as well.
+    """
+    if isinstance(osc_error, dict):
+        osc_error = list(osc_error.values())
+    if not isinstance(osc_error, list) or not osc_error:
+        return None, ""
+    if type(osc_error[0]) is int:
+        detail = osc_error[1] if len(osc_error) > 1 else {}
+        description = detail.get("desc", "") if isinstance(detail, dict) else ""
+        return osc_error[0], str(description)
+    for child in osc_error:
+        code, description = _error_details(child)
+        if code is not None:
+            return code, description
+    return None, ""
 
 
 class SSCClient:
@@ -490,15 +505,10 @@ class SSCClient:
 
         osc_error = extract(merged, ("osc", "error"))
         if osc_error:
-            # Format per test result: [400, {"desc": "message not understood"}]
-            description = ""
-            if isinstance(osc_error, list):
-                for part in osc_error:
-                    if isinstance(part, dict) and "desc" in part:
-                        description = part["desc"]
+            code, description = _error_details(osc_error)
             raise SSCDeviceError(
                 f"Device {mask_host(self._host)} rejected the request: {description or osc_error}",
-                code=_error_code(osc_error),
+                code=code,
             )
 
         return merged
