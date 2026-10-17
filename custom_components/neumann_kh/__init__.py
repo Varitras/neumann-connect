@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PORT, Platform
@@ -27,8 +28,12 @@ from .const import (
     DEFAULT_PORT,
     DEFAULT_TIMEOUT,
     MAX_PARALLEL_IDENTITY_QUERIES,
+    MODELS_WITH_SUBWOOFER_FEATURES,
+    OUT5_OUTPUT_ALIASES,
     PATH_IDENTITY_SERIAL,
     PATH_IDENTITY_VERSION,
+    PATH_OUTPUT_LEVEL,
+    PATH_OUTPUT_LEVEL_OUT5,
 )
 from .coordinator import NeumannKHConfigEntry, NeumannKHCoordinator
 from .discovery import async_scan_for_speakers
@@ -173,6 +178,47 @@ async def _async_refresh_firmware_version(
     )
 
 
+_NOT_FOUND = 404
+
+
+async def _async_answers_not_found(client: SSCClient, path: tuple[str, ...]) -> bool:
+    """True only for an explicit 404 - silence, timeouts and other codes are not."""
+    try:
+        await client.get(path)
+    except SSCDeviceError as err:
+        return err.code == _NOT_FOUND
+    except (SSCConnectionError, SSCTimeoutError):
+        return False
+    return False
+
+
+async def _async_answers_a_number(client: SSCClient, path: tuple[str, ...]) -> bool:
+    try:
+        value = await client.get(path)
+    except (SSCConnectionError, SSCTimeoutError, SSCDeviceError):
+        return False
+    is_number = isinstance(value, (int, float)) and not isinstance(value, bool)
+    return is_number and math.isfinite(value)
+
+
+async def _async_select_output_paths(entry: ConfigEntry, client: SSCClient) -> None:
+    """Point level and mute at audio/out5 on a KH 750 that keeps them there.
+
+    Only on a conclusive answer: audio/out/level must be a 404 and
+    audio/out5/level a real number. Anything else - the speaker offline, a
+    timeout, another error - keeps audio/out, the layout of current firmware.
+    A setup retry asks again.
+    """
+    if entry.data.get(CONF_MODEL) not in MODELS_WITH_SUBWOOFER_FEATURES:
+        return
+    if not await _async_answers_not_found(client, PATH_OUTPUT_LEVEL):
+        return
+    if not await _async_answers_a_number(client, PATH_OUTPUT_LEVEL_OUT5):
+        return
+    _LOGGER.debug("%s keeps output level and mute in audio/out5", entry.title)
+    client.use_path_aliases(OUT5_OUTPUT_ALIASES)
+
+
 async def _async_verify_identity(entry: ConfigEntry, client: SSCClient) -> None:
     """Refuse to run an entry against a device that is not its speaker.
 
@@ -211,6 +257,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: NeumannKHConfigEntry) ->
     coordinator = NeumannKHCoordinator(hass, client, entry.title, model=entry.data.get(CONF_MODEL))
     try:
         await _async_verify_identity(entry, client)
+        await _async_select_output_paths(entry, client)
         await coordinator.async_config_entry_first_refresh()
     except asyncio.CancelledError:
         # `except Exception` does not catch this - CancelledError derives from

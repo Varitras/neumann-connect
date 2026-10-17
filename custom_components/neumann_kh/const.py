@@ -97,6 +97,15 @@ PATH_OUTPUT_LEVEL = ("audio", "out", "level")
 # entity could never hold a value and the restore could never write it.
 PATH_OUTPUT_DELAY = ("audio", "out", "delay")
 PATH_OUTPUT_MUTE = ("audio", "out", "mute")
+# KH 750 firmware 1.2.x keeps level and mute in "out5" (reported for 1.2.4;
+# 2_1_2 uses "out", measured). The setup asks which one the device has and
+# falls back to "out" for anything unclear; delay stays in "out" either way.
+PATH_OUTPUT_LEVEL_OUT5 = ("audio", "out5", "level")
+PATH_OUTPUT_MUTE_OUT5 = ("audio", "out5", "mute")
+OUT5_OUTPUT_ALIASES = {
+    PATH_OUTPUT_LEVEL: PATH_OUTPUT_LEVEL_OUT5,
+    PATH_OUTPUT_MUTE: PATH_OUTPUT_MUTE_OUT5,
+}
 PATH_OUTPUT_LABEL = ("audio", "out", "label")  # KH 750 only
 PATH_OUTPUT_PHASE_INVERSION = ("audio", "out", "phaseinversion")  # see NON_SUBWOOFER_POLL_PATHS
 
