@@ -68,15 +68,42 @@ def test_the_workflow_does_not_invoke_the_tools_itself():
     )
 
 
+# Each gate as it is actually invoked. Matching a bare tool name was blind: the
+# header comment names pytest-homeassistant-custom-component, and `ruff format`
+# kept "ruff" present after `ruff check` was gone.
+GATES = {
+    "ruff check": r"-m ruff check\b",
+    "ruff format --check": r"-m ruff format --check\b",
+    "pytest full run": r'-m pytest .*-m ""',
+    "mutation run": r"mutate\.py",
+}
+
+
+def _missing_gates(script: str) -> list[str]:
+    commands = "\n".join(line for line in script.splitlines() if not line.lstrip().startswith("#"))
+    return [name for name, pattern in GATES.items() if not re.search(pattern, commands)]
+
+
 def test_the_check_script_still_invokes_every_tool_it_owns():
     """The other direction: a gate quietly dropped from the script."""
-    script = CHECK_SCRIPT.read_text(encoding="utf-8")
-    missing = [tool for tool in OWNED_BY_THE_SCRIPT if tool not in script]
+    missing = _missing_gates(CHECK_SCRIPT.read_text(encoding="utf-8"))
 
     assert not missing, (
-        f"check.sh no longer mentions {missing}. If a gate is genuinely gone, "
-        "drop it from OWNED_BY_THE_SCRIPT in the same commit."
+        f"check.sh no longer runs {missing}. If a gate is genuinely gone, "
+        "drop it from GATES in the same commit."
     )
+
+
+def test_the_gate_scan_ignores_comments_and_near_misses():
+    """Proof-of-red: the shapes the old substring check let through."""
+    script = CHECK_SCRIPT.read_text(encoding="utf-8")
+    without_pytest = "\n".join(line for line in script.splitlines() if "-m pytest" not in line)
+    without_ruff_check = script.replace("-m ruff check", "-m ruff --version")
+    narrowed = script.replace('-m ""', '-m "not e2e"')
+
+    assert _missing_gates(without_pytest) == ["pytest full run"]
+    assert _missing_gates(without_ruff_check) == ["ruff check"]
+    assert _missing_gates(narrowed) == ["pytest full run"]
 
 
 def test_the_scripts_are_committed_executable():
