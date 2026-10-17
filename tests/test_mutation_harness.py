@@ -95,7 +95,12 @@ def _broken_by(entry: dict) -> str:
         text=True,
         check=False,
     )
-    return finished.stdout.strip() if finished.returncode else ""
+    if finished.returncode == 0:
+        return ""
+    if finished.returncode == 1 and finished.stdout.strip():
+        return finished.stdout.strip()
+    # Anything else means ruff did not check the file at all.
+    raise RuntimeError(f"ruff did not run ({finished.returncode}): {finished.stderr.strip()}")
 
 
 def test_every_mutation_is_valid_code():
