@@ -196,3 +196,32 @@ def test_phase_inversion_is_only_polled_and_restored_where_it_exists():
     assert const.PATH_OUTPUT_PHASE_INVERSION not in known_paths_for_model(_KH_750)
     assert const.PATH_OUTPUT_PHASE_INVERSION in restorable_paths_for_model(_KH_120_II)
     assert const.PATH_OUTPUT_PHASE_INVERSION not in restorable_paths_for_model(_KH_750)
+
+
+@pytest.mark.parametrize("model", [_KH_120_II, _KH_750])
+def test_the_factory_reset_command_is_neither_polled_nor_backed_up(model):
+    """device/restore reads back an empty string; nothing ever used the value.
+
+    Polling it cost one request per slow cycle on every speaker, and the
+    backup then had to filter it out again.
+    """
+    from custom_components.neumann_kh.const import PATH_RESTORE
+    from custom_components.neumann_kh.coordinator import poll_paths_for_model
+
+    fast, slow = poll_paths_for_model(model)
+    assert PATH_RESTORE not in fast + slow
+    assert PATH_RESTORE not in known_paths_for_model(model)
+
+
+@pytest.mark.parametrize("model", [_KH_120_II, _KH_750, None])
+def test_the_backup_covers_exactly_what_the_poll_reads_plus_the_eq(model):
+    """One owner for "which paths does this model have".
+
+    The backup's list used to be a hand-written mirror of the coordinator's
+    ("Mirrors the coordinator"), so a path added to one could miss the other.
+    """
+    from custom_components.neumann_kh.coordinator import poll_paths_for_model
+    from custom_components.neumann_kh.eq_containers import eq_leaf_paths
+
+    fast, slow = poll_paths_for_model(model)
+    assert set(known_paths_for_model(model)) == set(fast) | set(slow) | set(eq_leaf_paths(model))
