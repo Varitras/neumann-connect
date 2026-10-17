@@ -239,7 +239,7 @@ async def test_a_firmware_update_is_picked_up(hass, _custom_integration):
 
 
 async def test_an_unchanged_firmware_version_is_not_rewritten(hass, _custom_integration):
-    """Rewriting on every start would reload the entry on every start."""
+    """Every rewrite stores the entry and notifies its listeners - for nothing."""
     entry = _entry(hass)
 
     await _run_setup(hass, entry, version="1_7_3", stored="1_7_3")
@@ -250,6 +250,21 @@ async def test_an_unchanged_firmware_version_is_not_rewritten(hass, _custom_inte
     await _run_setup(hass, entry, version="1_7_3")
 
     assert dict(entry.data) == before
+    assert entry.data[CONF_FIRMWARE_VERSION] == "1_7_3"
+
+
+@pytest.mark.parametrize("answered", [" 1_7_3 ", ["1_7_3"], True])
+async def test_an_odd_firmware_answer_does_not_overwrite_the_version(
+    hass, _custom_integration, answered
+):
+    """Padding or a non-text answer must not land in the device info.
+
+    A list or a bool used to be stored as its Python repr, padding as-is.
+    """
+    entry = _entry(hass)
+
+    await _run_setup(hass, entry, version=answered, stored="1_7_3")
+
     assert entry.data[CONF_FIRMWARE_VERSION] == "1_7_3"
 
 

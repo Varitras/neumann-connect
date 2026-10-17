@@ -386,6 +386,32 @@ async def test_zeroconf_does_not_contact_a_speaker_that_has_not_moved(hass, _cus
     assert not connect.called, "an unchanged announcement cost a network round trip"
 
 
+async def test_a_padded_serial_in_the_announcement_still_finds_the_entry(
+    hass, _custom_integration
+):
+    """TXT values arrive as sent; whitespace must not make a known speaker new.
+
+    Offered as new, confirming it would create a second entry polling the
+    same device.
+    """
+    entry = _entry(hass)
+    hass.config_entries.async_update_entry(
+        entry, data={**entry.data, CONF_HOST: _PICKED_HOST, CONF_INTERFACE: ""}
+    )
+
+    with patch("custom_components.neumann_kh.config_flow._async_test_connection") as connect:
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN,
+            context={"source": SOURCE_ZEROCONF},
+            data=_zeroconf_info(serial=f" {_EXISTING_SERIAL} "),
+        )
+        await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "already_configured"
+    assert not connect.called
+
+
 async def test_zeroconf_anchors_on_the_serial_the_device_reports(hass, _custom_integration):
     """A record can be stale or wrong; the device is the authority.
 
