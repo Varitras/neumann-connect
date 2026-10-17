@@ -89,7 +89,8 @@ def _worth_another_try(error: OSError) -> bool:
 
 
 def _read(url: str):
-    with urllib.request.urlopen(url, timeout=30) as response:
+    # Only ever the https PyPI URLs built in this module.
+    with urllib.request.urlopen(url, timeout=30) as response:  # noqa: S310
         return json.load(response)
 
 

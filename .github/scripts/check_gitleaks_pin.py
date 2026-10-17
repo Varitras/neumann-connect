@@ -37,11 +37,7 @@ def latest_release() -> tuple[str, str | None]:
     version = release["tag_name"].removeprefix("v")
     wanted = ASSET_NAME.format(version=version)
     digest = next(
-        (
-            asset.get("digest")
-            for asset in release.get("assets", [])
-            if asset.get("name") == wanted
-        ),
+        (asset.get("digest") for asset in release.get("assets", []) if asset.get("name") == wanted),
         None,
     )
     return version, (digest or "").removeprefix("sha256:") or None
