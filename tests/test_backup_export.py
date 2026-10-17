@@ -225,3 +225,22 @@ def test_the_backup_covers_exactly_what_the_poll_reads_plus_the_eq(model):
 
     fast, slow = poll_paths_for_model(model)
     assert set(known_paths_for_model(model)) == set(fast) | set(slow) | set(eq_leaf_paths(model))
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        ("ui", "input_gain"),
+        ("ui", "input_select"),
+        ("ui", "bass_gain"),
+        ("ui", "mid_gain"),
+        ("ui", "treble_gain"),
+        ("ui", "output_level"),
+    ],
+)
+def test_the_subwoofer_is_not_asked_for_monitor_front_panel_values(path):
+    """The KH 750 has none of these; every slow cycle earned six rejections."""
+    from custom_components.neumann_kh.coordinator import poll_paths_for_model
+
+    assert path not in sum(poll_paths_for_model(_KH_750), [])
+    assert path in sum(poll_paths_for_model(_KH_120_II), [])
