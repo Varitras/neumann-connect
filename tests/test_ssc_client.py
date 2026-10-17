@@ -18,6 +18,7 @@ import pytest
 from recorded_replies import (
     KH_120_II_READ_ONLY_SET_REPLIES,
     KH_750_NOT_FOUND_REPLIES,
+    LOCAL_MODE_SET_REPLY,
     NOT_FOUND_REPLIES,
     SET_REPLIES,
 )
@@ -27,6 +28,7 @@ from custom_components.neumann_kh.ssc_client import (
     SSCClient,
     SSCConnectionError,
     SSCDeviceError,
+    SSCLocalModeError,
     SSCTimeoutError,
 )
 
@@ -879,6 +881,24 @@ async def test_a_real_device_rejection_of_a_set_carries_its_code(server, line, c
             await client.set(("audio", "out", "mute"), False)
         assert caught.value.code == code
         assert description in str(caught.value)
+    finally:
+        await client.close()
+
+
+async def test_a_set_refused_in_local_mode_is_a_local_mode_error(server):
+    """401 means the CONTROL switch is on LOCAL - callers name that, not a rejection.
+
+    It stays an SSCDeviceError, so every caller that only knows device errors
+    still handles it.
+    """
+    request_, line = LOCAL_MODE_SET_REPLY
+    server.responder = lambda req: [json.loads(line)]
+    client = _client(server.port)
+    try:
+        with pytest.raises(SSCLocalModeError) as caught:
+            await client.set(_leaf_path(request_), False)
+        assert isinstance(caught.value, SSCDeviceError)
+        assert caught.value.code == 401
     finally:
         await client.close()
 
