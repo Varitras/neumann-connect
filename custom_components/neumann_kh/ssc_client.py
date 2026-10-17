@@ -18,7 +18,7 @@ import os
 from typing import Any
 
 from ._util import build_nested, deep_merge, extract
-from .const import DEFAULT_QUERY_SETTLE
+from .const import DEFAULT_QUERY_SETTLE, DEFAULT_TIMEOUT
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -129,7 +129,7 @@ class SSCClient:
         host: str,
         port: int,
         interface: str | None = None,
-        timeout: float = 3.0,
+        timeout: float = DEFAULT_TIMEOUT,
         settle_time: float = DEFAULT_QUERY_SETTLE,
     ) -> None:
         self._host = host
@@ -478,14 +478,15 @@ class SSCClient:
 
         return merged
 
-    async def get(self, path: tuple[str, ...], priority: bool = False) -> Any:
+    async def get(self, path: tuple[str, ...]) -> Any:
         """Queries a single value (get = request with JSON null)."""
-        response = await self.request(build_nested(path, None), priority=priority, expect_path=path)
+        response = await self.request(build_nested(path, None), expect_path=path)
         return extract(response, path)
 
-    async def set(self, path: tuple[str, ...], value: Any, priority: bool = True) -> Any:
-        """Sets a value and returns the value confirmed by the device."""
-        response = await self.request(
-            build_nested(path, value), priority=priority, expect_path=path
-        )
+    async def set(self, path: tuple[str, ...], value: Any) -> Any:
+        """Sets a value and returns the value confirmed by the device.
+
+        Every write comes from a user action, so it always jumps the poll.
+        """
+        response = await self.request(build_nested(path, value), priority=True, expect_path=path)
         return extract(response, path)
