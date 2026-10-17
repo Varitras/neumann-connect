@@ -15,6 +15,7 @@ import contextlib
 import json
 import logging
 import os
+import socket
 from typing import Any
 
 from ._util import build_nested, deep_merge, extract
@@ -45,10 +46,12 @@ def _os_reason(err: OSError) -> str:
     """The reason of an OS error, without the text the OS wrapped around it.
 
     asyncio puts "Connect call failed ('<address>', ...)" into strerror itself,
-    and every caller hands str() of our error to the log or to a UI message -
-    the address would leak past mask_host() through the back door. The errno's
-    standard description carries the reason and nothing else.
+    and every caller hands str() of our error to the log or to a UI message.
+    The errno's standard text carries the reason and nothing else - except for
+    name lookups, whose negative codes it does not know (their text is clean).
     """
+    if isinstance(err, socket.gaierror):
+        return err.strerror or type(err).__name__
     if err.errno is None:
         return type(err).__name__
     return os.strerror(err.errno)
@@ -280,7 +283,7 @@ class SSCClient:
                 # Broken or flooded connection - let the actual request fail.
                 self._drop_connection()
                 return
-            _LOGGER.debug("Discarded a stale line from %s: %s", self._host, leftover[:200])
+            _LOGGER.debug("Discarded a stale %d-byte line from %s", len(leftover), self._host)
 
         # Still talking after the bound: whatever is on this socket cannot be
         # told apart from the next answer any more, so start over.
@@ -390,11 +393,15 @@ class SSCClient:
                 # json.loads decodes the bytes itself, so a line that is not
                 # valid UTF-8 raises before it ever gets to the JSON parser.
                 # Both mean the same thing here: unusable line, keep reading.
-                _LOGGER.debug("Ignored invalid SSC response from %s: %s", self._host, line)
+                _LOGGER.debug(
+                    "Ignored an invalid %d-byte SSC response from %s", len(line), self._host
+                )
                 continue
             if not isinstance(parsed, dict):
                 # Valid JSON, but not an address tree - nothing to merge.
-                _LOGGER.debug("Ignored non-object SSC response from %s: %s", self._host, line)
+                _LOGGER.debug(
+                    "Ignored a non-object %d-byte SSC response from %s", len(line), self._host
+                )
                 continue
 
             received = True

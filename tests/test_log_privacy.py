@@ -35,7 +35,13 @@ LEVELS_THAT_REACH_A_SUPPORT_THREAD = {"info", "warning", "error", "exception", "
 
 
 def _is_masked(node, mask: str) -> bool:
-    """A call to the masking function anywhere inside the argument."""
+    """A call to the masking function inside the argument, or only its length.
+
+    len(line) reveals nothing about the content; logging it is the safe way
+    to say that a device line was dropped.
+    """
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "len":
+        return True
     return any(
         isinstance(inner, ast.Call) and isinstance(inner.func, ast.Name) and inner.func.id == mask
         for inner in ast.walk(node)
