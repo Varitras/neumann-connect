@@ -53,6 +53,21 @@ from .ssc_client import SSCConnectionError, SSCDeviceError, SSCTimeoutError
 # Time window within which a second press of "factory reset" actually
 # triggers the reset. After it elapses, it must be "armed" again.
 _RESTORE_CONFIRM_WINDOW_SECONDS = 30
+# The second click of a double-click lands well inside this; a person who read
+# the warning does not.
+_RESTORE_CONFIRM_MIN_GAP_SECONDS = 2
+
+
+def _confirms(armed_at: float | None, now: float) -> bool:
+    """Whether this press confirms an armed action."""
+    if armed_at is None:
+        return False
+    return _RESTORE_CONFIRM_MIN_GAP_SECONDS <= now - armed_at <= _RESTORE_CONFIRM_WINDOW_SECONDS
+
+
+def _too_soon(armed_at: float | None, now: float) -> bool:
+    """A press so close to arming that it can only be the rest of a double-click."""
+    return armed_at is not None and now - armed_at < _RESTORE_CONFIRM_MIN_GAP_SECONDS
 
 
 RESTORE_DESCRIPTION = ButtonEntityDescription(
@@ -118,8 +133,10 @@ class NeumannKHRestoreButton(NeumannKHEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         now = time.monotonic()
+        if _too_soon(self._armed_at, now):
+            return
 
-        if self._armed_at is not None and (now - self._armed_at) <= _RESTORE_CONFIRM_WINDOW_SECONDS:
+        if _confirms(self._armed_at, now):
             # Second press within the time window -> actually trigger the reset.
             self._armed_at = None
             async_dismiss_notification(self.hass, self._notification_id)
@@ -227,7 +244,10 @@ class NeumannKHRestoreBackupButton(NeumannKHEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         now = time.monotonic()
-        if self._armed_at is not None and (now - self._armed_at) <= _RESTORE_CONFIRM_WINDOW_SECONDS:
+        if _too_soon(self._armed_at, now):
+            return
+
+        if _confirms(self._armed_at, now):
             armed_backup = self._armed_backup
             self._armed_at = None
             self._armed_backup = None

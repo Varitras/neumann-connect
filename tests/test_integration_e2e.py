@@ -19,6 +19,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.neumann_kh import button as button_module
 from custom_components.neumann_kh import storage
 from custom_components.neumann_kh.const import (
     CONF_INTERFACE,
@@ -57,6 +58,17 @@ def _integration_env(enable_custom_integrations, mock_async_zeroconf):
     their packages are not installed here.
     """
     yield
+
+
+@pytest.fixture(autouse=True)
+def _confirm_without_waiting(monkeypatch):
+    """Let the restore tests press twice in a row.
+
+    A real second press needs a short gap so a double-click cannot confirm;
+    that gap has its own tests in test_factory_reset.py. Here the restore
+    itself is under test, and waiting would only make every run slower.
+    """
+    monkeypatch.setattr(button_module, "_RESTORE_CONFIRM_MIN_GAP_SECONDS", 0)
 
 
 @contextlib.asynccontextmanager

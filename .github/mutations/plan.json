@@ -1,5 +1,19 @@
 [
   {
+    "name": "the first press of the factory reset already confirms it",
+    "path": "custom_components/neumann_kh/button.py",
+    "find": "    if armed_at is None:\n        return False",
+    "replace": "    if armed_at is None:\n        return True",
+    "expect": "tests/test_factory_reset.py::test_the_first_press_only_arms_the_reset"
+  },
+  {
+    "name": "a double-click confirms the factory reset",
+    "path": "custom_components/neumann_kh/button.py",
+    "find": "    return armed_at is not None and now - armed_at < _RESTORE_CONFIRM_MIN_GAP_SECONDS",
+    "replace": "    return False",
+    "expect": "tests/test_factory_reset.py::test_a_double_click_does_not_reset"
+  },
+  {
     "name": "a closed client reconnects again",
     "path": "custom_components/neumann_kh/ssc_client.py",
     "find": "        if self._closed:",
