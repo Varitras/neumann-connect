@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Pick the pytest-homeassistant-custom-component release to test against.
 
 The test matrix wants "the newest Home Assistant our users can actually be

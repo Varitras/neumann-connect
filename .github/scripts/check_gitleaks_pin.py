@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Fail unless the gitleaks release the secret-scan job pins is the latest.
 
 Dependabot follows `uses:` lines only. A release pinned in a `run:` step is
