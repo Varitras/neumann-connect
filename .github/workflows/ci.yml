@@ -67,16 +67,14 @@ jobs:
   check-minimum:
     # The same gates on the version hacs.json promises. Importing every module
     # used to be all this job did; that catches a name that does not exist
-    # yet, but not an API whose behaviour or signature differs. The whole
-    # suite ran green on 2025.2 when this was set up.
+    # yet, but not an API whose behaviour or signature differs.
     name: Check on the minimum version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
-          # 2025.2 predates Python 3.14.
-          python-version: "3.13"
+          python-version: "3.14"
       # The plugin release that ships exactly the Home Assistant hacs.json
       # declares; naming both makes pip refuse a mismatch, and
       # tests/test_ci_parity.py keeps the version in step with hacs.json.
@@ -84,8 +82,8 @@ jobs:
       # The plugin is named in env, not in the command: test_ci_parity.py
       # refuses tool names in run steps so every gate stays in check.sh.
       - env:
-          PHCC_SPEC: "pytest-homeassistant-custom-component==0.13.210"
-        run: pip install "$PHCC_SPEC" "homeassistant==2025.2.0" -r requirements_tools.txt
+          PHCC_SPEC: "pytest-homeassistant-custom-component==0.13.371"
+        run: pip install "$PHCC_SPEC" "homeassistant==2026.10.0" -r requirements_tools.txt
       - name: The job must run the version hacs.json declares
         run: |
           python - <<'PY'

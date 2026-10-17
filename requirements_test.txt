@@ -7,7 +7,7 @@
 # a candidate pins before bumping - naming today's beta series here would go
 # stale within weeks, the rule does not.
 #
-# 0.13.371 pins Home Assistant 2026.10.0, verified as the current stable on
-# PyPI 2026-10-10 (read off the wheel's Requires-Dist, not the changelog).
-pytest-homeassistant-custom-component==0.13.371
+# 0.13.373 pins Home Assistant 2026.10.2, verified as the current stable on
+# PyPI 2026-10-17 (.github/scripts/resolve_phcc.py reads the wheel's Requires-Dist).
+pytest-homeassistant-custom-component==0.13.373
 -r requirements_tools.txt

@@ -92,7 +92,7 @@ class FakeSSCServer:
                         continue
                     writer.write(json.dumps(response).encode() + b"\r\n")
                 await writer.drain()
-        except (ConnectionResetError, asyncio.CancelledError):
+        except ConnectionResetError, asyncio.CancelledError:
             pass
         finally:
             writer.close()
@@ -282,7 +282,7 @@ async def test_endless_talker_does_not_hold_the_read_open(socket_enabled, monkey
                 writer.write(json.dumps({"other": {"value": 1}}).encode() + b"\r\n")
                 await writer.drain()
                 await asyncio.sleep(0.001)
-        except (ConnectionResetError, BrokenPipeError, asyncio.CancelledError):
+        except ConnectionResetError, BrokenPipeError, asyncio.CancelledError:
             pass
 
     raw_server, handled = await _serve(_handle)

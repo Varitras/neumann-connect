@@ -310,7 +310,7 @@ class SSCClient:
                 # (accepted risk A5 - one lost request, no wrong value).
                 self._drop_connection()
                 return
-            except (asyncio.LimitOverrunError, OSError):
+            except asyncio.LimitOverrunError, OSError:
                 # Broken or flooded connection - let the actual request fail.
                 self._drop_connection()
                 return
@@ -421,7 +421,7 @@ class SSCClient:
                 continue
             try:
                 parsed = json.loads(line)
-            except (json.JSONDecodeError, UnicodeDecodeError):
+            except json.JSONDecodeError, UnicodeDecodeError:
                 # json.loads decodes the bytes itself, so a line that is not
                 # valid UTF-8 raises before it ever gets to the JSON parser.
                 # Both mean the same thing here: unusable line, keep reading.
@@ -492,7 +492,7 @@ class SSCClient:
             await self._discard_stale_lines()
             await self._send_raw(payload)
             merged = await self._read_lines_until_settled(expect_path)
-        except (SSCConnectionError, SSCTimeoutError):
+        except SSCConnectionError, SSCTimeoutError:
             # Drop the connection so the next attempt reconnects
             self._drop_connection()
             raise

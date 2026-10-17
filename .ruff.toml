@@ -2,9 +2,9 @@
 # a new release turns the build red for rules that did not exist when the code
 # was written, which is what happened on the 0.16.0 upgrade.
 
-# The oldest Python the supported Home Assistant version runs on (2025.2).
+# The oldest Python the supported Home Assistant version runs on (2026.10).
 # Without this Ruff assumes a much older Python and misjudges what is idiomatic.
-target-version = "py313"
+target-version = "py314"
 
 # The width `ruff format` wraps to (the gate runs `ruff format --check`). The
 # default rule set does not flag longer lines, so a long literal stays as is.

@@ -15,7 +15,7 @@ def finite_float(value: Any) -> float | None:
     """
     try:
         number = float(value)
-    except (ValueError, TypeError, OverflowError):
+    except ValueError, TypeError, OverflowError:
         return None
     if not math.isfinite(number):
         return None

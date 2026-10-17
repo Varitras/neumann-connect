@@ -110,7 +110,7 @@ async def _async_relocate(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             client = SSCClient(host=speaker.host, port=speaker.port, timeout=DEFAULT_TIMEOUT)
             try:
                 return await client.get(PATH_IDENTITY_SERIAL)
-            except (SSCConnectionError, SSCTimeoutError, SSCDeviceError):
+            except SSCConnectionError, SSCTimeoutError, SSCDeviceError:
                 return None
             finally:
                 await client.close()
@@ -201,7 +201,7 @@ async def _async_answers_not_found(client: SSCClient, path: tuple[str, ...]) -> 
         await client.get(path)
     except SSCDeviceError as err:
         return err.code == ERROR_NOT_FOUND
-    except (SSCConnectionError, SSCTimeoutError):
+    except SSCConnectionError, SSCTimeoutError:
         return False
     return False
 
@@ -209,7 +209,7 @@ async def _async_answers_not_found(client: SSCClient, path: tuple[str, ...]) -> 
 async def _async_answers_a_number(client: SSCClient, path: tuple[str, ...]) -> bool:
     try:
         value = await client.get(path)
-    except (SSCConnectionError, SSCTimeoutError, SSCDeviceError):
+    except SSCConnectionError, SSCTimeoutError, SSCDeviceError:
         return False
     is_number = isinstance(value, (int, float)) and not isinstance(value, bool)
     return is_number and finite_float(value) is not None

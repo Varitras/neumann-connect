@@ -156,7 +156,7 @@ async def async_read_paths(
             value = await client.get(path)
         except SSCDeviceError:
             continue
-        except (SSCConnectionError, SSCTimeoutError):
+        except SSCConnectionError, SSCTimeoutError:
             raise
         except Exception:
             # A bug on one path should not abort the run, but swallowing it

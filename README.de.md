@@ -10,15 +10,10 @@ Home Assistants eingebaute Zeroconf-Komponente.
 
 Änderungshistorie: siehe [CHANGELOG.de.md](./CHANGELOG.de.md).
 
-**Benötigt Home Assistant 2025.2 oder neuer.**
+**Benötigt Home Assistant 2026.10 oder neuer.**
 
 Eigenes Icon/Logo unter `custom_components/neumann_kh/brand/` (eigenständiges
-Design, keine Kopie des offiziellen Neumann-Firmenlogos). Das Icon selbst
-braucht **2026.3 oder neuer** – erst ab dieser Version lesen Custom
-Integrations ihre Marken-Bilder direkt aus einem eigenen `brand/`-Ordner
-(siehe [HA Developer Blog](https://developers.home-assistant.io/blog/2026/02/24/brands-proxy-api/)).
-Alles andere läuft ab 2025.2; ältere Versionen zeigen lediglich ein
-generisches Icon.
+Design, keine Kopie des offiziellen Neumann-Firmenlogos).
 
 Basiert auf den SSC-Adresspfaden, die im
 [khtool-Projekt](https://github.com/schwinn/khtool) dokumentiert sind.
