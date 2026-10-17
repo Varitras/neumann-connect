@@ -19,7 +19,7 @@ WSL2 or in CI, never native Windows.
 
 ```sh
 python -m pytest tests/ -q          # everyday run, e2e deselected
-python -m pytest tests/ -q -m e2e   # only the full Home Assistant boots
+python -m pytest tests/ -q -m e2e   # only the slow ones: full HA boots, nested pytest runs
 python -m pytest tests/ -q -m ""    # everything - mandatory before a release
 ```
 

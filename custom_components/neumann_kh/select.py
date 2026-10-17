@@ -1,7 +1,7 @@
 """Select entities: fixed value choices (string enums).
 
-"Control mode" (NETWORK/LOCAL) always stays disabled: switching to LOCAL cuts
-off network control until it is manually reset on the device.
+"Control mode" (NETWORK/LOCAL) is disabled by default and should stay so:
+switching to LOCAL could cut off network control to the device (not tested).
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ class NeumannKHSelectDescription(SelectEntityDescription):
     ssc_path: tuple[str, ...] = ()
 
 
-# Always created, deliberately always disabled (safety exception).
+# Always created, disabled by default (safety exception).
 CONTROL_MODE_DESCRIPTION = NeumannKHSelectDescription(
     key="control_mode",
     translation_key="control_mode",

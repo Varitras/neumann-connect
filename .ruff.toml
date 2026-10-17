@@ -6,9 +6,8 @@
 # Without this Ruff assumes a much older Python and misjudges what is idiomatic.
 target-version = "py313"
 
-# Matches the code as it stands - only four lines exceed it today. Ruff's
-# default rule set does not check line length, so this only takes effect if
-# `ruff format` is ever run.
+# The width `ruff format` wraps to (the gate runs `ruff format --check`). The
+# default rule set does not flag longer lines, so a long literal stays as is.
 line-length = 100
 
 [lint]

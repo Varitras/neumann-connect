@@ -375,7 +375,9 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def async_persist(self) -> None:
         """Make the speaker keep what was just written, where it needs telling.
 
-        Called after every accepted write. Raises when the save fails: the
+        Called once per settings change: after each accepted entity write
+        except Identify (a momentary action), and once per EQ reset and per
+        restore. Raises when the save fails: the
         change is on the device now, but would be gone after a power cycle,
         and the user has to know that.
         """

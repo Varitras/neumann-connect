@@ -4,8 +4,9 @@ The run is only worth something if it fails loudly. A harness that skips an
 entry whose target moved prints "all caught" without having checked anything -
 which is the same lie as a decorative test, one level up.
 
-Two of these run on every ordinary suite (they only read files), so plan rot
-is caught long before anyone starts the slow mutation run. The ones that
+The plan checks (target still matches, named test exists, mutation is valid
+code) and the in-process harness checks run on every ordinary suite, so plan
+rot is caught long before anyone starts the slow mutation run. The ones that
 spawn a pytest of their own carry the e2e marker: each costs a full plugin
 start-up, and the full run is where they belong.
 """

@@ -3,7 +3,7 @@
 
 'Restore factory defaults' and 'Restore backup' both overwrite device state,
 so both use a two-step confirmation: the first press only arms it, a second
-press within 30s carries it out. Button entities cannot show a modal dialog,
+press inside the window of _confirms() carries it out. Button entities cannot show a modal dialog,
 which is why it works this way.
 
 'Create backup' and 'Run device discovery' store their result permanently
@@ -50,8 +50,8 @@ from .export_actions import (
 )
 from .ssc_client import SSCConnectionError, SSCDeviceError, SSCTimeoutError
 
-# Time window within which a second press of "factory reset" actually
-# triggers the reset. After it elapses, it must be "armed" again.
+# Upper bound of the confirmation window shared by factory reset and restore
+# backup. After it elapses, the button must be armed again.
 _RESTORE_CONFIRM_WINDOW_SECONDS = 30
 # The second click of a double-click lands well inside this; a person who read
 # the warning does not.

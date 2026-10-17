@@ -1,11 +1,11 @@
 """What setup leaves behind when it is cancelled rather than failing.
 
 `except Exception` does not catch `asyncio.CancelledError` - it derives from
-BaseException so that a cancellation cannot be swallowed by accident. Both
-cleanup handlers in `async_setup_entry` are written as `except Exception`, so
-a setup cancelled while it waits - Home Assistant's setup timeout, a reload or
-a removal during setup, a shutdown - walks past them: the socket stays open
-and the connection stays open.
+BaseException so that a cancellation cannot be swallowed by accident. A setup
+cancelled while it waits - Home Assistant's setup timeout, a reload or a
+removal during setup, a shutdown - used to walk past both cleanup handlers in
+`async_setup_entry` and leave the socket open. Both now catch the
+cancellation explicitly; these tests keep it that way.
 
 Measured against the hardware on 2026-09-02: a speaker answers two
 simultaneous connections and the first survives the second, so a leaked socket
@@ -75,8 +75,8 @@ class _BlockingClient:
 
     async def close(self) -> None:
         # Yields before recording, like the real client, which takes its lock
-        # first. Without that a cancelled close would still look successful
-        # here and the shield in the production code would go untested.
+        # first. Without that a close that never ran to the end would still
+        # look successful here.
         await asyncio.sleep(0)
         self.closed = True
 
@@ -123,8 +123,8 @@ class _AnsweringClient:
 
     async def close(self) -> None:
         # Yields before recording, like the real client, which takes its lock
-        # first. Without that a cancelled close would still look successful
-        # here and the shield in the production code would go untested.
+        # first. Without that a close that never ran to the end would still
+        # look successful here.
         await asyncio.sleep(0)
         self.closed = True
 

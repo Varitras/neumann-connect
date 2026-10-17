@@ -32,8 +32,8 @@ from custom_components.neumann_kh.const import (
     PATH_IDENTITY_SERIAL,
     PATH_OUTPUT_LEVEL,
 )
-from custom_components.neumann_kh.ssc_client import SSCDeviceError, SSCTimeoutError
 from custom_components.neumann_kh.discovery import DiscoveredSpeaker
+from custom_components.neumann_kh.ssc_client import SSCDeviceError, SSCTimeoutError
 
 _SERIAL = "SIM0001234"
 _OLD_HOST = "2003:db8:old::1"
@@ -300,9 +300,7 @@ async def test_a_model_stored_as_the_fallback_is_corrected_at_setup(hass, _custo
 @pytest.mark.parametrize(
     "error", [SSCDeviceError("rejected", code=404), SSCTimeoutError("no answer")]
 )
-async def test_a_failed_product_read_still_refreshes_the_firmware(
-    hass, _custom_integration, error
-):
+async def test_a_failed_product_read_still_refreshes_the_firmware(hass, _custom_integration, error):
     entry = _entry(hass)
 
     await _run_setup(hass, entry, version="2_1_2", stored="1_7_3", product=error)
@@ -339,8 +337,8 @@ async def test_silent_candidates_are_asked_concurrently(hass, _custom_integratio
         for i in range(8)
     ]
 
-    class _SlowClient:
-        """Every candidate takes a while and none of them answers usefully."""
+    class _SilentClient:
+        """Counts overlapping queries; never answers with the entry's serial."""
 
         def __init__(self, *args, **kwargs):  # skipcq: PTC-W0049 - a stand-in, not a design
             pass
@@ -358,7 +356,7 @@ async def test_silent_candidates_are_asked_concurrently(hass, _custom_integratio
 
     with (
         patch("custom_components.neumann_kh.async_scan_for_speakers", return_value=found),
-        patch("custom_components.neumann_kh.SSCClient", _SlowClient),
+        patch("custom_components.neumann_kh.SSCClient", _SilentClient),
     ):
         assert await _async_relocate(hass, entry) is False
 
