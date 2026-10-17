@@ -74,14 +74,17 @@ def test_the_workflow_does_not_invoke_the_tools_itself():
 GATES = {
     "ruff check": r"-m ruff check\b",
     "ruff format --check": r"-m ruff format --check\b",
-    "pytest full run": r'-m pytest .*-m ""',
-    "mutation run": r"mutate\.py",
+    # Anchored at the line end: anything after -m "" (-k, --deselect) narrows it.
+    "pytest full run": r'-m pytest tests/ -q -m ""\s*$',
+    "mutation run": r'^\s*"\$PYTHON" \.github/scripts/mutate\.py ',
 }
 
 
 def _missing_gates(script: str) -> list[str]:
     commands = "\n".join(line for line in script.splitlines() if not line.lstrip().startswith("#"))
-    return [name for name, pattern in GATES.items() if not re.search(pattern, commands)]
+    return [
+        name for name, pattern in GATES.items() if not re.search(pattern, commands, re.MULTILINE)
+    ]
 
 
 def test_the_check_script_still_invokes_every_tool_it_owns():
@@ -100,10 +103,16 @@ def test_the_gate_scan_ignores_comments_and_near_misses():
     without_pytest = "\n".join(line for line in script.splitlines() if "-m pytest" not in line)
     without_ruff_check = script.replace("-m ruff check", "-m ruff --version")
     narrowed = script.replace('-m ""', '-m "not e2e"')
+    deselected = script.replace('-m ""', '-m "" -k "not e2e"')
+    only_echoed = script.replace(
+        '"$PYTHON" .github/scripts/mutate.py', "echo .github/scripts/mutate.py"
+    )
 
     assert _missing_gates(without_pytest) == ["pytest full run"]
     assert _missing_gates(without_ruff_check) == ["ruff check"]
     assert _missing_gates(narrowed) == ["pytest full run"]
+    assert _missing_gates(deselected) == ["pytest full run"]
+    assert _missing_gates(only_echoed) == ["mutation run"]
 
 
 def test_the_scripts_are_committed_executable():
@@ -217,4 +226,5 @@ def test_the_minimum_version_is_the_same_everywhere():
     major_minor = ".".join(minimum.split(".")[:2])
     for readme in ("README.md", "README.de.md"):
         text = (REPO / readme).read_text(encoding="utf-8")
-        assert f"Home Assistant {major_minor}" in text, f"{readme} does not state {major_minor}"
+        stated = re.search(rf"Home Assistant {re.escape(major_minor)}(?![0-9])", text)
+        assert stated, f"{readme} does not state {major_minor}"
