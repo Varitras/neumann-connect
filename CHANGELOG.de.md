@@ -39,9 +39,9 @@ Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 - Ein Lautsprecher, der nicht antwortet, wird auf „info“ statt auf „error“
   protokolliert. Home Assistant selbst verlangt hier „info“, und ein nachts
   ausgeschalteter Monitor ist ein gewöhnlicher Zustand, kein Fehler. Die
-  Entitäten werden weiterhin unverfügbar, und ein echter Fehlschlag - ein
+  Entitäten werden weiterhin unverfügbar, und ein echter Fehlschlag – ein
   Abfragezyklus über seiner Zeitgrenze, ein Gerät, das antwortet, aber alles
-  ablehnt - bleibt ein Fehler
+  ablehnt – bleibt ein Fehler
 - Adressen werden ab „info“ im Log maskiert (`fe80::0a1b:2cff:fe3d:4e5f`
   wird zu `fe80::xx5f`). Eine Link-Local-Adresse ist aus der MAC gebildet,
   und Logs sind der übliche Anhang an eine Fehlermeldung. Es bleibt genug
@@ -55,12 +55,12 @@ Pfade existieren auf keinem der Modelle, die darauf aufgebauten Entities
 konnten also nie einen Wert tragen oder ihre Aktion ausführen.
 
 ### Entfernt
-- Die Number-Entity "Dimm". `audio/out/dimm` wird von beiden Testmodellen mit
+- Die Number-Entity „Dimm“. `audio/out/dimm` wird von beiden Testmodellen mit
   404 beantwortet, die Entity war also dauerhaft ohne Wert. Sie war
   standardmäßig deaktiviert; falls du sie aktiviert hattest, entferne sie unter
   Einstellungen → Geräte & Dienste → [Gerät] → Entitäten
-- Der Button "Einstellungen speichern". `device/save_settings` ist auf der
-  KH 120 II ein 404 - dem einzigen Modell, für das der Button überhaupt
+- Der Button „Einstellungen speichern“. `device/save_settings` ist auf der
+  KH 120 II ein 404 – dem einzigen Modell, für das der Button überhaupt
   angeboten wurde. Kein Druck konnte also Erfolg haben. Hinweis zum Entfernen
   wie oben
 
@@ -72,7 +72,7 @@ konnten also nie einen Wert tragen oder ihre Aktion ausführen.
   Anzeige übersetzt
 - Ein Werksreset aktualisiert jetzt sofort alle Werte. Selten abgefragte
   Einstellungen zeigten bis zu fünf Minuten lang den Zustand vor dem Reset
-- Eine Portänderung unter "Neu konfigurieren" wird jetzt übernommen. Bisher
+- Eine Portänderung unter „Neu konfigurieren“ wird jetzt übernommen. Bisher
   wurde nur die Adresse gespeichert
 - Die in den Geräteinformationen angezeigte Firmware-Version wird bei jedem
   Setup aktualisiert. Sie wurde einmal beim Anlegen des Eintrags gelesen und
@@ -85,14 +85,14 @@ konnten also nie einen Wert tragen oder ihre Aktion ausführen.
   einen Fehler statt „zurückgespielt“. Nichts zu schreiben und Erfolg zu melden
   hinterließ den Eindruck, das Gerät sei umgeschrieben worden
 - Backup, Discovery und Zurückspielen haben jetzt eine Zeitgrenze. Sie liefen
-  über alle bekannten Pfade, ohne dass irgendetwas sie beendet hätte - ein
+  über alle bekannten Pfade, ohne dass irgendetwas sie beendet hätte – ein
   Lautsprecher, der antwortet, aber nie mit dem angefragten Pfad, konnte den
   Button eine Viertelstunde drehen lassen. Backup und Discovery speichern nun
   nichts statt eines halben Schnappschusses; ein Restore hört auf zu schreiben
   und meldet, wie viele Werte angekommen waren
 - Auf einem Lautsprecher läuft nur noch eine Aktion gleichzeitig. Backup,
   Discovery, Zurückspielen und Werksreset bewachten sich getrennt, sodass ein
-  Backup lesen konnte, während ein Restore schrieb - und ein Schnappschuss aus
+  Backup lesen konnte, während ein Restore schrieb – und ein Schnappschuss aus
   Werten von vor und nach dem Schreiben gespeichert wurde
 - Die Phasenumkehr wird auf der KH 750 nicht mehr abgefragt oder
   zurückgespielt. An beiden Testgeräten gemessen: der Pfad antwortet auf der
@@ -111,14 +111,14 @@ konnten also nie einen Wert tragen oder ihre Aktion ausführen.
 
 - Ein gerade geänderter Wert wird nicht mehr von einem bereits laufenden Poll
   überschrieben. Der Lautsprecher hatte die neue Einstellung, während die
-  Entity auf den alten Wert zurücksprang - bei selten abgefragten Werten bis zu
+  Entity auf den alten Wert zurücksprang – bei selten abgefragten Werten bis zu
   fünf Minuten lang
 - Ein Reload oder Entfernen eines Geräts lässt ein laufendes Backup, eine
   Discovery oder ein Restore nicht mehr weiterschreiben. Die Aktion endet,
   statt die gerade geschlossene Verbindung wieder zu öffnen
 - Ein Werksreset, dessen Antwort verloren geht, verwirft jetzt die
   zwischengespeicherten Werte. Der Reset startet den Lautsprecher neu, die
-  fehlende Antwort wurde also als "nichts passiert" gelesen, und alle Entities
+  fehlende Antwort wurde also als „nichts passiert“ gelesen, und alle Entities
   zeigten weiter die Einstellungen von vorher
 - Die EQ-Reset-Buttons („…: auf neutral zurücksetzen“) warten auf das Ende
   einer anderen Aktion, statt parallel zu laufen, und gleichen die Werte auch
@@ -128,15 +128,15 @@ konnten also nie einen Wert tragen oder ihre Aktion ausführen.
   niemand zurückliest
 
 - Ein Textwert, den der Lautsprecher nicht meldet, zeigt jetzt Home Assistants
-  eigenes "Unbekannt" statt "Nicht zugewiesen". Nur ein Subwoofer-Ausgang kann
+  eigenes „Unbekannt“ statt „Nicht zugewiesen“. Nur ein Subwoofer-Ausgang kann
   unbelegt sein; bei einer Hardware-Version war die Aussage schlicht falsch
 - Ein Reload oder Entfernen eines Geräts, während dessen Einrichtung noch
   läuft, lässt die Verbindung dorthin nicht mehr offen
 
 ### Geändert
 - Die READMEs beschreiben die Installation. Dokumentiert war nur das manuelle
-  Kopieren; der HACS-Weg - Repository als benutzerdefiniertes Repository
-  hinzufügen - fehlte, obwohl das Repo `hacs.json` mitbringt und bei jedem
+  Kopieren; der HACS-Weg – Repository als benutzerdefiniertes Repository
+  hinzufügen – fehlte, obwohl das Repo `hacs.json` mitbringt und bei jedem
   Push gegen HACS validiert wird
 - Seriennummern werden im Log maskiert. In exportierten Dateien geschieht das
   seit 1.17; zwei Zeilen im Discovery-Pfad gaben sie weiter vollständig aus
@@ -347,7 +347,7 @@ konfiguriert wird. Drei Änderungen gehen das von verschiedenen Seiten an.
   noch alle 5 Minuten. Reduziert die Anzahl der Netzwerkabfragen pro Zyklus
   deutlich (KH 750 DSP: 47 → 23 pro schnellem Zyklus) und schafft mehr Abstand
   zum Zyklus-Zeitlimit. Zwischenzeitlich nicht neu abgefragte Werte bleiben
-  über einen Cache erhalten (keine kurzzeitig "unbekannten" Entities)
+  über einen Cache erhalten (keine kurzzeitig „unbekannten“ Entities)
 - Eingangs-Interface (`audio/in/interface`) ist jetzt auch auf der KH 750 DSP
   standardmäßig aktiviert (bestätigt schreibbar auf KH 120 II und KH 750 DSP)
 
@@ -374,15 +374,15 @@ konfiguriert wird. Drei Änderungen gehen das von verschiedenen Seiten an.
   statt sie an die äußere Behandlung weiterzureichen. Das führte zu
   Log-Flut und teils zum Überschreiten des Poll-Zyklus-Zeitlimits. Bricht
   jetzt sofort nach dem ersten fehlgeschlagenen Verbindungsversuch ab
-- `storage.py` wieder zu einer Datei zusammengeführt - die drei
+- `storage.py` wieder zu einer Datei zusammengeführt – die drei
   `.storage/`-Ausgabedateien (`neumann_kh_names`, `neumann_kh_backups`,
   `neumann_kh_discovery`) bleiben davon unberührt
 
 ### Geändert
 - `manifest.json`: `documentation`/`issue_tracker` zeigen jetzt auf das
   eigene Repository
-- Modell-Erkennung erweitert: akzeptiert jetzt auch "KH 750 DSP" (nicht
-  nur "KH 750"), sowie "KH 80 DSP", "KH 150 AES67", "KH 120 II AES67" für
+- Modell-Erkennung erweitert: akzeptiert jetzt auch „KH 750 DSP“ (nicht
+  nur „KH 750“), sowie „KH 80 DSP“, „KH 150 AES67“, „KH 120 II AES67“ für
   Logo-Helligkeit/Save-Settings (unverifiziert)
 - README: neuer Abschnitt zu unterstützten/nicht unterstützten Modellen;
   IPv4-bezogene Anleitungstexte entfernt (Lautsprecher sind laut
@@ -392,10 +392,10 @@ konfiguriert wird. Drei Änderungen gehen das von verschiedenen Seiten an.
 
 ### Geändert
 - `ui/bass_gain` (KH 120 II) von `select` (schreibbar) zu `sensor`
-  (Diagnose, nur lesend) verschoben - nicht schreibbar, analog zu
+  (Diagnose, nur lesend) verschoben – nicht schreibbar, analog zu
   Mid Gain/Treble Gain
 - `storage.py` in drei separate Module aufgeteilt: `name_storage.py`,
-  `backup_storage.py`, `discovery_storage.py` - landen dadurch auch als
+  `backup_storage.py`, `discovery_storage.py` – landen dadurch auch als
   drei separate Dateien unter `.storage/`
 
 ### Behoben
@@ -407,10 +407,10 @@ konfiguriert wird. Drei Änderungen gehen das von verschiedenen Seiten an.
 ### Geändert
 - EQ-Ein/Aus-Schalter schalten jetzt alle Bänder eines Containers
   gemeinsam (ein SSC-Schreibvorgang für das komplette `enabled`-Array),
-  statt einen Schalter pro einzelnem Band anzulegen - deutlich weniger
+  statt einen Schalter pro einzelnem Band anzulegen – deutlich weniger
   Entities (4 statt 32 bei der KH 120 II, 14 statt 61 bei der KH 750 DSP)
-- Alle EQ-Container-Namen beginnen jetzt einheitlich mit "EQ", damit sie
-  in der "Konfiguration"-Sektion alphabetisch zusammen gruppiert
+- Alle EQ-Container-Namen beginnen jetzt einheitlich mit „EQ“, damit sie
+  in der „Konfiguration“-Sektion alphabetisch zusammen gruppiert
   erscheinen
 - EQ-Schalter und Reset-Buttons sind jetzt standardmäßig aktiviert
 
@@ -418,7 +418,7 @@ konfiguriert wird. Drei Änderungen gehen das von verschiedenen Seiten an.
 
 ### Hinzugefügt
 - EQ-Unterstützung: pro EQ-Container ein Ein/Aus-Schalter (SSC-Array-
-  Teilschreiben) sowie ein "Auf neutral zurücksetzen"-Button (setzt Gain
+  Teilschreiben) sowie ein „Auf neutral zurücksetzen“-Button (setzt Gain
   und Boost aller Bänder auf 0 dB). Abgedeckt: `eq2`/`eq3` am
   Hauptausgang, plus `eq1`/`eq2`/`eq3` an `out1`/`out2` bei der KH 750 DSP
 - README: neue Übersichtstabelle, welche Entity-Typen schreibbar sind
@@ -437,10 +437,10 @@ konfiguriert wird. Drei Änderungen gehen das von verschiedenen Seiten an.
 - Namensgedächtnis: zuletzt verwendeter Name pro Seriennummer wird beim
   erneuten Einrichten über die automatische Suche vorausgefüllt
   (zweistufiger Scan-Flow: erst Gerät wählen, dann Name bestätigen)
-- "🔄 Erneut suchen" als Eintrag in der Scan-Auswahlliste
-- "Backup erstellen"-Button: liest alle bekannten Werte (ohne
+- „🔄 Erneut suchen“ als Eintrag in der Scan-Auswahlliste
+- „Backup erstellen“-Button: liest alle bekannten Werte (ohne
   Live-Messwerte) und speichert sie dauerhaft sowie als JSON-Datei
-- "Geräte-Discovery ausführen"-Button (Diagnose): kombiniert bekannte
+- „Geräte-Discovery ausführen“-Button (Diagnose): kombiniert bekannte
   Pfade mit einem Best-effort-Versuch über die optionalen SSC-Methoden
   `osc/schema` + `osc/limits`
 
@@ -448,7 +448,7 @@ konfiguriert wird. Drei Änderungen gehen das von verschiedenen Seiten an.
 
 ### Geändert (KH 120 II, nicht schreibbar → jetzt Lesewert)
 - Input Gain, Input Select, Mid Gain, Output Level (SPL), Treble Gain
-- "Einstellungen speichern"-Button standardmäßig deaktiviert (nicht
+- „Einstellungen speichern“-Button standardmäßig deaktiviert (nicht
   funktional)
 
 ### Geändert (KH 750 DSP, nicht schreibbar → jetzt Lesewert)
@@ -458,7 +458,7 @@ konfiguriert wird. Drei Änderungen gehen das von verschiedenen Seiten an.
 
 ### Behoben
 - Ausgang-1/2-Stummschaltung (`out1_mute`/`out2_mute`, KH 750 DSP) fehlte
-  komplett - wieder ergänzt
+  komplett – wieder ergänzt
 - `settle_time` in `ssc_client.py` nutzt jetzt die vorgesehene Konstante
   statt eines fest verdrahteten Werts
 - Ungenutzte Konstante entfernt
@@ -470,14 +470,14 @@ konfiguriert wird. Drei Änderungen gehen das von verschiedenen Seiten an.
 
 ### Behoben
 - `discovery.py`: Parameternamen des mDNS-Callbacks `_on_change()`
-  korrigiert (`zeroconf`, `service_type` - python-zeroconf ruft diesen
+  korrigiert (`zeroconf`, `service_type` – python-zeroconf ruft diesen
   Handler mit benannten Argumenten auf, nicht positional; eine
   Umbenennung führte zu `TypeError` und einer leeren Geräteliste)
 
 ## [1.8.0] – Reaktivität & Robustheit
 
 ### Hinzugefügt
-- Priority-Pfad für Nutzeraktionen: Ein "set" (Schalter, Auswahl, Regler)
+- Priority-Pfad für Nutzeraktionen: Ein „set“ (Schalter, Auswahl, Regler)
   drängelt sich jetzt zwischen zwei Einzelabfragen eines laufenden
   Poll-Zyklus, statt bis zu ~25s auf dessen Ende zu warten
 
@@ -486,18 +486,18 @@ konfiguriert wird. Drei Änderungen gehen das von verschiedenen Seiten an.
   nutzt `async_set_updated_data()` des Coordinators statt
   `coordinator.data` direkt zu mutieren
 - Defensive Zahlkonvertierung: `number`-/`sensor`-Entities fangen
-  nicht-numerische Gerätewerte ab (zeigen "unbekannt" statt eine
+  nicht-numerische Gerätewerte ab (zeigen „unbekannt“ statt eine
   Exception auszulösen)
 - Verbindung wird beim Entladen immer geschlossen, auch wenn eine
   Plattform sich nicht sauber entladen lässt
 - Korrekte Link-Local-Erkennung für den gesamten IPv6-Bereich fe80::/10
-  (RFC 4291), nicht nur exaktes "fe80"-Präfix
+  (RFC 4291), nicht nur exaktes „fe80“-Präfix
 
 ## [1.7.0] – Bereits verbundene Lautsprecher in der Suche kennzeichnen
 
 ### Hinzugefügt
 - Beim automatischen Netzwerk-Scan werden bereits eingerichtete
-  Lautsprecher in der Auswahlliste mit "✓ bereits verbunden"
+  Lautsprecher in der Auswahlliste mit „✓ bereits verbunden“
   gekennzeichnet
 
 ## [1.6.3] – Bugfix: binary_sensor-Setup schlug fehl
@@ -505,12 +505,12 @@ konfiguriert wird. Drei Änderungen gehen das von verschiedenen Seiten an.
 ### Behoben
 - `binary_sensor.py`: Zwei Entities übergaben `entity_category` als
   reinen String statt des von Home Assistant erwarteten
-  `EntityCategory`-Enums - neuere HA-Versionen lehnen das ab
+  `EntityCategory`-Enums – neuere HA-Versionen lehnen das ab
 
 ## [1.6.2] – Schalter/Auswahl springen nicht mehr kurz zurück
 
 ### Behoben
-- Race Condition behoben: Nach einem "set" wird jetzt direkt der vom
+- Race Condition behoben: Nach einem „set“ wird jetzt direkt der vom
   Gerät in derselben Antwort bereits bestätigte Wert übernommen, statt
   einen kompletten Poll-Zyklus anzustoßen. Neue gemeinsame Methode
   `NeumannKHEntity._apply_confirmed_value()`
@@ -526,7 +526,7 @@ konfiguriert wird. Drei Änderungen gehen das von verschiedenen Seiten an.
 
 ### Korrigiert (Wertebereiche)
 - Verzögerung: KH 120 II 0-5760 Samples, KH 750 DSP (Haupt/out1/out2)
-  0-1000 Samples - jetzt modellabhängig
+  0-1000 Samples – jetzt modellabhängig
 - Standby-Zeit: 1-240 min
 - Standby-Schwellwert: -80 bis -55 dBu
 - Logo-Helligkeit: 0-125 %
@@ -536,29 +536,29 @@ konfiguriert wird. Drei Änderungen gehen das von verschiedenen Seiten an.
 ### Geändert (Number → Select, da feste Stufen statt kontinuierlichem Bereich)
 - Bass/Mitten/Höhen (KH 120 II): jetzt `select` mit festen Stufen
 - Subwoofer-Phase: jetzt `select` (0°/-45°/-90°/-135°)
-- Subwoofer-Phaseninversion: jetzt `select` ("0"/"-180")
+- Subwoofer-Phaseninversion: jetzt `select` („0“/„-180“)
 
 ### Hinzugefügt
 - Eingangsverstärkung (Nicht-Subwoofer) als schreibbares `number`
 - Ausgangspegel SPL (Nicht-Subwoofer) als `select`
 - Eingangsauswahl und Eingangs-Interface als `select`
-- Steuerungsmodus (`select`, NETWORK/LOCAL) - standardmäßig deaktiviert
+- Steuerungsmodus (`select`, NETWORK/LOCAL) – standardmäßig deaktiviert
   (Sicherheits-Ausnahme)
-- Gerätename (`text`, max. 52 Zeichen) - neue Plattform `text.py`
-- "Werkseinstellungen wiederherstellen"-Button mit
+- Gerätename (`text`, max. 52 Zeichen) – neue Plattform `text.py`
+- „Werkseinstellungen wiederherstellen“-Button mit
   Zwei-Schritt-Sicherheitsabfrage
 - Digitaler Bypass (`binary_sensor`, nur Subwoofer)
 - Ausgangsbezeichnung Hauptausgang (`sensor`, nur Subwoofer)
-- "UNKNOWN" bei Ausgang-1/2-Lautsprecher wird als "Nicht zugewiesen"
+- „UNKNOWN“ bei Ausgang-1/2-Lautsprecher wird als „Nicht zugewiesen“
   angezeigt
 
 ### Geändert (Verhalten)
-- "Identifizieren" ist jetzt ein Schalter (An/Aus) statt eines
+- „Identifizieren“ ist jetzt ein Schalter (An/Aus) statt eines
   Auto-Stopp-Buttons
-- "Auto-Standby" war in dieser Version kurzzeitig nur ein Lesewert
+- „Auto-Standby“ war in dieser Version kurzzeitig nur ein Lesewert
   (in 1.6.1 korrigiert, siehe oben)
 - Alle KH-120-II-Entities sind jetzt standardmäßig aktiviert, außer
-  "Dimm" und "Steuerungsmodus"
+  „Dimm“ und „Steuerungsmodus“
 
 ### Code-Härtung
 - Gemeinsame Hilfsfunktionen (`_util.py`) statt doppelter
@@ -595,16 +595,16 @@ konfiguriert wird. Drei Änderungen gehen das von verschiedenen Seiten an.
 ### Hinzugefügt
 - Eigenständiges Marken-Design (`brand/`-Ordner): dunkles Anthrazit,
   stilisiertes Lautsprecher-Chassis-Symbol, Schriftzug
-  "NEUMANN CONNECT". Voraussetzung: Home Assistant 2026.3 oder neuer
+  „NEUMANN CONNECT“. Voraussetzung: Home Assistant 2026.3 oder neuer
 
 ## [1.4.0] – Clip-Anzeige, Auto-Standby, Identify, Klangregler, Info-Sensoren
 
 ### Hinzugefügt
-- Clip-Anzeige (`binary_sensor`) - zeigt an, wenn mindestens ein
+- Clip-Anzeige (`binary_sensor`) – zeigt an, wenn mindestens ein
   Eingangskanal übersteuert
-- Auto-Standby - Ein/Aus-Schalter, Zeit- und Schwellwert-Regler sowie
+- Auto-Standby – Ein/Aus-Schalter, Zeit- und Schwellwert-Regler sowie
   ein Countdown-Sensor
-- "Gerät identifizieren"-Button - lässt das Logo/die LEDs kurz blinken
+- „Gerät identifizieren“-Button – lässt das Logo/die LEDs kurz blinken
 - Klangregler Bass/Mitten/Höhen als Number-Entities
 - Info-/Diagnose-Sensoren: Gerätename, Hardware-Version, aktueller
   Eingang, Eingangs-Interface-Typ, Steuerungsmodus
@@ -613,9 +613,9 @@ konfiguriert wird. Drei Änderungen gehen das von verschiedenen Seiten an.
 ## [1.3.2] – Entity-Standardwerte angepasst
 
 ### Geändert
-- "Dimm" ist jetzt standardmäßig deaktiviert (existiert auf der
+- „Dimm“ ist jetzt standardmäßig deaktiviert (existiert auf der
   KH 120 II nicht)
-- "Eingangspegel (live)" ist jetzt standardmäßig aktiviert
+- „Eingangspegel (live)“ ist jetzt standardmäßig aktiviert
 
 ## [1.3.1] – Fehlerbehandlung verbessert
 
@@ -639,7 +639,7 @@ konfiguriert wird. Drei Änderungen gehen das von verschiedenen Seiten an.
 - `input_level_meter`-Sensor zeigt bei Listenwerten den lautesten Kanal an
 
 ### Entfernt
-- `solo`-Switch (`audio/out/solo`) - vom Modell nicht unterstützt
+- `solo`-Switch (`audio/out/solo`) – vom Modell nicht unterstützt
 
 ### Hinzugefügt
 - Neue Exception `SSCDeviceError`: erkennt vom Gerät abgelehnte
@@ -648,8 +648,8 @@ konfiguriert wird. Drei Änderungen gehen das von verschiedenen Seiten an.
 ## [1.2.0] – Aktive Netzwerksuche
 
 ### Hinzugefügt
-- Einstiegsmenü im Config Flow: "Automatisch im Netzwerk suchen" oder
-  "Manuell eingeben"
+- Einstiegsmenü im Config Flow: „Automatisch im Netzwerk suchen“ oder
+  „Manuell eingeben“
 - Aktiver mDNS/Zeroconf-Scan über Home Assistants bestehende
   Zeroconf-Instanz, Ergebnis als Auswahlliste
 - Bei automatisch gefundenen Geräten wird die IPv6-Scope-ID automatisch
@@ -665,7 +665,7 @@ konfiguriert wird. Drei Änderungen gehen das von verschiedenen Seiten an.
 
 ### Behoben
 - Der Config Flow zeigte bei einem Fehler ein vollständig leeres
-  Formular - bereits eingegebene Werte gingen verloren. Jetzt werden
+  Formular – bereits eingegebene Werte gingen verloren. Jetzt werden
   zuletzt eingegebene Werte als editierbare Vorschläge übernommen
 
 ## [1.0.0] – Erste Version

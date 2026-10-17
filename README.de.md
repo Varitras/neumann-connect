@@ -84,9 +84,9 @@ Repository in HACS Beta-Versionen aktiviert sind.
 
 1. **Einstellungen → Geräte & Dienste → Integration hinzufügen → „Neumann KH (SSC)“**.
 2. Du bekommst ein Menü mit zwei Wegen:
-   – **„Automatisch im Netzwerk suchen“** – aktiver mDNS-Scan (siehe unten),
+   - **„Automatisch im Netzwerk suchen“** – aktiver mDNS-Scan (siehe unten),
      Ergebnis als Auswahlliste. Empfohlener Standardweg.
-   – **„Manuell eingeben (IP-Adresse)“** – Name, IP-Adresse, Interface-Dropdown, Port (Fallback,
+   - **„Manuell eingeben (IP-Adresse)“** – Name, IP-Adresse, Interface-Dropdown, Port (Fallback,
      falls die automatische Suche ein Gerät nicht findet).
 3. Für **jeden** Lautsprecher einen eigenen Eintrag anlegen (z. B. „KH 120 II Links“,
    „KH 120 II Rechts“, „KH 750 DSP Sub 1“, „KH 750 DSP Sub 2“).
@@ -133,12 +133,12 @@ hängt.
 
 **Wird nichts gefunden:** Formular einfach ohne Auswahl erneut absenden,
 um die Suche zu wiederholen – oder zurück ins Menü gehen und „Manuell
-eingeben“ wählen. mDNS funktioniert nur zuverlässig, wenn HA multicast-mäßig
+eingeben (IP-Adresse)“ wählen. mDNS funktioniert nur zuverlässig, wenn HA multicast-mäßig
 im selben Netzwerksegment wie die Lautsprecher hängt (bei Docker z. B.
 `network_mode: host` nötig) – dieselbe Voraussetzung, die für die
 Link-Local-Verbindung ohnehin gilt.
 
-## IPv6-Link-Local-Adresse & Interface ermitteln (nur für „Manuell eingeben“)
+## IPv6-Link-Local-Adresse & Interface ermitteln (nur für „Manuell eingeben (IP-Adresse)“)
 
 Die Lautsprecher sind per Default nur über ihre IPv6-Link-Local-Adresse
 (`fe80::...`) erreichbar. Diese benötigt zwingend eine **Scope-ID**
@@ -311,19 +311,19 @@ umgezogen ist.
   dazwischen eintrifft. Beide Testgeräte antworten mit exakt einer Zeile, das
   betrifft also andere Firmware, nicht die eingesetzte Hardware.
 - Steuerungsmodus (`ui/control_mode`) ist standardmäßig deaktiviert und
-  sollte es bleiben: ein Wechsel zu `LOCAL` könnte die Netzwerksteuerung vom
+  sollte es bleiben: Ein Wechsel zu `LOCAL` könnte die Netzwerksteuerung vom
   Gerät trennen.
 - Werksreset (`device/restore`) hat eine Zwei-Schritt-Sicherheitsabfrage:
-  Der erste Tastendruck schaltet nur scharf, ein zweiter Druck innerhalb von
-  30 s löst aus. Alternativ über eine physische Schalterfolge am Gerät selbst:
-  – **KH 80 DSP:** Beim Booten (Logo noch rot) den SETTINGS-Schalter
-    mehrfach hoch und runter bewegen, bis einige Sekunden nachdem das Logo
-    weiß geworden ist.
-  – **KH 750 DSP:** Beim Booten (Power-LED durchgehend rot) den
+  Der erste Tastendruck schaltet nur scharf, ein zweiter Druck frühestens 2 s
+  und spätestens 30 s danach löst aus. Alternativ über eine physische Schalterfolge am Gerät selbst:
+  - **KH 80 DSP:** Beim Booten (Logo noch rot) den SETTINGS-Schalter
+    mehrfach hoch und runter bewegen, bis das Logo weiß wird, und danach noch
+    einige Sekunden weiter.
+  - **KH 750 DSP:** Beim Booten (Power-LED durchgehend rot) den
     AUTO-STANDBY-Schalter mehrfach hoch und runter bewegen. Die Power-LED
     blinkt rot, während die Werkseinstellungen geladen werden, und wird dann
     grün.
-  – **KH 120 II / KH 150:** Beim Booten (Logo blinkt) den CONTROL-Schalter
+  - **KH 120 II / KH 150:** Beim Booten (Logo blinkt) den CONTROL-Schalter
     mehrfach hoch und runter bewegen, bis das Logo einige Sekunden lang
     durchgehend weiß leuchtet. Danach blinkt es kurz schnell rot und wird
     wieder weiß.
@@ -382,7 +382,7 @@ Q/Enabled je Band) wäre bei der KH 750 DSP ca. 800 Entities – nicht mehr
   „Konfiguration“, standardmäßig aktiviert): schaltet **alle Bänder dieses
   Containers gemeinsam** (schreibt denselben Wert in das komplette
   `enabled`-Array). Zeigt „an“, sobald mindestens ein Band aktiv ist.
-- **Ein „Auf neutral zurücksetzen“-Button pro EQ-Container** (`button`,
+- **Ein „{container}: auf neutral zurücksetzen“-Button pro EQ-Container** (`button`,
   Kategorie „Konfiguration“, standardmäßig aktiviert): setzt Gain **und**
   Boost aller Bänder dieses Containers auf 0 dB. Frequenz/Q/Typ/Enabled
   bleiben unverändert – eine echte Werks-Rücksetzung ist nicht möglich, da

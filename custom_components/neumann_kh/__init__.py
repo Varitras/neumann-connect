@@ -54,7 +54,8 @@ async def _async_relocate(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     Runs only after a setup attempt already failed. A stored address can go
     stale on its own: a global IPv6 address carries the prefix the ISP
     delegates, and a forced reconnect hands out a new one, after which the
-    entry retries into the void every ten minutes forever.
+    entry retries into the void forever (every 80 s, from Home Assistant 2026.6
+    every 10 minutes).
 
     Home Assistant's own zeroconf discovery covers this too, but not quickly:
     the speakers never announce unsolicited (measured), their address records
@@ -80,9 +81,9 @@ async def _async_relocate(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Already exactly where we looked means the address is not the problem -
     # and rewriting it would only cost a storage write and an update signal for
-    # nothing. The port
-    # belongs in that comparison: a speaker that kept its address but moved to
-    # another port is precisely the case this repair exists for.
+    # nothing. The port belongs in that comparison: a speaker that kept its
+    # address but moved to another port is precisely the case this repair
+    # exists for.
     current = (entry.data.get(CONF_HOST), entry.data.get(CONF_PORT, DEFAULT_PORT))
     candidates = [s for s in speakers if (s.host, s.port) != current]
 
@@ -227,7 +228,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: NeumannKHConfigEntry) ->
         await client.close()
         # The speaker may simply have moved to a different address. Correcting
         # it here means the retry that HA has already scheduled finds it,
-        # instead of the entry failing every ten minutes indefinitely.
+        # instead of the entry failing on every retry indefinitely.
         await _async_relocate(hass, entry)
         raise
 

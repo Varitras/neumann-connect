@@ -126,13 +126,13 @@ link-local address is derived from the MAC and stays valid for as long as
 the speaker sits on the same network segment.
 
 **If nothing is found:** simply submit the form again without a selection to
-repeat the search – or go back to the menu and choose "Enter manually". mDNS
+repeat the search – or go back to the menu and choose "Enter manually (IP address)". mDNS
 only works reliably if HA is in the same network segment as the loudspeakers
 in terms of multicast (with Docker, for example, `network_mode: host` is
 required) – the same prerequisite that applies to the link-local connection
 anyway.
 
-## Determining the IPv6 link-local address & interface (only for "Enter manually")
+## Determining the IPv6 link-local address & interface (only for "Enter manually (IP address)")
 
 By default the loudspeakers are only reachable via their IPv6 link-local
 address (`fe80::...`). This address strictly requires a **scope ID** (network
@@ -302,7 +302,8 @@ number and stores the new address if it has moved.
 - Control mode (`ui/control_mode`) is disabled by default and should stay
   that way: switching to `LOCAL` could cut network control off from the device.
 - Factory reset (`device/restore`) has a two-step safety confirmation: the
-  first press only arms it, a second press within 30 s triggers it.
+  first press only arms it, a second press between 2 s and 30 s later
+  triggers it.
   Alternatively via a physical switch sequence on the device itself:
   - **KH 80 DSP:** while booting (logo still red), move the SETTINGS switch
     up and down repeatedly until a few seconds after the logo turns white.

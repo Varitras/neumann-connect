@@ -121,8 +121,9 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.client = client
         self.model = model
         # Held for a whole device action (every button that talks to the
-        # speaker, the EQ reset included), not for a single request. The client's lock serialises
-        # individual messages, which is not enough: a backup running while a
+        # speaker, the EQ reset included), not for a single request. The
+        # client's lock serialises individual messages, which is not enough: a
+        # backup running while a
         # restore writes reads some values from before and some from after,
         # and that mixed snapshot then replaces the last good one.
         #

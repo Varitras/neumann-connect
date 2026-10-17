@@ -129,7 +129,7 @@ class NeumannKHRestoreButton(NeumannKHEntity, ButtonEntity):
     async def async_press(self) -> None:
         now = time.monotonic()
         if _confirms(self._armed_at, now):
-            # Second press within the time window -> actually trigger the reset.
+            # Second press after the minimum gap, within the window -> reset.
             self._armed_at = None
             async_dismiss_notification(self.hass, self._notification_id)
             try:
@@ -159,7 +159,8 @@ class NeumannKHRestoreButton(NeumannKHEntity, ButtonEntity):
             await self.coordinator.async_invalidate_and_refresh()
             return
 
-        # First press (or time window elapsed) -> only "arm" and warn.
+        # First press, a press too soon after arming, or the window elapsed:
+        # only arm and warn.
         self._armed_at = now
         async_create_notification(
             self.hass,
@@ -167,13 +168,15 @@ class NeumannKHRestoreButton(NeumannKHEntity, ButtonEntity):
                 self.hass.config.language,
                 (
                     f"⚠️ Werksreset für **{self._entry.title}** ist jetzt bereit. "
-                    f"Drücke den Button innerhalb von {_RESTORE_CONFIRM_WINDOW_SECONDS} Sekunden "
+                    f"Drücke den Button frühestens {_RESTORE_CONFIRM_MIN_GAP_SECONDS} und "
+                    f"spätestens {_RESTORE_CONFIRM_WINDOW_SECONDS} Sekunden danach "
                     f"ERNEUT, um alle Einstellungen unwiderruflich auf Werkszustand "
                     f"zurückzusetzen. Ohne zweiten Druck passiert nichts."
                 ),
                 (
                     f"⚠️ Factory reset for **{self._entry.title}** is now armed. "
-                    f"Press the button AGAIN within {_RESTORE_CONFIRM_WINDOW_SECONDS} seconds "
+                    f"Press the button AGAIN between {_RESTORE_CONFIRM_MIN_GAP_SECONDS} and "
+                    f"{_RESTORE_CONFIRM_WINDOW_SECONDS} seconds from now "
                     f"to irreversibly reset all settings to factory state. "
                     f"Nothing happens without a second press."
                 ),
@@ -257,11 +260,12 @@ class NeumannKHRestoreBackupButton(NeumannKHEntity, ButtonEntity):
             localized(
                 self.hass.config.language,
                 f"Backup vom {backup.get('timestamp', '?')} für **{self._entry.title}** "
-                f"zurückspielen? Innerhalb von {_RESTORE_CONFIRM_WINDOW_SECONDS} Sekunden "
-                "erneut drücken. Die aktuellen Geräteeinstellungen werden überschrieben.",
+                f"zurückspielen? Frühestens {_RESTORE_CONFIRM_MIN_GAP_SECONDS} und spätestens "
+                f"{_RESTORE_CONFIRM_WINDOW_SECONDS} Sekunden danach erneut drücken. Die aktuellen Geräteeinstellungen werden überschrieben.",
                 f"Restore the backup from {backup.get('timestamp', '?')} to "
-                f"**{self._entry.title}**? Press again within "
-                f"{_RESTORE_CONFIRM_WINDOW_SECONDS} seconds. The device's current settings "
+                f"**{self._entry.title}**? Press again between "
+                f"{_RESTORE_CONFIRM_MIN_GAP_SECONDS} and {_RESTORE_CONFIRM_WINDOW_SECONDS} seconds "
+                "from now. The device's current settings "
                 "will be overwritten.",
             ),
             title=localized(

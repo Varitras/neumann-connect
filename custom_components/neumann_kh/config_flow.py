@@ -71,7 +71,7 @@ async def _async_get_interface_options(hass: HomeAssistant) -> list[selector.Sel
     """Determine the network interfaces known on the HA host for the dropdown."""
     no_interface_label = localized(
         hass.config.language,
-        "(keine Angabe – nur bei globaler, nicht Link-Local IPv6-Adresse nötig)",
+        "(keine Angabe – nur bei einer globalen IPv6-Adresse nötig, nicht bei Link-Local)",
         "(none – only needed for a global, non-link-local IPv6 address)",
     )
     options = [
