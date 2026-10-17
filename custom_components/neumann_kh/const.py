@@ -156,9 +156,9 @@ DEVICE_NAME_MAX_LENGTH = 52
 # Restore factory defaults. Implemented with a two-step confirmation
 # (see button.py) - destructive action on real hardware.
 PATH_RESTORE = ("device", "restore")
-# Only the KH 80 keeps changes across a power cycle after an explicit save; the
-# other models save by themselves and answer this path with a 404 (measured on
-# KH 120 II and KH 750). The KH 80 behaviour is reported, not measured here.
+# The KH 80 keeps changes across a power cycle only after an explicit save
+# (reported, not measured here). KH 120 II and KH 750 save by themselves and
+# answer this path with a 404 (measured); other models are unmeasured.
 PATH_SAVE_SETTINGS = ("device", "save_settings")
 MODELS_THAT_NEED_A_SAVE = ("KH 80", "KH 80 DSP")
 RESTORE_FACTORY_DEFAULTS_VALUE = "FACTORY_DEFAULTS"

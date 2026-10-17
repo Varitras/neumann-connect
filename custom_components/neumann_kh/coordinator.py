@@ -42,7 +42,13 @@ from .const import (
     UPDATE_INTERVAL_SECONDS,
 )
 from .eq_containers import eq_containers_for_model
-from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeoutError
+from .ssc_client import (
+    ERROR_NOT_FOUND,
+    SSCClient,
+    SSCConnectionError,
+    SSCDeviceError,
+    SSCTimeoutError,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -368,7 +374,18 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return
         try:
             await self.client.set(PATH_SAVE_SETTINGS, True)
-        except (SSCConnectionError, SSCTimeoutError, SSCDeviceError) as err:
+        except SSCDeviceError as err:
+            if err.code == ERROR_NOT_FOUND:
+                # The KH 80 need is reported, not measured: a firmware without
+                # the path has nothing to save, and must not fail every change.
+                _LOGGER.debug("%s has no save command - nothing to save", self.name)
+                return
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="settings_not_saved",
+                translation_placeholders={"error": str(err)},
+            ) from err
+        except (SSCConnectionError, SSCTimeoutError) as err:
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
                 translation_key="settings_not_saved",

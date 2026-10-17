@@ -341,7 +341,8 @@ umgezogen ist.
   mit 404 beantwortet, existieren dort also nicht. Die Dimm-Entity und der
   Button „Einstellungen speichern“ wurden entfernt, statt dauerhaft
   „unbekannt“ anzuzeigen bzw. bei jedem Druck zu scheitern. Den Speicherbefehl
-  bekommt nur die KH 80 DSP, die ihn braucht.
+  bekommt nur die KH 80 DSP; bei KH 120 II und KH 750 DSP ist gemessen, dass er
+  nicht nötig ist.
 - „Identifizieren“ ist ein Schalter, kein Auto-Stopp-Button: Das Blinken
   hört erst nach mehreren Minuten von selbst auf.
 - Gerätetemperatur (KH 750 DSP): Einheit Kelvin, umgerechnet in °C.

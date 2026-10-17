@@ -325,8 +325,8 @@ number and stores the new address if it has moved.
 - `audio/out/dimm` and `device/save_settings` are answered with a 404 by both
   test models, so neither path exists on them. The dimm entity and the "save
   settings" button were removed rather than left showing "unknown" and
-  failing on every press. The save command is only sent to the KH 80 DSP,
-  which needs it.
+  failing on every press. The save command is only sent to the KH 80 DSP;
+  KH 120 II and KH 750 DSP were measured not to need it.
 - "Identify" is a switch, not an auto-stop button: the flashing only stops by
   itself after several minutes.
 - Device temperature (KH 750 DSP): reported in Kelvin, converted to °C.

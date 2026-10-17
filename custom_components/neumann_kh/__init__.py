@@ -38,7 +38,14 @@ from .const import (
 from .coordinator import NeumannKHConfigEntry, NeumannKHCoordinator
 from .discovery import async_scan_for_speakers
 from .identity import as_identity_text, mask_serial, serial_matches
-from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeoutError, mask_host
+from .ssc_client import (
+    ERROR_NOT_FOUND,
+    SSCClient,
+    SSCConnectionError,
+    SSCDeviceError,
+    SSCTimeoutError,
+    mask_host,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -178,15 +185,12 @@ async def _async_refresh_firmware_version(
     )
 
 
-_NOT_FOUND = 404
-
-
 async def _async_answers_not_found(client: SSCClient, path: tuple[str, ...]) -> bool:
     """True only for an explicit 404 - silence, timeouts and other codes are not."""
     try:
         await client.get(path)
     except SSCDeviceError as err:
-        return err.code == _NOT_FOUND
+        return err.code == ERROR_NOT_FOUND
     except (SSCConnectionError, SSCTimeoutError):
         return False
     return False

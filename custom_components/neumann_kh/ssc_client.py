@@ -120,6 +120,9 @@ class SSCTimeoutError(Exception):
     """Raised when no response arrives within the timeout window."""
 
 
+ERROR_NOT_FOUND = 404  # osc/error code for a path the device does not have
+
+
 class SSCDeviceError(Exception):
     """Device rejects the request (OSC error response, e.g. error 400/404/405)."""
 
@@ -130,12 +133,9 @@ class SSCDeviceError(Exception):
 
 def _error_code(osc_error: Any) -> int | None:
     """The numeric code of an osc/error answer, e.g. 404 in [404, {"desc": ...}]."""
-    if not isinstance(osc_error, list) or not osc_error:
+    if not isinstance(osc_error, list) or not osc_error or type(osc_error[0]) is not int:
         return None
-    code = osc_error[0]
-    if type(code) is not int:
-        return None
-    return code
+    return osc_error[0]
 
 
 class SSCClient:
@@ -506,9 +506,8 @@ class SSCClient:
     def use_path_aliases(self, aliases: dict[tuple[str, ...], tuple[str, ...]]) -> None:
         """Send these logical paths to a different path on this device.
 
-        Everything above the client - entities, cache, backups - keeps the
-        logical path, so a backup from one firmware layout restores onto the
-        other. request() is not aliased: the discovery walks the raw tree.
+        Everything above the client keeps the logical path (entities, cache,
+        backups, discovery export); only request() - the osc/schema walk - is raw.
         """
         self._path_aliases = dict(aliases)
 

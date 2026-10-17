@@ -128,7 +128,7 @@
   {
     "name": "a 400 answer switches the output to out5",
     "path": "custom_components/neumann_kh/__init__.py",
-    "find": "        return err.code == _NOT_FOUND",
+    "find": "        return err.code == ERROR_NOT_FOUND",
     "replace": "        return True",
     "expect": "tests/test_output_path_detection.py::test_the_output_container_falls_back_to_out_unless_out5_is_conclusive"
   }
