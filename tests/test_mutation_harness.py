@@ -15,6 +15,8 @@ from __future__ import annotations
 import importlib.util
 import json
 import pathlib
+import subprocess
+import sys
 
 import pytest
 
@@ -60,6 +62,59 @@ def test_every_mutation_names_a_test_that_exists():
             missing.append(f"{entry['name']}: {test_file} has no {test_name}")
 
     assert not missing, f"mutation(s) pointing at a test that is gone: {missing}"
+
+
+def _broken_by(entry: dict) -> str:
+    """Syntax errors and undefined names the mutated file would have.
+
+    A mutant whose replacement does not even run fails its test through a
+    NameError, and the run counts that as caught - one did so for weeks after
+    the function it called had been renamed, checking nothing.
+    """
+    source = (REPO / entry["path"]).read_text(encoding="utf-8")
+    mutated = source.replace(entry["find"], entry["replace"], 1)
+    finished = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "ruff",
+            "check",
+            "--no-cache",
+            "--output-format",
+            "concise",
+            "--select",
+            "E9,F821,F822,F823",
+            "--stdin-filename",
+            entry["path"],
+            "-",
+        ],
+        cwd=REPO,
+        input=mutated,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return finished.stdout.strip() if finished.returncode else ""
+
+
+def test_every_mutation_is_valid_code():
+    broken = {entry["name"]: problems for entry in _plan() if (problems := _broken_by(entry))}
+
+    assert not broken, (
+        f"mutation(s) that do not run at all: {broken}. Their test fails on the "
+        "error, not on the breakage, and the run would count them as caught."
+    )
+
+
+def test_a_mutation_calling_a_name_that_is_gone_is_reported():
+    """Proof-of-red for the check above."""
+    entry = {
+        "path": "custom_components/neumann_kh/const.py",
+        "find": 'DOMAIN = "neumann_kh"',
+        "replace": "DOMAIN = renamed_long_ago()",
+    }
+
+    assert "F821" in _broken_by(entry)
 
 
 def test_the_harness_refuses_a_stale_mutation_instead_of_skipping_it():
