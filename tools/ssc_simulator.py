@@ -9,10 +9,12 @@ than what the khtool metadata advertises. Real devices reject far more than the
 metadata suggests, so a permissive simulator would make the integration look
 healthy while it is broken against real hardware:
 
-* a missing path is a 404 nested at its first missing node, as recorded from
-  the devices; a container query is a 404 at the container, and a bundled get
-  answers the known leaves plus a 404 for the unknown one
-* fields confirmed to be read-only reject a "set" (405)
+* errors are nested in the request's shape, as recorded from the devices: a
+  missing path is a 404 at its first missing node, a container query a 404 at
+  the container, a set on a read-only field a 405 and a value of the wrong
+  type a 406, both at the leaf
+* a bundle answers every leaf it can - gets and sets alike - and lists the
+  rest as errors; a missing leaf's 404 then sits at its parent
 * "osc/schema" and "osc/limits" are rejected unless --enable-schema is given
 
 Usage:
@@ -43,11 +45,13 @@ MODELS = (MODEL_KH_120_II, MODEL_KH_750)
 _ERR_BAD_REQUEST = 400
 _ERR_NOT_FOUND = 404
 _ERR_NOT_ALLOWED = 405
+_ERR_NOT_ACCEPTABLE = 406
 
 _ERR_DESCRIPTIONS = {
     _ERR_BAD_REQUEST: "message not understood",
     _ERR_NOT_FOUND: "address not found",
     _ERR_NOT_ALLOWED: "method not allowed",
+    _ERR_NOT_ACCEPTABLE: "not acceptable",
 }
 
 # EQ containers per model: (path prefix, band count), as measured on the
@@ -351,14 +355,24 @@ def _limits_type(value: Any) -> str:
 
 
 def _error(code: int) -> dict[str, Any]:
-    """A flat SSC error, for the cases whose real reply was never recorded (400, 405)."""
+    """A flat SSC error, for the cases whose real reply was never recorded (400)."""
     return {"osc": {"error": [code, {"desc": _ERR_DESCRIPTIONS[code]}]}}
 
 
-def _not_found(node: tuple[str, ...]) -> dict[str, Any]:
-    """A 404 nested at `node`, verbatim the format recorded from the devices."""
-    pair = [_ERR_NOT_FOUND, {"desc": _ERR_DESCRIPTIONS[_ERR_NOT_FOUND]}]
-    return {"osc": {"error": [_build_nested(node, pair)]}}
+def _error_entry(node: tuple[str, ...], code: int) -> dict[str, Any]:
+    """One osc/error entry nested at `node`, the format recorded from the devices."""
+    return _build_nested(node, [code, {"desc": _ERR_DESCRIPTIONS[code]}])
+
+
+def _same_kind(current: Any, value: Any) -> bool:
+    """Whether a set carries the kind of value the path holds (else 406)."""
+    if isinstance(current, bool) or isinstance(value, bool):
+        return isinstance(current, bool) and isinstance(value, bool)
+    if isinstance(current, (int, float)):
+        return isinstance(value, (int, float))
+    if isinstance(current, list):
+        return isinstance(value, list) and len(value) == len(current)
+    return isinstance(value, type(current))
 
 
 def _move_output_to_out5(state: dict[str, Any]) -> None:
@@ -403,20 +417,25 @@ class SSCSimulator:
             node = node[key]
         return path
 
-    def _bundled_get(self, leaves: list[tuple[tuple[str, ...], Any]]) -> dict[str, Any]:
-        """Recorded once: known leaves answered, the 404 at the unknown one's parent."""
-        answer: dict[str, Any] = {}
-        errors: list[dict[str, Any]] = []
-        for path, _ in leaves:
-            found, value = self._resolve(path)
-            if found and not isinstance(value, dict):
-                _merge(answer, _build_nested(path, value))
-                continue
-            node = self._first_missing(path)[:-1] or path[:1]
-            errors.extend(_not_found(node)["osc"]["error"])
-        if errors:
-            answer["osc"] = {"error": errors}
-        return answer
+    def _answer_leaf(
+        self, path: tuple[str, ...], value: Any, bundled: bool
+    ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+        """One leaf of a request: (answer subtree, None) or (None, error entry)."""
+        found, current = self._resolve(path)
+        if not found or isinstance(current, dict):
+            node = self._first_missing(path) if not found else path
+            if bundled:
+                # Recorded: inside a bundle the 404 moves up to the parent.
+                node = node[:-1] or node
+            return None, _error_entry(node, _ERR_NOT_FOUND)
+        if value is None:
+            return _build_nested(path, current), None
+        if path in self.read_only:
+            return None, _error_entry(path, _ERR_NOT_ALLOWED)
+        if not _same_kind(current, value):
+            return None, _error_entry(path, _ERR_NOT_ACCEPTABLE)
+        self._apply_set(path, value)
+        return _build_nested(path, value), None
 
     def _apply_set(self, path: tuple[str, ...], value: Any) -> None:
         node: Any = self.state
@@ -487,28 +506,19 @@ class SSCSimulator:
             return _error(_ERR_BAD_REQUEST)
 
         leaves = _collect_leaves(request)
-        if len(leaves) != 1:
-            if any(value is not None for _, value in leaves):
-                # A bundled set was never recorded; refuse it rather than guess.
-                return _error(_ERR_BAD_REQUEST)
-            return self._bundled_get(leaves)
-
-        path, value = leaves[0]
-        found, current = self._resolve(path)
-        if not found:
-            return _not_found(self._first_missing(path))
-        if isinstance(current, dict):
-            # Container query (e.g. {"device": null}): a 404 at the container.
-            return _not_found(path)
-
-        if value is None:
-            return _build_nested(path, current)
-
-        if path in self.read_only:
-            return _error(_ERR_NOT_ALLOWED)
-
-        self._apply_set(path, value)
-        return _build_nested(path, value)
+        if not leaves:
+            return _error(_ERR_BAD_REQUEST)
+        answer: dict[str, Any] = {}
+        errors: list[dict[str, Any]] = []
+        for path, value in leaves:
+            subtree, error = self._answer_leaf(path, value, bundled=len(leaves) > 1)
+            if subtree is None:
+                errors.append(error)
+            else:
+                _merge(answer, subtree)
+        if errors:
+            answer["osc"] = {"error": errors}
+        return answer
 
 
 async def _handle_client(
