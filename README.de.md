@@ -389,7 +389,7 @@ Q/Enabled je Band) wäre bei der KH 750 DSP ca. 800 Entities – nicht mehr
   keine dokumentierten Standardfrequenzen pro Band vorliegen.
 
 Alle Container-Namen beginnen bewusst mit „EQ“ (z. B. „EQ2 Hauptausgang“,
-„EQ Crossover Ausgang 1“), damit sie im Abschnitt „Konfiguration“
+„EQ3 Ausgang 1“), damit sie im Abschnitt „Konfiguration“
 alphabetisch zusammen gruppiert erscheinen.
 
 **Abgedeckte Container:**
@@ -399,10 +399,10 @@ alphabetisch zusammen gruppiert erscheinen.
 | KH 120 II (Nicht-Subwoofer) | `audio/out/eq2` | 10 |
 | KH 120 II (Nicht-Subwoofer) | `audio/out/eq3` | 20 |
 | KH 750 DSP (Hauptausgang) | `audio/out/eq2` | 10 |
-| KH 750 DSP (out1/out2 je) | `eq1` (Crossover) | 2 |
+| KH 750 DSP (Hauptausgang) | `audio/out/eq3` | 10 |
 | KH 750 DSP (out1/out2 je) | `eq2` | 10 |
 | KH 750 DSP (out1/out2 je) | `eq3` | 10 |
 
 Macht in Summe **4 Entities** (KH 120 II: 2 Container × Schalter+Button)
-bzw. **14 Entities** (KH 750 DSP: 7 Container × Schalter+Button).
+bzw. **12 Entities** (KH 750 DSP: 6 Container × Schalter+Button).
 

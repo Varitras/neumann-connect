@@ -373,7 +373,7 @@ longer manageable. Deliberately reduced to container level instead:
   per band.
 
 All container names deliberately start with "EQ" (e.g. "EQ2 Main output",
-"EQ Crossover Output 1") so that they appear grouped together alphabetically in
+"EQ3 Output 1") so that they appear grouped together alphabetically in
 the configuration section.
 
 **Containers covered:**
@@ -383,9 +383,9 @@ the configuration section.
 | KH 120 II (non-subwoofer) | `audio/out/eq2` | 10 |
 | KH 120 II (non-subwoofer) | `audio/out/eq3` | 20 |
 | KH 750 DSP (main output) | `audio/out/eq2` | 10 |
-| KH 750 DSP (out1/out2 each) | `eq1` (crossover) | 2 |
+| KH 750 DSP (main output) | `audio/out/eq3` | 10 |
 | KH 750 DSP (out1/out2 each) | `eq2` | 10 |
 | KH 750 DSP (out1/out2 each) | `eq3` | 10 |
 
 That adds up to **4 entities** (KH 120 II: 2 containers × switch+button) or
-**14 entities** (KH 750 DSP: 7 containers × switch+button).
+**12 entities** (KH 750 DSP: 6 containers × switch+button).

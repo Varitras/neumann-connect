@@ -49,17 +49,18 @@ _ERR_DESCRIPTIONS = {
     _ERR_NOT_ALLOWED: "method not allowed",
 }
 
-# EQ containers per model: (path prefix, band count). Mirrors eq_containers.py.
+# EQ containers per model: (path prefix, band count), as measured on the
+# devices. tests/test_eq_layout.py holds the KH 750 measurement both this and
+# eq_containers.py are checked against.
 _EQ_NON_SUBWOOFER = (
     (("audio", "out", "eq2"), 10),
     (("audio", "out", "eq3"), 20),
 )
 _EQ_SUBWOOFER = (
     (("audio", "out", "eq2"), 10),
-    (("audio", "out1", "eq1"), 2),
+    (("audio", "out", "eq3"), 10),
     (("audio", "out1", "eq2"), 10),
     (("audio", "out1", "eq3"), 10),
-    (("audio", "out2", "eq1"), 2),
     (("audio", "out2", "eq2"), 10),
     (("audio", "out2", "eq3"), 10),
 )
