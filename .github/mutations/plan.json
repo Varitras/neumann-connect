@@ -37,8 +37,8 @@
   {
     "name": "confirmed values are not recorded during a poll",
     "path": "custom_components/neumann_kh/coordinator.py",
-    "find": "            if self._poll_in_flight:",
-    "replace": "            if False:",
+    "find": "        if self._poll_in_flight:",
+    "replace": "        if False:",
     "expect": "tests/test_coordinator.py::test_a_value_confirmed_during_a_poll_is_not_overwritten"
   },
   {

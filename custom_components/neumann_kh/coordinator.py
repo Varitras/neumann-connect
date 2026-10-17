@@ -286,21 +286,16 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def apply_confirmed_value(
         self, path: tuple[str, ...], value: Any, *, publish: bool = True
     ) -> None:
-        """Apply a single device-confirmed value directly into the data."""
-        self.apply_confirmed_values([(path, value)], publish=publish)
+        """Apply a device-confirmed value directly into the data.
 
-    def apply_confirmed_values(
-        self, values: list[tuple[tuple[str, ...], Any]], *, publish: bool = True
-    ) -> None:
-        """Apply several device-confirmed values in one update.
-
-        `publish=False` takes the values into the data without notifying the
+        `publish=False` takes the value into the data without notifying the
         entities yet; `async_update_listeners()` does that later. A restore
         applies each confirmation the moment the device gives it and publishes
-        once at the end. Collecting them and applying the batch at the end
-        instead let a rename that reached the device AFTER the restore wrote
-        the name be overwritten by the batch: the order in which the device
-        was written is the order the data must be applied in.
+        once at the end - every publish notifies every entity of the device,
+        so publishing per path produced thousands of state changes for one
+        press. Applying them all at the end instead let a rename that reached
+        the device after the restore wrote the name be overwritten: the order
+        the device was written in is the order the data must be applied in.
 
         If a path is in the slow poll, the _slow_data cache is additionally
         updated. Without that, the next FAST cycle would overwrite the
@@ -309,23 +304,15 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         Only merge slow paths into the cache: conversely, a blanket merge
         would let a stale fast value from the cache overwrite fresh poll
         values.
-
-        Batching matters for the restore, which confirms dozens of values at
-        once: every call copies the whole data tree and notifies every entity
-        of the device, so applying them one by one produced thousands of state
-        changes for a single button press.
         """
-        if not values:
-            return
         new_data: dict[str, Any] = {}
         if self.data:
             deep_merge(new_data, self.data)
-        for path, value in values:
-            deep_merge(new_data, build_nested(path, value))
-            if path in self._slow_path_set:
-                deep_merge(self._slow_data, build_nested(path, value))
-            if self._poll_in_flight:
-                self._confirmed_during_poll.append((path, value))
+        deep_merge(new_data, build_nested(path, value))
+        if path in self._slow_path_set:
+            deep_merge(self._slow_data, build_nested(path, value))
+        if self._poll_in_flight:
+            self._confirmed_during_poll.append((path, value))
         if publish:
             self.async_set_updated_data(new_data)
         else:

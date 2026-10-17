@@ -21,9 +21,16 @@ def build_nested(path: tuple[str, ...], value: Any) -> dict:
 
 
 def deep_merge(target: dict, source: dict) -> None:
-    """Merge two nested dicts (in-place); source wins on conflicts."""
+    """Merge two nested dicts (in-place); source wins on conflicts.
+
+    Nested dicts are copied, never shared: the coordinator merges its slow
+    cache into each published snapshot, and a shared subtree let a later write
+    to that snapshot reach back into the cache.
+    """
     for key, value in source.items():
-        if isinstance(value, dict) and isinstance(target.get(key), dict):
+        if isinstance(value, dict):
+            if not isinstance(target.get(key), dict):
+                target[key] = {}
             deep_merge(target[key], value)
         else:
             target[key] = value
