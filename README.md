@@ -316,7 +316,7 @@ number and stores the new address if it has moved.
   - **KH 750 DSP:** while booting (power light solid red), move the
     AUTO STANDBY switch up and down repeatedly. The power light flashes red
     while the defaults are applied, then turns green.
-  - **KH 120 II / KH 150:** while booting (logo flashing), move the CONTROL
+  - **KH 120 II / KH 150:** while booting (logo red), move the CONTROL
     switch up and down repeatedly until the logo turns solid white for a few
     seconds. It then flashes red quickly before turning white again.
 

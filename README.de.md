@@ -330,7 +330,7 @@ umgezogen ist.
     AUTO-STANDBY-Schalter mehrfach hoch und runter bewegen. Die Power-LED
     blinkt rot, während die Werkseinstellungen geladen werden, und wird dann
     grün.
-  - **KH 120 II / KH 150:** Beim Booten (Logo blinkt) den CONTROL-Schalter
+  - **KH 120 II / KH 150:** Beim Booten (Logo rot) den CONTROL-Schalter
     mehrfach hoch und runter bewegen, bis das Logo einige Sekunden lang
     durchgehend weiß leuchtet. Danach blinkt es kurz schnell rot und wird
     wieder weiß.
