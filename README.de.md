@@ -277,10 +277,9 @@ Assistant das von selbst wieder. Wie schnell es zurückkommt, hängt davon ab,
 welcher der beiden Mechanismen greift.
 
 War der Lautsprecher schon beim Start von Home Assistant nicht erreichbar, kam
-der Eintrag nie zustande und Home Assistant versucht es mit wachsendem Abstand
-erneut: 5 s, 10 s, 20 s, 40 s, 80 s und danach alle 80 s. Seit Home Assistant
-2026.6 verdoppelt sich der Abstand stattdessen weiter (160 s, 320 s) bis auf
-10 Minuten. Aufgegeben wird nie. Jeden Wiederholungsversuch vermerkt Home
+der Eintrag nie zustande und Home Assistant versucht es mit jeweils
+verdoppeltem Abstand erneut (5 s, 10 s, 20 s, …) bis auf 10 Minuten.
+Aufgegeben wird nie. Jeden Wiederholungsversuch vermerkt Home
 Assistant selbst im Log.
 
 Lief der Eintrag bereits, als der Lautsprecher einschlief, läuft der

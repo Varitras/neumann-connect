@@ -268,10 +268,9 @@ wakes from standby, Home Assistant picks it up again on its own. How quickly
 it returns depends on which of two mechanisms is running.
 
 If the speaker was already unavailable when Home Assistant started, the config
-entry never finished setting up and Home Assistant retries it with a widening
-gap: 5 s, 10 s, 20 s, 40 s, 80 s, and from then on every 80 s. Since Home
-Assistant 2026.6 the gap keeps doubling instead (160 s, 320 s) until it
-reaches 10 minutes. It never gives up. Home Assistant notes each retry in
+entry never finished setting up and Home Assistant retries it with a gap that
+doubles each time (5 s, 10 s, 20 s, ...) until it reaches 10 minutes. It never
+gives up. Home Assistant notes each retry in
 the log itself.
 
 If the entry was up and running when the speaker went to sleep, the poll cycle
