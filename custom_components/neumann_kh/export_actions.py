@@ -317,7 +317,7 @@ async def async_run_restore(
             skipped += 1
         except (SSCConnectionError, SSCTimeoutError) as err:
             # The request may have landed before the line dropped.
-            await coordinator.async_request_reread(path)
+            coordinator.request_reread(path)
             raise _stop("restore_interrupted", error=str(err)) from err
         else:
             if confirmed is None:
@@ -327,7 +327,7 @@ async def async_run_restore(
                 # to the coordinator would drop the entity to unknown. It may
                 # still hold the new value, so the path is read back.
                 skipped += 1
-                await coordinator.async_request_reread(path)
+                coordinator.request_reread(path)
                 continue
             # Applied now, published later: the device has this value from
             # this moment on, and a write that lands after it must win.

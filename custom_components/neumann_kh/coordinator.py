@@ -19,7 +19,7 @@ from datetime import timedelta
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
@@ -338,17 +338,22 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._cache_generation += 1
         await self.async_request_refresh()
 
-    async def async_request_reread(self, path: tuple[str, ...]) -> None:
+    @callback
+    def request_reread(self, path: tuple[str, ...]) -> None:
         """Make the next poll read `path` again, even if it is a slow path.
 
         For a write the device did not confirm: no echo, or the line dropped
         after the request went out. The device may hold the new value, but a
         plain refresh skips slow paths in nine of ten cycles and merges the
         cached old value back in.
+
+        Scheduled, not awaited: the caller is a failed write that should
+        report at once, or a restore whose loop must not run a whole poll -
+        and publish it - halfway through.
         """
         if path in self._slow_path_set:
             self._slow_poll_pending = True
-        await self.async_request_refresh()
+        self.hass.async_create_task(self.async_request_refresh())
 
     def value(self, path: tuple[str, ...]) -> Any:
         """Convenient access to a value from the last polled data."""

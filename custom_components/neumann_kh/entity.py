@@ -68,13 +68,13 @@ class NeumannKHEntity(CoordinatorEntity[NeumannKHCoordinator]):
                 translation_placeholders={"error": str(err)},
             ) from err
         except (SSCConnectionError, SSCTimeoutError) as err:
-            await self.coordinator.async_request_reread(path)
+            self.coordinator.request_reread(path)
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
                 translation_key="device_unreachable",
                 translation_placeholders={"error": str(err)},
             ) from err
         if confirmed is None:
-            await self.coordinator.async_request_reread(path)
+            self.coordinator.request_reread(path)
             return
         self.coordinator.apply_confirmed_value(path, confirmed)
