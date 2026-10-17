@@ -36,6 +36,7 @@ from homeassistant.helpers.service_info.zeroconf import (
 )
 
 from . import storage
+from ._util import localized
 from .const import (
     CONF_FIRMWARE_VERSION,
     CONF_INTERFACE,
@@ -69,11 +70,10 @@ _RESCAN_VALUE = "__rescan__"
 
 async def _async_get_interface_options(hass: HomeAssistant) -> list[selector.SelectOptionDict]:
     """Determine the network interfaces known on the HA host for the dropdown."""
-    language = hass.config.language or "en"
-    no_interface_label = (
-        "(keine Angabe – nur bei globaler, nicht Link-Local IPv6-Adresse nötig)"
-        if language.startswith("de")
-        else "(none – only needed for a global, non-link-local IPv6 address)"
+    no_interface_label = localized(
+        hass.config.language,
+        "(keine Angabe – nur bei globaler, nicht Link-Local IPv6-Adresse nötig)",
+        "(none – only needed for a global, non-link-local IPv6 address)",
     )
     options = [
         selector.SelectOptionDict(
@@ -99,45 +99,21 @@ async def _async_get_interface_options(hass: HomeAssistant) -> list[selector.Sel
     return options
 
 
-def _build_manual_schema(interface_options: list[selector.SelectOptionDict]) -> vol.Schema:
-    """Build the form schema for manual input, incl. interface dropdown."""
-    return vol.Schema(
-        {
-            vol.Required(CONF_NAME): str,
-            vol.Required(CONF_HOST): str,
-            vol.Optional(CONF_INTERFACE, default=_NO_INTERFACE_VALUE): selector.SelectSelector(
-                selector.SelectSelectorConfig(
-                    options=interface_options,
-                    mode=selector.SelectSelectorMode.DROPDOWN,
-                    custom_value=True,  # allows manual input if the interface is not listed
-                )
-            ),
-            vol.Optional(CONF_PORT, default=DEFAULT_PORT): vol.All(
-                vol.Coerce(int), vol.Range(min=1, max=65535)
-            ),
-        }
-    )
-
-
-def _build_reconfigure_schema(
-    interface_options: list[selector.SelectOptionDict],
-) -> vol.Schema:
-    """Same fields as manual setup, minus the name - renaming is done in HA."""
-    return vol.Schema(
-        {
-            vol.Required(CONF_HOST): str,
-            vol.Optional(CONF_INTERFACE, default=_NO_INTERFACE_VALUE): selector.SelectSelector(
-                selector.SelectSelectorConfig(
-                    options=interface_options,
-                    mode=selector.SelectSelectorMode.DROPDOWN,
-                    custom_value=True,
-                )
-            ),
-            vol.Optional(CONF_PORT, default=DEFAULT_PORT): vol.All(
-                vol.Coerce(int), vol.Range(min=1, max=65535)
-            ),
-        }
-    )
+def _connection_fields(interface_options: list[selector.SelectOptionDict]) -> dict:
+    """Address, interface and port - shared by manual setup and reconfigure."""
+    return {
+        vol.Required(CONF_HOST): str,
+        vol.Optional(CONF_INTERFACE, default=_NO_INTERFACE_VALUE): selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=interface_options,
+                mode=selector.SelectSelectorMode.DROPDOWN,
+                custom_value=True,  # allows manual input if the interface is not listed
+            )
+        ),
+        vol.Optional(CONF_PORT, default=DEFAULT_PORT): vol.All(
+            vol.Coerce(int), vol.Range(min=1, max=65535)
+        ),
+    }
 
 
 def _split_scope_id(host: str, interface: str | None) -> tuple[str, str | None]:
@@ -153,10 +129,45 @@ def _split_scope_id(host: str, interface: str | None) -> tuple[str, str | None]:
     return host.strip(), interface or (scope.strip() or None)
 
 
-def _already_configured_serials(hass: HomeAssistant) -> set[str]:
-    """Collect the serial numbers of all already configured speakers."""
+def _known_serials(hass: HomeAssistant) -> tuple[set[str], set[str]]:
+    """Serials of the speakers already set up, and of those the user ignored.
+
+    Ignoring a discovery creates a config entry as well, but nothing is
+    connected - the scan list must not call it that.
+    """
+    connected: set[str] = set()
+    ignored: set[str] = set()
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        if not entry.unique_id:
+            continue
+        target = ignored if entry.source == config_entries.SOURCE_IGNORE else connected
+        target.add(entry.unique_id)
+    return connected, ignored
+
+
+class _CheckedConnection(NamedTuple):
+    """What the address form turned into, and the first problem found, if any."""
+
+    host: str
+    interface: str | None
+    port: int
+    identity: DeviceIdentity | None
+    error: str | None
+
+
+def _entry_data(
+    name: str, host: str, interface: str, port: int, serial: str, identity: DeviceIdentity
+) -> dict[str, Any]:
+    """The data of a new entry - one shape for manual, scan and zeroconf."""
     return {
-        entry.unique_id for entry in hass.config_entries.async_entries(DOMAIN) if entry.unique_id
+        CONF_NAME: name,
+        CONF_HOST: host,
+        CONF_INTERFACE: interface,
+        CONF_PORT: port,
+        CONF_MODEL: identity.product or FALLBACK_MODEL,
+        CONF_SERIAL: serial,
+        CONF_VENDOR: identity.vendor or "",
+        CONF_FIRMWARE_VERSION: identity.version or "",
     }
 
 
@@ -220,6 +231,22 @@ async def _async_test_connection(host: str, port: int, interface: str | None) ->
         await client.close()
 
 
+async def _async_check_connection(user_input: dict[str, Any]) -> _CheckedConnection:
+    """Validate the address form and ask the device who it is."""
+    host, interface = _split_scope_id(
+        user_input[CONF_HOST].strip(), user_input.get(CONF_INTERFACE, "").strip() or None
+    )
+    port = user_input.get(CONF_PORT, DEFAULT_PORT)
+    try:
+        ipaddress.IPv6Address(host)
+    except ValueError:
+        return _CheckedConnection(host, interface, port, None, "invalid_ipv6")
+    if SSCClient.is_link_local(host) and not interface:
+        return _CheckedConnection(host, interface, port, None, "interface_required_for_link_local")
+    identity = await _async_test_connection(host, port, interface)
+    return _CheckedConnection(host, interface, port, identity, identity.error_key)
+
+
 async def _async_identify_all(
     speakers: list[DiscoveredSpeaker],
 ) -> list[tuple[DeviceIdentity, DiscoveredSpeaker]]:
@@ -240,25 +267,33 @@ async def _async_identify_all(
 
 
 def _scan_option_label(
-    identity: DeviceIdentity, host: str, configured_serials: set[str], de: bool
+    identity: DeviceIdentity,
+    host: str,
+    known_serials: tuple[set[str], set[str]],
+    language: str | None,
 ) -> str:
     """One line of the discovery list: what was found, and what is notable.
 
     Building the label is text assembly, not flow control - keeping it out of
     the schema builder leaves that function about the schema.
     """
+    connected, ignored = known_serials
     label = f"{identity.product or FALLBACK_MODEL} – {host}"
     if identity.serial:
-        label += f" (Serial: {identity.serial})"
-    if identity.serial in configured_serials:
-        label += " — ✓ bereits verbunden" if de else " — ✓ already connected"
+        label += localized(
+            language, f" (Seriennummer: {identity.serial})", f" (Serial: {identity.serial})"
+        )
+    if identity.serial in connected:
+        label += localized(language, " – ✓ bereits verbunden", " – ✓ already connected")
+    if identity.serial in ignored:
+        label += localized(language, " – ignoriert", " – ignored")
     if not identity.is_neumann:
         # Kept selectable on purpose: SSC is not Neumann-exclusive, so the
         # device may still work - the label just says what it is.
-        label += (
-            f" — ⚠ kein Neumann-Gerät ({identity.vendor})"
-            if de
-            else f" — ⚠ not a Neumann device ({identity.vendor})"
+        label += localized(
+            language,
+            f" – ⚠ kein Neumann-Gerät ({identity.vendor})",
+            f" – ⚠ not a Neumann device ({identity.vendor})",
         )
     return label
 
@@ -293,7 +328,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         be typed again.
         """
         interface_options = await _async_get_interface_options(self.hass)
-        schema = _build_manual_schema(interface_options)
+        schema = vol.Schema({vol.Required(CONF_NAME): str, **_connection_fields(interface_options)})
         if user_input is not None:
             schema = self.add_suggested_values_to_schema(schema, user_input)
         return self.async_show_form(
@@ -306,52 +341,44 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is None:
             return await self._show_manual_form(None)
 
-        host = user_input[CONF_HOST].strip()
-        interface = user_input.get(CONF_INTERFACE, "").strip() or None
-        port = user_input.get(CONF_PORT, DEFAULT_PORT)
         name = user_input[CONF_NAME].strip()
-
-        host, interface = _split_scope_id(host, interface)
-
         if not name:
             return await self._show_manual_form(user_input, "name_required")
 
-        try:
-            ipaddress.IPv6Address(host)
-        except ValueError:
-            return await self._show_manual_form(user_input, "invalid_ipv6")
+        checked = await _async_check_connection(user_input)
+        if checked.error:
+            return await self._show_manual_form(user_input, checked.error)
+        identity = checked.identity
 
-        if SSCClient.is_link_local(host) and not interface:
-            return await self._show_manual_form(user_input, "interface_required_for_link_local")
-
-        identity = await _async_test_connection(host, port, interface)
-        if identity.error_key:
-            return await self._show_manual_form(user_input, identity.error_key)
-
-        await self.async_set_unique_id(str(identity.serial or f"{host}_{port}"))
+        await self.async_set_unique_id(str(identity.serial or f"{checked.host}_{checked.port}"))
         self._abort_if_unique_id_configured()
         if identity.serial:
             await storage.async_remember_name(self.hass, identity.serial, name)
 
-        entry_data = {
-            CONF_NAME: name,
-            CONF_HOST: host,
-            CONF_INTERFACE: interface or "",
-            CONF_PORT: port,
-            CONF_MODEL: identity.product or FALLBACK_MODEL,
-            CONF_SERIAL: identity.serial or "",
-            CONF_VENDOR: identity.vendor or "",
-            CONF_FIRMWARE_VERSION: identity.version or "",
-        }
+        entry_data = _entry_data(
+            name,
+            checked.host,
+            checked.interface or "",
+            checked.port,
+            identity.serial or "",
+            identity,
+        )
+        return await self._async_finish(entry_data, identity)
+
+    async def _async_finish(
+        self, entry_data: dict[str, Any], identity: DeviceIdentity
+    ) -> ConfigFlowResult:
+        """Create the entry, or first show what was found if it is not a Neumann.
+
+        Setup is not blocked - the integration talks plain SSC and stays usable
+        on other vendors' devices. The user just gets to see what was actually
+        found before confirming.
+        """
         if not identity.is_neumann:
-            # Setup is not blocked - the integration talks plain SSC and stays
-            # usable on other vendors' devices. The user just gets to see what
-            # was actually found before confirming.
             self._pending_entry = entry_data
             self._pending_identity = identity
             return await self.async_step_unsupported()
-
-        return self.async_create_entry(title=name, data=entry_data)
+        return self.async_create_entry(title=entry_data[CONF_NAME], data=entry_data)
 
     # --- Reconfigure: change address/interface/port of an existing entry -----
 
@@ -360,7 +387,8 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Show the reconfigure form, pre-filled from the attempt or the entry."""
         interface_options = await _async_get_interface_options(self.hass)
-        schema = _build_reconfigure_schema(interface_options)
+        # No name field: renaming is done in Home Assistant itself.
+        schema = vol.Schema(_connection_fields(interface_options))
         schema = self.add_suggested_values_to_schema(
             schema,
             user_input
@@ -391,25 +419,10 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is None:
             return await self._show_reconfigure_form(entry, None)
 
-        host = user_input[CONF_HOST].strip()
-        interface = user_input.get(CONF_INTERFACE, "").strip() or None
-        port = user_input.get(CONF_PORT, DEFAULT_PORT)
-
-        host, interface = _split_scope_id(host, interface)
-
-        try:
-            ipaddress.IPv6Address(host)
-        except ValueError:
-            return await self._show_reconfigure_form(entry, user_input, "invalid_ipv6")
-
-        if SSCClient.is_link_local(host) and not interface:
-            return await self._show_reconfigure_form(
-                entry, user_input, "interface_required_for_link_local"
-            )
-
-        identity = await _async_test_connection(host, port, interface)
-        if identity.error_key:
-            return await self._show_reconfigure_form(entry, user_input, identity.error_key)
+        checked = await _async_check_connection(user_input)
+        if checked.error:
+            return await self._show_reconfigure_form(entry, user_input, checked.error)
+        identity = checked.identity
 
         # Guard against pointing an entry at a different speaker: that would
         # silently attach one device's history to another. Entries created
@@ -424,9 +437,9 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_update_reload_and_abort(
             entry,
             data_updates={
-                CONF_HOST: host,
-                CONF_INTERFACE: interface or "",
-                CONF_PORT: port,
+                CONF_HOST: checked.host,
+                CONF_INTERFACE: checked.interface or "",
+                CONF_PORT: checked.port,
                 CONF_MODEL: identity.product or entry.data.get(CONF_MODEL),
                 CONF_VENDOR: identity.vendor or "",
                 CONF_FIRMWARE_VERSION: identity.version or "",
@@ -560,17 +573,11 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._abort_if_unique_id_configured(updates=updates)
 
         self._pending_identity = identity
-        self._pending_entry = {
-            CONF_NAME: "",
-            CONF_HOST: host,
-            CONF_INTERFACE: _NO_INTERFACE_VALUE,
-            CONF_PORT: port,
-            CONF_MODEL: identity.product or FALLBACK_MODEL,
-            # Whatever ends up as the unique ID above, so the two cannot drift.
-            CONF_SERIAL: str(self.unique_id or ""),
-            CONF_VENDOR: identity.vendor or "",
-            CONF_FIRMWARE_VERSION: identity.version or "",
-        }
+        # The serial is whatever ended up as the unique ID above, so the two
+        # cannot drift.
+        self._pending_entry = _entry_data(
+            "", host, _NO_INTERFACE_VALUE, port, str(self.unique_id or ""), identity
+        )
         # Shown on the discovery card in the integrations panel.
         self.context["title_placeholders"] = {
             "name": f"{identity.product or FALLBACK_MODEL} ({self.unique_id})"
@@ -595,10 +602,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 entry_data = {**entry_data, CONF_NAME: name}
                 if identity.serial:
                     await storage.async_remember_name(self.hass, identity.serial, name)
-                if not identity.is_neumann:
-                    self._pending_entry = entry_data
-                    return await self.async_step_unsupported()
-                return self.async_create_entry(title=name, data=entry_data)
+                return await self._async_finish(entry_data, identity)
 
         suggested = None
         if identity.serial:
@@ -711,39 +715,27 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if identity.serial:
             await storage.async_remember_name(self.hass, identity.serial, name)
 
-        entry_data = {
-            CONF_NAME: name,
-            CONF_HOST: candidate.host,
-            # Scope ID is already contained in candidate.host (%<scope>).
-            CONF_INTERFACE: "",
-            CONF_PORT: candidate.port,
-            CONF_MODEL: identity.product or FALLBACK_MODEL,
-            CONF_SERIAL: identity.serial or "",
-            CONF_VENDOR: identity.vendor or "",
-            CONF_FIRMWARE_VERSION: identity.version or "",
-        }
-        if not identity.is_neumann:
-            self._pending_entry = entry_data
-            self._pending_identity = identity
-            return await self.async_step_unsupported()
-
-        return self.async_create_entry(title=name, data=entry_data)
+        # No interface: the scope ID is already part of candidate.host (%<scope>).
+        entry_data = _entry_data(
+            name, candidate.host, "", candidate.port, identity.serial or "", identity
+        )
+        return await self._async_finish(entry_data, identity)
 
     def _build_scan_schema(self) -> vol.Schema:
         """Build the selection form from the most recently discovered devices."""
-        de = (self.hass.config.language or "en").startswith("de")
-        configured_serials = _already_configured_serials(self.hass)
+        language = self.hass.config.language
+        known_serials = _known_serials(self.hass)
         options = [
             selector.SelectOptionDict(
                 value=_RESCAN_VALUE,
-                label="🔄 Erneut suchen" if de else "🔄 Search again",
+                label=localized(language, "🔄 Erneut suchen", "🔄 Search again"),
             )
         ]
         options += [
             selector.SelectOptionDict(
                 value=key,
                 label=_scan_option_label(
-                    identity, self._discovered[key].host, configured_serials, de
+                    identity, self._discovered[key].host, known_serials, language
                 ),
             )
             for key, identity in self._discovery_info.items()

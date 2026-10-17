@@ -32,7 +32,7 @@ LINE_BUDGETS = {
     # Four flows (manual, zeroconf, scan, reconfigure) plus their shared
     # identity handling. Splitting was considered and rejected: the flows
     # share the candidate/identity helpers, and HA discovers the class here.
-    "config_flow.py": 776,
+    "config_flow.py": 752,
 }
 
 # SonarSource's default. Everything above needs a written entry.
@@ -49,7 +49,6 @@ COMPLEXITY_BUDGETS = {
     "discovery_export.py::_async_discover_via_schema": 18,
     # Matches an announcement against known entries, unknown devices and
     # devices that answer with a different serial than announced.
-    "config_flow.py::NeumannKHConfigFlow.async_step_zeroconf": 17,
 }
 
 

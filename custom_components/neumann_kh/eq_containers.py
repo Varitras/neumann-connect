@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from ._util import localized
 from .const import MODELS_WITH_SUBWOOFER_FEATURES
 
 
@@ -28,9 +29,7 @@ class EQContainer:
 
     def label_for(self, language: str | None) -> str:
         """Return the display label for the given HA language (de/en, fallback en)."""
-        if language and language.startswith("de"):
-            return self.label_de
-        return self.label_en
+        return localized(language, self.label_de, self.label_en)
 
 
 # Non-subwoofer models (KH 120 II etc.)
