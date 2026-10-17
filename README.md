@@ -256,11 +256,10 @@ A loudspeaker is polled every 30 seconds. Not everything is fetched on every
 cycle: rarely changing values (identity, rear-panel switches, device name) are
 only queried on every tenth cycle, so every 5 minutes. Each value is fetched
 **individually** (one leaf path per SSC message), not as a combined
-message and not as a container query. The reason (confirmed by two hardware
-tests): the firmware rejects both a combined message containing several leaves
-(as soon as one of them is unknown) and a container query such as
-`{"device":null}` entirely. Only individual, concrete, existing leaf paths work
-reliably. If the device rejects a single value,
+message and not as a container query: a container query such as
+`{"device":null}` is answered with an error, and a combined message only
+answers the leaves the device has, next to an error for the rest. One leaf per
+message keeps every answer unambiguous. If the device rejects a single value,
 only that one is skipped – the remaining values are still updated.
 
 **Standby behaviour (important, not a bug):** when a loudspeaker goes into
@@ -354,8 +353,9 @@ serial number:
   never over HTTP, unlike `/config/www/`.
 - **`.storage/neumann_kh_discovery`**: the result of the `Run device discovery`
   button (diagnostic) – combines our known paths with a best-effort attempt via
-  `osc/schema` + `osc/limits` (optional SSC methods; not every firmware supports
-  them – if this part fails, it is simply left empty). It is also written as
+  `osc/schema` + `osc/limits` (optional SSC methods, answered by the tested
+  KH 120 II and KH 750 – on a firmware without them this part is simply left
+  empty). It is also written as
   a JSON file to `<config>/neumann_kh/`; the notification shows its path. The
   serial number is redacted in this export (only the last 3 characters remain
   visible).
