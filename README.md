@@ -27,7 +27,7 @@ speakers (KH 80 DSP and KH 150 untested).
 guaranteed support or maintenance. Use at your own risk – especially with
 writable settings that directly change the actual loudspeaker hardware (EQ,
 levels, delay, factory reset). Always double-check changes in Neumann's own
-MA1/Neumann.Control software or directly on the device.
+MA 1 / Neumann.Control software or directly on the device.
 
 Developed with AI assistance (Claude), with all testing, decisions and
 validation performed by me against my own installation (KH 120 II, KH 750 DSP).
@@ -251,8 +251,9 @@ Entities that are disabled by default can be enabled manually under
 ## Polling
 
 A loudspeaker is polled every 30 seconds. Not everything is fetched on every
-cycle: rarely changing values (identity, rear-panel switches, device name) are
-only queried on every tenth cycle, so every 5 minutes. Each value is fetched
+cycle: rarely changing values (identity, most rear-panel settings, device name)
+are only queried on every tenth cycle, so every 5 minutes. The control mode and
+auto standby switches are read on every cycle. Each value is fetched
 **individually** (one leaf path per SSC message), not as a combined
 message and not as a container query: a container query such as
 `{"device":null}` is answered with an error, and a combined message only
@@ -286,7 +287,7 @@ number and stores the new address if it has moved.
 
 **Too many connections:** a speaker accepts only about four network
 connections at a time (measured on the KH 120 II and the KH 750 DSP). Home
-Assistant keeps one open per speaker. If the Neumann app, MA 1 or other tools
+Assistant keeps one open per speaker. If Neumann.Control, MA 1 or other tools
 hold the rest, a new connection times out and the entities show as
 unavailable until one is closed.
 
@@ -309,9 +310,11 @@ unavailable until one is closed.
 - Control mode (`ui/control_mode`) is set with the CONTROL switch on the
   back (KH 750 DSP: CONTROL MODE) and cannot be changed over the network, so
   it is a sensor. On `LOCAL` the speaker keeps answering, so its values stay
-  visible, but it refuses every change ("authorisation needed") and reports
-  the settings of its back panel. Set the switch to `NETWORK` to control it
-  from Home Assistant. Measured on the KH 750 DSP.
+  visible, but it does not accept changes over the network (a write is
+  answered with "authorisation needed") and uses its local settings instead of
+  the network configuration (measured: a different output level and auto
+  standby time). Set the switch to `NETWORK` to control it from Home
+  Assistant. Measured on the KH 750 DSP.
 - Restore backup has the same two-step safety confirmation as the factory
   reset below: the first press only arms it, a second press between 2 s and 30 s
   later writes the backup.

@@ -140,8 +140,7 @@ PATH_INPUT_SELECT = ("ui", "input_select")  # read-only
 PATH_INPUT_INTERFACE_TYPE = ("audio", "in", "interface")
 INPUT_INTERFACE_OPTIONS = ("ANALOG ONLY", "DIGITAL ONLY", "DIGITAL DISCARDS ANALOG")
 
-# Control mode NETWORK/LOCAL. Disabled by default: switching to LOCAL
-# cuts off network control until manually reset on the device.
+# Follows the rear CONTROL (MODE) switch; read-only over SSC (405).
 PATH_UI_CONTROL_MODE = ("ui", "control_mode")
 
 # Pure info/diagnostic paths (read-only)

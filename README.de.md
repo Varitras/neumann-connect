@@ -27,7 +27,7 @@ Setup und „as-is“ geteilt.** Es ist keine offizielle Integration, es gibt
 keine Garantie und weder zugesicherten Support noch zugesicherte Wartung. Nutzung auf
 eigenes Risiko – besonders bei schreibbaren Einstellungen, die direkt die
 echte Lautsprecher-Hardware verändern (EQ, Pegel, Delay, Werksreset).
-Änderungen immer zusätzlich in Neumanns eigener MA1/Neumann.Control-Software
+Änderungen immer zusätzlich in Neumanns eigener MA 1 / Neumann.Control-Software
 oder direkt am Gerät überprüfen.
 
 Entwickelt mit KI-Unterstützung (Claude); sämtliche Tests, Entscheidungen
@@ -259,8 +259,10 @@ Dienste → [Gerät] → Entitäten** manuell aktivieren.
 ## Polling
 
 Ein Lautsprecher wird alle 30 Sekunden abgefragt. Dabei wird nicht jedes Mal
-alles geholt: Selten wechselnde Werte (Identität, Rückseiten-Schalter,
-Gerätename) werden nur in jedem zehnten Zyklus abgefragt, also alle 5 Minuten.
+alles geholt: Selten wechselnde Werte (Identität, die meisten
+Rückseiten-Einstellungen, Gerätename) werden nur in jedem zehnten Zyklus
+abgefragt, also alle 5 Minuten. Steuerungsmodus und Auto-Standby-Schalter werden
+in jedem Zyklus gelesen.
 Abgefragt wird **jeder Wert einzeln** (ein Blattpfad pro SSC-Nachricht), nicht als
 Sammelnachricht und nicht als Container-Abfrage: Eine Container-Abfrage wie
 `{"device":null}` beantwortet das Gerät mit einem Fehler, eine Sammelnachricht
@@ -297,7 +299,7 @@ umgezogen ist.
 
 **Zu viele Verbindungen:** Ein Lautsprecher nimmt nur etwa vier
 Netzwerkverbindungen gleichzeitig an (gemessen an KH 120 II und KH 750 DSP).
-Home Assistant hält je Lautsprecher eine offen. Belegen die Neumann-App, MA 1
+Home Assistant hält je Lautsprecher eine offen. Belegen Neumann.Control, MA 1
 oder andere Werkzeuge den Rest, läuft eine neue Verbindung ins Timeout und die
 Entities sind „nicht verfügbar“, bis eine wieder geschlossen wird.
 
@@ -321,10 +323,12 @@ Entities sind „nicht verfügbar“, bis eine wieder geschlossen wird.
 - Der Steuerungsmodus (`ui/control_mode`) wird mit dem Schalter CONTROL auf
   der Rückseite eingestellt (KH 750 DSP: CONTROL MODE) und lässt sich über das
   Netzwerk nicht ändern, deshalb ist er ein Sensor. Auf `LOCAL` antwortet der
-  Lautsprecher weiter, seine Werte bleiben also sichtbar, aber er lehnt jede
-  Änderung ab („authorisation needed“) und meldet die Einstellungen seiner
-  Rückseite. Für die Steuerung aus Home Assistant den Schalter auf `NETWORK`
-  stellen. Gemessen an der KH 750 DSP.
+  Lautsprecher weiter, seine Werte bleiben also sichtbar, aber er nimmt über
+  das Netzwerk keine Änderungen an (ein Schreibversuch wird mit „authorisation
+  needed“ beantwortet) und nutzt seine lokalen Einstellungen statt der
+  Netzwerk-Konfiguration (gemessen: anderer Ausgangspegel und andere
+  Auto-Standby-Zeit). Für die Steuerung aus Home Assistant den Schalter auf
+  `NETWORK` stellen. Gemessen an der KH 750 DSP.
 - „Backup zurückspielen“ hat dieselbe Zwei-Schritt-Sicherheitsabfrage wie
   der Werksreset unten: Der erste Tastendruck schaltet nur scharf, ein zweiter
   Druck frühestens 2 s und spätestens 30 s danach schreibt das Backup.
