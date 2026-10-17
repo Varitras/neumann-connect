@@ -88,8 +88,8 @@ konnten also nie einen Wert tragen oder ihre Aktion ausführen.
   über alle bekannten Pfade, ohne dass irgendetwas sie beendet hätte – ein
   Lautsprecher, der antwortet, aber nie mit dem angefragten Pfad, konnte den
   Button eine Viertelstunde drehen lassen. Backup und Discovery speichern nun
-  nichts statt eines halben Schnappschusses; das Zurückspielen hört auf zu schreiben
-  und meldet, wie viele Werte angekommen waren
+  nichts statt eines halben Schnappschusses; das Zurückspielen hört auf zu
+  schreiben und meldet, wie viele Werte angekommen waren
 - Auf einem Lautsprecher läuft nur noch eine Aktion gleichzeitig. Backup,
   Discovery, Zurückspielen und Werksreset bewachten sich getrennt, sodass ein
   Backup lesen konnte, während das Zurückspielen lief – und ein Schnappschuss aus

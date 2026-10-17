@@ -317,8 +317,8 @@ umgezogen ist.
 - Steuerungsmodus (`ui/control_mode`) ist standardmäßig deaktiviert und
   sollte es bleiben: Ein Wechsel zu `LOCAL` könnte die Netzwerksteuerung vom
   Gerät trennen.
-- „Backup zurückspielen“ hat dieselbe Zwei-Schritt-Bestätigung wie der
-  Werksreset unten: Der erste Tastendruck schaltet nur scharf, ein zweiter
+- „Backup zurückspielen“ hat dieselbe Zwei-Schritt-Sicherheitsabfrage wie
+  der Werksreset unten: Der erste Tastendruck schaltet nur scharf, ein zweiter
   Druck frühestens 2 s und spätestens 30 s danach schreibt das Backup.
 - Werksreset (`device/restore`) hat eine Zwei-Schritt-Sicherheitsabfrage:
   Der erste Tastendruck schaltet nur scharf, ein zweiter Druck frühestens 2 s
@@ -388,7 +388,8 @@ Die Auswahlliste beim automatischen Scan enthält außerdem einen Eintrag
 
 Eine vollständige 1:1-Abbildung aller EQ-Parameter (Typ/Frequenz/Gain/Boost/
 Q/Enabled je Band) wäre bei der KH 750 DSP 360 Entities (6 Container
-× 10 Bänder × 6 Parameter) – nicht mehr überschaubar. Stattdessen bewusst auf Container-Ebene reduziert:
+× 10 Bänder × 6 Parameter) – nicht mehr überschaubar. Stattdessen bewusst
+auf Container-Ebene reduziert:
 
 - **Ein Ein/Aus-Schalter pro EQ-Container** (`switch`, Kategorie
   „Konfiguration“, standardmäßig aktiviert): schaltet **alle Bänder dieses

@@ -304,8 +304,8 @@ number and stores the new address if it has moved.
   line, so this concerns other firmware rather than the hardware in use.
 - Control mode (`ui/control_mode`) is disabled by default and should stay
   that way: switching to `LOCAL` could cut network control off from the device.
-- Restore backup has the same two-step confirmation as the factory reset
-  below: the first press only arms it, a second press between 2 s and 30 s
+- Restore backup has the same two-step safety confirmation as the factory
+  reset below: the first press only arms it, a second press between 2 s and 30 s
   later writes the backup.
 - Factory reset (`device/restore`) has a two-step safety confirmation: the
   first press only arms it, a second press between 2 s and 30 s later
@@ -370,7 +370,8 @@ entry to restart the network search directly from the list.
 
 A complete 1:1 mapping of all EQ parameters (type/frequency/gain/boost/Q/
 enabled per band) would come to 360 entities on the KH 750 DSP (6 containers
-× 10 bands × 6 parameters) – no longer manageable. Deliberately reduced to container level instead:
+× 10 bands × 6 parameters) – no longer manageable. Deliberately reduced to
+container level instead:
 
 - **One on/off switch per EQ container** (`switch`, category "Configuration",
   enabled by default): switches **all bands of that container together**
