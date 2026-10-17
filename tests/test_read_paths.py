@@ -33,7 +33,7 @@ class _Client:
         self.answers = answers
         self.asked: list[tuple[str, ...]] = []
 
-    async def get(self, path, priority=False):
+    async def get(self, path):
         self.asked.append(path)
         answer = self.answers.get(path)
         if isinstance(answer, Exception):

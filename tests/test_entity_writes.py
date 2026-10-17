@@ -52,7 +52,7 @@ class _Client:
         self.answer = answer
         self.sent: list[tuple[tuple[str, ...], object]] = []
 
-    async def set(self, path, value, priority=True):
+    async def set(self, path, value):
         self.sent.append((path, value))
         if isinstance(self.answer, Exception):
             raise self.answer
@@ -255,3 +255,23 @@ def test_a_device_without_stored_identity_still_gets_a_complete_device_entry():
     assert info["identifiers"] == {(DOMAIN, "entry1")}
     assert info["manufacturer"] == DEFAULT_VENDOR
     assert info["sw_version"] is None
+
+
+async def test_the_entity_shows_what_the_device_confirmed_not_what_was_sent():
+    """A device that clamps or rounds answers with its own value."""
+    coordinator = _Coordinator(_Client(answer=80.0))
+    await _number("output_level", coordinator).async_set_native_value(85.5)
+
+    assert coordinator.confirmed == [(("audio", "out", "level"), 80.0)]
+
+
+def test_the_coordinator_stub_only_models_methods_the_real_one_has():
+    """A stub that defines the contract itself stays green when the real API moves."""
+    import inspect
+
+    from custom_components.neumann_kh.coordinator import NeumannKHCoordinator
+
+    for name in ("value", "apply_confirmed_value", "request_reread", "async_add_listener"):
+        real = getattr(NeumannKHCoordinator, name)
+        stub = getattr(_Coordinator, name)
+        assert inspect.iscoroutinefunction(real) == inspect.iscoroutinefunction(stub), name

@@ -30,7 +30,7 @@ class FakeClient:
         self.rejected_paths: set[tuple[str, ...]] = set()
         self.priority_waiting = asyncio.Event()
 
-    async def get(self, path: tuple[str, ...], priority: bool = False) -> Any:
+    async def get(self, path: tuple[str, ...]) -> Any:
         if self.fail_connection:
             raise SSCConnectionError("device offline (test)")
         if path in self.rejected_paths:
@@ -215,8 +215,8 @@ async def test_a_value_confirmed_during_a_poll_is_not_overwritten(coordinator, f
     release = asyncio.Event()
     plain_get = fake_client.get
 
-    async def _gated_get(path: tuple[str, ...], priority: bool = False) -> Any:
-        value = await plain_get(path, priority)
+    async def _gated_get(path: tuple[str, ...]) -> Any:
+        value = await plain_get(path)
         if path == PATH_DEVICE_NAME:
             # The poll now holds the OLD name and has not returned yet.
             reached_the_slow_path.set()

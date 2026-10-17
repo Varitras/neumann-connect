@@ -57,7 +57,7 @@ class _Device:
         self.release = asyncio.Event()
         self.held = asyncio.Event()
 
-    async def get(self, path, priority: bool = False):
+    async def get(self, path):
         value = self.values.get(path)
         if path == self.hold_first_read_of:
             # The snapshot is taken before the wait, like a real read that has
@@ -67,7 +67,7 @@ class _Device:
             await self.release.wait()
         return value
 
-    async def set(self, path, value, priority: bool = False):
+    async def set(self, path, value):
         self.values[path] = value
         hook = self.after_set.pop(path, None)
         if hook is not None:

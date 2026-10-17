@@ -66,11 +66,11 @@ class _BlockingClient:
         # action waits for the poll to yield.
         self.priority_waiting = asyncio.Event()
 
-    async def get(self, path, priority: bool = False):
+    async def get(self, path):
         self.reached_the_device.set()
         await asyncio.Event().wait()
 
-    async def set(self, path, value, priority: bool = False):
+    async def set(self, path, value):
         await asyncio.Event().wait()
 
     async def close(self) -> None:
@@ -113,12 +113,12 @@ class _AnsweringClient:
         self.closed = False
         self.priority_waiting = asyncio.Event()
 
-    async def get(self, path, priority: bool = False):
+    async def get(self, path):
         if path == PATH_IDENTITY_SERIAL:
             return "SIM0001234"
         return 0.0
 
-    async def set(self, path, value, priority: bool = False):
+    async def set(self, path, value):
         return None
 
     async def close(self) -> None:

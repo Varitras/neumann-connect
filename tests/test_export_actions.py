@@ -570,3 +570,14 @@ async def test_a_store_failure_does_not_undo_a_written_discovery_export(monkeypa
 
     assert path.endswith("discovery.json"), "a written export was reported as failed"
     assert len(written) == 1
+
+
+def test_the_coordinator_fake_only_models_methods_the_real_one_has():
+    import inspect
+
+    from custom_components.neumann_kh.coordinator import NeumannKHCoordinator
+
+    for name in ("apply_confirmed_value", "async_update_listeners", "request_reread"):
+        real = getattr(NeumannKHCoordinator, name)
+        fake = getattr(_FakeCoordinator, name)
+        assert inspect.iscoroutinefunction(real) == inspect.iscoroutinefunction(fake), name

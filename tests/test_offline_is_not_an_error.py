@@ -26,7 +26,7 @@ class UnreachableClient:
     def __init__(self) -> None:
         self.priority_waiting = asyncio.Event()
 
-    async def get(self, path: tuple[str, ...], priority: bool = False) -> object:
+    async def get(self, path: tuple[str, ...]) -> object:
         raise SSCConnectionError("device offline (test)")
 
 
@@ -36,7 +36,7 @@ class SlowClient:
     def __init__(self) -> None:
         self.priority_waiting = asyncio.Event()
 
-    async def get(self, path: tuple[str, ...], priority: bool = False) -> object:
+    async def get(self, path: tuple[str, ...]) -> object:
         await asyncio.sleep(0.2)
         return False
 
