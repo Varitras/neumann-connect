@@ -42,6 +42,7 @@ from custom_components.neumann_kh.select import INPUT_INTERFACE_DESCRIPTION, Neu
 from custom_components.neumann_kh.ssc_client import (
     SSCConnectionError,
     SSCDeviceError,
+    SSCLocalModeError,
     SSCTimeoutError,
 )
 from custom_components.neumann_kh.switch import COMMON_SWITCH_DESCRIPTIONS, NeumannKHSwitch
@@ -211,6 +212,16 @@ async def test_a_rejected_write_names_the_entity_specific_reason(
     with pytest.raises(HomeAssistantError) as caught:
         await write(build(coordinator))
     assert caught.value.translation_key == REJECTION_KEYS[label]
+    assert coordinator.confirmed == []
+
+
+@pytest.mark.parametrize(("label", "build", "write", "path", "payload"), WRITES, ids=IDS)
+async def test_a_write_in_local_mode_names_the_control_switch(label, build, write, path, payload):
+    """A generic "rejected: authorisation needed" leaves the user guessing at a login."""
+    coordinator = _Coordinator(_Client(SSCLocalModeError("authorisation needed", code=401)))
+    with pytest.raises(HomeAssistantError) as caught:
+        await write(build(coordinator))
+    assert caught.value.translation_key == "local_mode"
     assert coordinator.confirmed == []
 
 

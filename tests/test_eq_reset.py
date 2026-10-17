@@ -19,7 +19,7 @@ from homeassistant.exceptions import HomeAssistantError
 
 from custom_components.neumann_kh.coordinator import NeumannKHCoordinator
 from custom_components.neumann_kh.eq import NeumannKHEQResetButton
-from custom_components.neumann_kh.ssc_client import SSCDeviceError
+from custom_components.neumann_kh.ssc_client import SSCDeviceError, SSCLocalModeError
 
 _CONTAINER = SimpleNamespace(path=("audio", "out", "eq2"), band_count=2)
 
@@ -27,13 +27,14 @@ _CONTAINER = SimpleNamespace(path=("audio", "out", "eq2"), band_count=2)
 class _Client:
     """Records what was written; optionally rejects one leaf."""
 
-    def __init__(self, reject: str | None = None) -> None:
+    def __init__(self, reject: str | None = None, error: type = SSCDeviceError) -> None:
         self.written: list[str] = []
         self._reject = reject
+        self._error = error
 
     async def set(self, path: tuple[str, ...], value) -> None:
         if path[-1] == self._reject:
-            raise SSCDeviceError("device rejected the write")
+            raise self._error("device rejected the write")
         self.written.append(path[-1])
 
 
@@ -80,6 +81,15 @@ async def test_a_half_written_reset_reports_the_rejection():
 
     assert err.value.translation_key == "eq_reset_rejected"
     assert button.coordinator.client.written == ["gain"]
+
+
+async def test_a_reset_in_local_mode_names_the_control_switch():
+    button = _button(_Client(reject="gain", error=SSCLocalModeError))
+
+    with pytest.raises(HomeAssistantError) as err:
+        await NeumannKHEQResetButton.async_press(button)
+
+    assert err.value.translation_key == "local_mode"
 
 
 async def test_a_successful_reset_writes_both():

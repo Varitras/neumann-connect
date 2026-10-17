@@ -25,7 +25,11 @@ from homeassistant.exceptions import HomeAssistantError
 from custom_components.neumann_kh import button as button_module
 from custom_components.neumann_kh.button import NeumannKHRestoreButton
 from custom_components.neumann_kh.coordinator import NeumannKHCoordinator
-from custom_components.neumann_kh.ssc_client import SSCConnectionError, SSCDeviceError
+from custom_components.neumann_kh.ssc_client import (
+    SSCConnectionError,
+    SSCDeviceError,
+    SSCLocalModeError,
+)
 
 
 class _Client:
@@ -95,6 +99,16 @@ async def test_a_reset_the_device_refuses_leaves_the_cache_alone(monkeypatch):
         await NeumannKHRestoreButton.async_press(button)
 
     assert err.value.translation_key == "factory_reset_rejected"
+    assert button.coordinator.invalidations == 0
+
+
+async def test_a_reset_in_local_mode_names_the_control_switch(monkeypatch):
+    button = _armed_button(_Client(raises=SSCLocalModeError("401")), monkeypatch)
+
+    with pytest.raises(HomeAssistantError) as err:
+        await NeumannKHRestoreButton.async_press(button)
+
+    assert err.value.translation_key == "local_mode"
     assert button.coordinator.invalidations == 0
 
 
