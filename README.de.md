@@ -307,8 +307,8 @@ umgezogen ist.
   standardmäßig aktiviert.
 - Antwortet ein Lautsprecher auf eine einzelne Abfrage mit mehr als einer
   Zeile, kann in einem engen Fall eine Folgezeile der einen Antwort als die
-  nächste ausgegeben werden. Das Protokoll führt keine Transaktionskennung,
-  eine Folgezeile für den gerade abgefragten Pfad ist von einer frischen
+  nächste ausgegeben werden. Die Integration sendet keine Transaktionskennung
+  (`osc/xid`, die beide Testgeräte zurückgeben), eine Folgezeile für den gerade abgefragten Pfad ist von einer frischen
   Antwort darauf also nicht zu unterscheiden. Bereits anliegende Zeilen werden
   vor der nächsten Anfrage verworfen; betroffen ist nur eine, die genau
   dazwischen eintrifft. Beide Testgeräte antworten mit exakt einer Zeile, das

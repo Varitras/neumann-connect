@@ -24,9 +24,7 @@ import complexity
 
 PACKAGE = pathlib.Path(__file__).resolve().parents[1] / "custom_components" / "neumann_kh"
 
-# The gap in this package runs between 442 (ssc_client.py) and 776
-# (config_flow.py); the limit sits in it, so only the module carrying real
-# history needs an entry.
+# Every module above the limit carries a written entry below.
 LINE_LIMIT = 500
 LINE_BUDGETS = {
     # Four flows (manual, zeroconf, scan, reconfigure) plus their shared

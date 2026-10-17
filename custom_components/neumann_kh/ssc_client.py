@@ -134,9 +134,9 @@ class SSCDeviceError(Exception):
 def _error_details(osc_error: Any) -> tuple[int | None, str]:
     """Code and description of an osc/error answer, or (None, "") if it has none.
 
-    Real speakers nest the [code, {"desc": ...}] pair at the first missing node
-    of the request - [{"audio": {"out5": [404, {...}]}}] - and a flat pair right
-    under osc/error is read as well.
+    Real speakers nest the [code, {"desc": ...}] pair somewhere in the request's
+    address tree ([{"audio": {"out5": [404, {...}]}}]); a flat pair is read as
+    well. Its position does not reliably name the failed path, so it is ignored.
     """
     if isinstance(osc_error, dict):
         osc_error = list(osc_error.values())
@@ -341,9 +341,10 @@ class SSCClient:
         Known limitation, accepted deliberately. Returning early can leave a
         trailing line of that answer in flight. _discard_stale_lines() catches
         one that is already queued when the next request goes out, but not one
-        that lands after the drain and before the real reply - and since SSC
-        carries no transaction id, a trailing line for the requested path is
-        indistinguishable from a fresh answer to it.
+        that lands after the drain and before the real reply - and since the
+        client sends no transaction id (the firmware would echo osc/xid), a
+        trailing line for the requested path is indistinguishable from a fresh
+        answer to it.
 
         There is no cheap fix: waiting out the settle window every time is
         what the early return exists to avoid, reconnecting per request costs

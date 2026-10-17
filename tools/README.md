@@ -42,13 +42,17 @@ read no error code from a real device passed every test.
   to a read-only field a `405` and a value of the wrong type a `406`, both at
   the field.
 - A message with several addresses answers every one it can - reads and
-  writes alike - and lists the rest as errors.
+  writes alike - and lists the rest as errors; an unknown leaf's `404` then
+  sits at its parent.
 - Paths a model does not have return `404` — `audio/out/dimm` and
   `device/save_settings` on both models, `device/temperature` and
   `m/out/level` on the KH 120 II.
 - The KH 750 reports its product name as `KH 750`, without the `DSP` suffix.
-- `osc/schema` and `osc/limits` answer in the recorded form; malformed
-  requests get `454` or `406`. `--disable-schema` rejects them.
+- `osc/schema` answers in the recorded form, `osc/limits` with the recorded
+  envelope and type only; malformed requests get `454` or `406`.
+  `--disable-schema` rejects them. `osc/version`, `osc/ping`,
+  `osc/feature/pattern|subscription` and the `osc/xid` echo answer as recorded.
+- Not simulated: address patterns (`*`, `?`) and subscriptions.
 - Malformed JSON lines are ignored, matching the client's behaviour.
 
 `tests/test_simulator_matches_device.py` compares the simulator with the

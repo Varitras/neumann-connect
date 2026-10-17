@@ -374,9 +374,9 @@ async def test_a_discovery_that_read_nothing_does_not_replace_the_last_one(monke
 
 
 async def test_a_discovery_with_only_known_paths_still_goes_through(monkeypatch):
-    """Counter-check: osc/schema is rejected by most firmware.
+    """Counter-check: a firmware without osc/schema leaves that part empty.
 
-    If the guard required both parts it would refuse every normal run, which
+    If the guard required both parts it would refuse every such run, which
     is exactly the failure the check above must not turn into.
     """
     written: list[Any] = []

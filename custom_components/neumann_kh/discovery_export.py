@@ -22,8 +22,8 @@ from .ssc_client import SSCClient
 
 _LOGGER = logging.getLogger(__name__)
 
-# Protection against an unexpectedly huge or endless command tree in case a
-# device does support osc/schema. Both are compared with ">=", so they mean
+# Protection against an unexpectedly huge or endless command tree. Both are
+# compared with ">=", so they mean
 # what they say: at most this many nodes, at most this many levels below the
 # root. The node count used to be compared with ">" and allowed one more.
 _MAX_SCHEMA_NODES = 500

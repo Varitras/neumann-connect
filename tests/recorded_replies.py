@@ -1,8 +1,9 @@
 """Reply lines recorded from real speakers, verbatim.
 
 Read-only probe of 2026-10-17 against two KH 120 II (firmware 1_7_3) and two
-KH 750 (firmware 2_1_2); every line below came back identically from both
-models unless a model is named. They carry no identifiers.
+KH 750 (firmware 2_1_2); every line below came back from both models alike
+unless a model is named - equal as JSON, the key order can differ. They carry
+no identifiers.
 
 The client parser and the simulator are both checked against these lines. The
 simulator used to answer errors in a flat format of its own, the parser was

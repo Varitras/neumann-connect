@@ -200,7 +200,7 @@ PATH_OUT2_LABEL = ("audio", "out2", "label")
 PATH_OUT2_LOUDSPEAKER = ("audio", "out2", "loudspeaker")
 
 # Paths the coordinator queries individually on every poll cycle (see
-# coordinator.py: collective messages/container queries are rejected).
+# coordinator.py: one leaf per message keeps every answer unambiguous).
 # Contains all values that can actually change at runtime.
 POLL_PATHS = (
     PATH_OUTPUT_LEVEL,
