@@ -17,6 +17,7 @@ python tools/ssc_simulator.py --model "KH 750" --port 8046
 | `--host` | `::1` | Bind address (IPv6 loopback) |
 | `--port` | `8045` | TCP port |
 | `--enable-schema` | off | Answer `osc/schema` / `osc/limits` instead of rejecting them |
+| `--output-on-out5` | off | KH 750 firmware 1.2.x layout: output level and mute in `audio/out5` (as reported for 1.2.4, not measured here) |
 | `--verbose` | off | Log every request and response |
 
 Run several instances on different ports to simulate multiple devices, for

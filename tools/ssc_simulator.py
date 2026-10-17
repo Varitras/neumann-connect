@@ -313,13 +313,28 @@ def _error(code: int) -> dict[str, Any]:
     return {"osc": {"error": [code, {"desc": _ERR_DESCRIPTIONS[code]}]}}
 
 
+def _move_output_to_out5(state: dict[str, Any]) -> None:
+    """KH 750 firmware 1.2.x: level and mute live in audio/out5, delay stays.
+
+    As reported for firmware 1.2.4 - not measured by this project, whose KH 750
+    runs 2_1_2.
+    """
+    out = state["audio"]["out"]
+    state["audio"]["out5"] = {"level": out.pop("level"), "mute": out.pop("mute")}
+    state["device"]["identity"]["version"] = "1_2_4"
+
+
 class SSCSimulator:
     """Holds the state of one simulated speaker and answers SSC requests."""
 
-    def __init__(self, model: str, enable_schema: bool = False) -> None:
+    def __init__(
+        self, model: str, enable_schema: bool = False, output_on_out5: bool = False
+    ) -> None:
         self.model = model
         self.enable_schema = enable_schema
         self.state = _build_state(model)
+        if output_on_out5:
+            _move_output_to_out5(self.state)
         self.read_only = _read_only_paths(model)
 
     def _resolve(self, path: tuple[str, ...]) -> tuple[bool, Any]:
@@ -464,9 +479,9 @@ async def _handle_client(
         writer.close()
 
 
-async def run(model: str, host: str, port: int, enable_schema: bool) -> None:
+async def run(model: str, host: str, port: int, enable_schema: bool, output_on_out5: bool) -> None:
     """Start the simulator and serve until interrupted."""
-    simulator = SSCSimulator(model, enable_schema=enable_schema)
+    simulator = SSCSimulator(model, enable_schema=enable_schema, output_on_out5=output_on_out5)
 
     async def client_connected(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         await _handle_client(simulator, reader, writer)
@@ -490,6 +505,11 @@ def main() -> None:
         action="store_true",
         help="answer osc/schema and osc/limits instead of rejecting them",
     )
+    parser.add_argument(
+        "--output-on-out5",
+        action="store_true",
+        help="KH 750 firmware 1.2.x layout: output level and mute in audio/out5",
+    )
     parser.add_argument("--verbose", action="store_true", help="log every request")
     args = parser.parse_args()
 
@@ -499,7 +519,7 @@ def main() -> None:
     )
 
     try:
-        asyncio.run(run(args.model, args.host, args.port, args.enable_schema))
+        asyncio.run(run(args.model, args.host, args.port, args.enable_schema, args.output_on_out5))
     except KeyboardInterrupt:
         _LOGGER.info("Shutting down")
 
