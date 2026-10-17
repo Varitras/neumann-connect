@@ -319,3 +319,34 @@ async def test_a_failed_save_says_the_change_will_not_survive(hass):
     with pytest.raises(HomeAssistantError) as caught:
         await coordinator.async_persist()
     assert caught.value.translation_key == "settings_not_saved"
+
+
+async def test_a_kh80_without_the_save_path_does_not_fail_every_change(hass):
+    """The KH 80 need is reported, not measured. A 404 means there is nothing to save."""
+    client = _SavingClient()
+
+    async def _not_found(path, value):
+        raise SSCDeviceError("address not found", code=404)
+
+    client.set = _not_found
+    coordinator = NeumannKHCoordinator(hass, client, "test", model="KH 80")
+
+    await coordinator.async_persist()
+
+
+async def test_a_save_that_times_out_is_reported_as_not_saved(hass):
+    from homeassistant.exceptions import HomeAssistantError
+
+    from custom_components.neumann_kh.ssc_client import SSCTimeoutError
+
+    client = _SavingClient()
+
+    async def _timeout(path, value):
+        raise SSCTimeoutError("no answer")
+
+    client.set = _timeout
+    coordinator = NeumannKHCoordinator(hass, client, "test", model="KH 80")
+
+    with pytest.raises(HomeAssistantError) as caught:
+        await coordinator.async_persist()
+    assert caught.value.translation_key == "settings_not_saved"

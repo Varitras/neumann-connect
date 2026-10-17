@@ -300,3 +300,23 @@ async def test_a_rejected_write_is_not_persisted():
     with pytest.raises(HomeAssistantError):
         await _switch(coordinator).async_turn_on()
     assert coordinator.persisted == 0
+
+
+async def test_an_unconfirmed_write_is_persisted_too():
+    """No echo does not mean the value did not land - it may need saving."""
+    coordinator = _Coordinator(_Client(answer=None))
+    await _switch(coordinator).async_turn_on()
+    assert coordinator.persisted == 1
+
+
+async def test_a_failed_save_keeps_the_confirmed_value_on_screen():
+    """The value reached the device; only keeping it across power-off failed."""
+    coordinator = _Coordinator(_Client())
+
+    async def _save_fails():
+        raise HomeAssistantError("not saved")
+
+    coordinator.async_persist = _save_fails
+    with pytest.raises(HomeAssistantError):
+        await _switch(coordinator).async_turn_on()
+    assert coordinator.confirmed == [(("audio", "out", "mute"), True)]
