@@ -51,15 +51,16 @@ class _Coordinator:
         self.invalidations += 1
 
 
-def _armed_button(client: _Client, monkeypatch):
-    """A reset button already past its first press."""
+def _armed_button(client: _Client, monkeypatch, armed_seconds_ago: float | None = 5.0):
+    """A reset button whose first press was `armed_seconds_ago` (None: never)."""
     monkeypatch.setattr(button_module, "async_dismiss_notification", lambda *a: None)
     monkeypatch.setattr(button_module, "async_create_notification", lambda *a, **k: None)
+    armed_at = None if armed_seconds_ago is None else time.monotonic() - armed_seconds_ago
     return SimpleNamespace(
         coordinator=_Coordinator(client),
         hass=SimpleNamespace(config=SimpleNamespace(language="en")),
         _entry=SimpleNamespace(title="KH 120 II"),
-        _armed_at=time.monotonic(),
+        _armed_at=armed_at,
         _notification_id="x",
     )
 
@@ -103,3 +104,52 @@ async def test_a_successful_reset_drops_the_cache(monkeypatch):
     await NeumannKHRestoreButton.async_press(button)
 
     assert button.coordinator.invalidations == 1
+
+
+async def test_the_first_press_only_arms_the_reset(monkeypatch):
+    button = _armed_button(_Client(), monkeypatch, armed_seconds_ago=None)
+
+    await NeumannKHRestoreButton.async_press(button)
+
+    assert button.coordinator.client.writes == [], "the first press reset the speaker"
+    assert button._armed_at is not None
+
+
+async def test_a_double_click_does_not_reset(monkeypatch):
+    """The second click of a double-click lands before anyone read the warning."""
+    button = _armed_button(_Client(), monkeypatch, armed_seconds_ago=0.2)
+
+    await NeumannKHRestoreButton.async_press(button)
+
+    assert button.coordinator.client.writes == []
+
+
+async def test_a_press_after_the_window_arms_again(monkeypatch):
+    button = _armed_button(_Client(), monkeypatch, armed_seconds_ago=60)
+
+    await NeumannKHRestoreButton.async_press(button)
+
+    assert button.coordinator.client.writes == []
+    assert time.monotonic() - button._armed_at < 1
+
+
+async def test_a_double_click_does_not_restore_a_backup(monkeypatch):
+    restored = []
+
+    async def _restore(*args):
+        restored.append(args)
+
+    monkeypatch.setattr(button_module, "async_run_restore", _restore)
+    monkeypatch.setattr(button_module, "async_dismiss_notification", lambda *a: None)
+    button = SimpleNamespace(
+        coordinator=_Coordinator(_Client()),
+        hass=SimpleNamespace(config=SimpleNamespace(language="en")),
+        _entry=SimpleNamespace(title="KH 120 II"),
+        _armed_at=time.monotonic() - 0.2,
+        _armed_backup={"values": {}},
+        _notification_id="x",
+    )
+
+    await button_module.NeumannKHRestoreBackupButton.async_press(button)
+
+    assert restored == []
