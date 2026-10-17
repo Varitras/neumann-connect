@@ -123,6 +123,20 @@ class SSCTimeoutError(Exception):
 class SSCDeviceError(Exception):
     """Device rejects the request (OSC error response, e.g. error 400/404/405)."""
 
+    def __init__(self, message: str, code: int | None = None) -> None:
+        super().__init__(message)
+        self.code = code
+
+
+def _error_code(osc_error: Any) -> int | None:
+    """The numeric code of an osc/error answer, e.g. 404 in [404, {"desc": ...}]."""
+    if not isinstance(osc_error, list) or not osc_error:
+        return None
+    code = osc_error[0]
+    if type(code) is not int:
+        return None
+    return code
+
 
 class SSCClient:
     """Holds a TCP connection to exactly one SSC server (speaker)."""
@@ -481,7 +495,8 @@ class SSCClient:
                     if isinstance(part, dict) and "desc" in part:
                         description = part["desc"]
             raise SSCDeviceError(
-                f"Device {mask_host(self._host)} rejected the request: {description or osc_error}"
+                f"Device {mask_host(self._host)} rejected the request: {description or osc_error}",
+                code=_error_code(osc_error),
             )
 
         return merged

@@ -805,3 +805,25 @@ async def test_a_failed_name_lookup_keeps_its_reason(monkeypatch):
     with pytest.raises(SSCConnectionError) as caught:
         await client.get(("device", "name"))
     assert "Name or service not known" in str(caught.value)
+
+
+async def test_a_device_error_reports_its_code(server):
+    server.responder = lambda req: [{"osc": {"error": [404, {"desc": "address not found"}]}}]
+    client = _client(server.port)
+    try:
+        with pytest.raises(SSCDeviceError) as caught:
+            await client.get(("audio", "out", "level"))
+        assert caught.value.code == 404
+    finally:
+        await client.close()
+
+
+async def test_a_device_error_without_a_numeric_code_has_no_code(server):
+    server.responder = lambda req: [{"osc": {"error": "broken"}}]
+    client = _client(server.port)
+    try:
+        with pytest.raises(SSCDeviceError) as caught:
+            await client.get(("audio", "out", "level"))
+        assert caught.value.code is None
+    finally:
+        await client.close()
