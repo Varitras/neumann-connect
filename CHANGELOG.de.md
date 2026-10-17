@@ -5,6 +5,24 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
+## [1.19.1] – Die Fehlercodes der Lautsprecher lesen
+
+### Behoben
+- Fehlerantworten der Lautsprecher werden richtig gelesen. Sie tragen ihren
+  Code verschachtelt an der Adresse, die fehlschlug, verstanden wurde aber nur
+  eine flache Form – gelesen wurde also nie ein Code. Die Folgen:
+  - die Ausgangserkennung für KH-750-Firmware 1.2.x (`audio/out5`) konnte nie
+    umschalten und blieb immer bei `audio/out` (weiterhin nicht an Hardware
+    getestet)
+  - bei der KH 80 DSP hätte ein Lautsprecher, der den Speicherbefehl nicht
+    kennt, jede Änderung als nicht gesichert gemeldet
+  - Ablehnungen zeigten die rohe Antwort statt des Gerätetexts, z. B.
+    „address not found“
+- „Geräte-Discovery ausführen“ liest den vollständigen Befehlsbaum des
+  Lautsprechers in wenigen Sekunden. Jede Antwort wartete vorher eine Pause von
+  0,4 s ab, sodass der Lauf an seiner 30-s-Grenze mit weniger als der Hälfte
+  des Baums einer KH 750 endete
+
 ## [1.19.0] – KH-750-Firmware 1.2, Speichern beim KH 80, der gemessene EQ
 
 ### Hinzugefügt
