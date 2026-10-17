@@ -124,14 +124,13 @@ async def async_run_backup(hass: HomeAssistant, entry: ConfigEntry, client: SSCC
     try:
         await storage.async_save_backup(hass, serial, record)
     except Exception as err:
-        # The file is already on disk at this point. Say so in a
-        # readable way instead of letting a raw store error out - the
-        # export is usable, only the restore button will still offer
+        # The file is already on disk at this point, and the message says
+        # so: the export is usable, only the restore button still offers
         # the previous snapshot.
         raise HomeAssistantError(
             translation_domain=DOMAIN,
-            translation_key="backup_failed",
-            translation_placeholders={"error": str(err)},
+            translation_key="backup_store_failed",
+            translation_placeholders={"path": path, "error": str(err)},
         ) from err
     _notify_written(hass, entry, KIND_BACKUP, path)
     return path
