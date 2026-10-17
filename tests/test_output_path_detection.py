@@ -73,6 +73,7 @@ def _not_found() -> SSCDeviceError:
         pytest.param(_not_found(), True, None, True, id="out5-bool"),
         pytest.param(_not_found(), "100", None, True, id="out5-text"),
         pytest.param(_not_found(), math.nan, None, True, id="out5-nan"),
+        pytest.param(_not_found(), 10**400, None, True, id="out5-too-large-for-a-float"),
     ],
 )
 async def test_the_output_container_falls_back_to_out_unless_out5_is_conclusive(

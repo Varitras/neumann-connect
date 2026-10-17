@@ -1,8 +1,25 @@
-"""Shared helper functions for nested SSC JSON structures."""
+"""Shared helper functions for SSC JSON values and nested structures."""
 
 from __future__ import annotations
 
+import math
 from typing import Any
+
+
+def finite_float(value: Any) -> float | None:
+    """A device value as a finite float, or None if it is not one.
+
+    SSC answers are plain JSON, so a number can arrive as text, as NaN or as
+    an integer too large for a float - float() raises OverflowError for that,
+    which no caller expected. One owner, so every reader treats them alike.
+    """
+    try:
+        number = float(value)
+    except (ValueError, TypeError, OverflowError):
+        return None
+    if not math.isfinite(number):
+        return None
+    return number
 
 
 def build_nested(path: tuple[str, ...], value: Any) -> dict:

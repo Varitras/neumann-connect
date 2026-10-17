@@ -13,13 +13,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import math
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PORT, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 
+from ._util import finite_float
 from .const import (
     CONF_FIRMWARE_VERSION,
     CONF_INTERFACE,
@@ -212,7 +212,7 @@ async def _async_answers_a_number(client: SSCClient, path: tuple[str, ...]) -> b
     except (SSCConnectionError, SSCTimeoutError, SSCDeviceError):
         return False
     is_number = isinstance(value, (int, float)) and not isinstance(value, bool)
-    return is_number and math.isfinite(value)
+    return is_number and finite_float(value) is not None
 
 
 async def _async_select_output_paths(entry: ConfigEntry, client: SSCClient) -> None:

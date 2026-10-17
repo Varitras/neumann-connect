@@ -19,6 +19,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from ._util import finite_float
 from .const import (
     BRIGHTNESS_MAX,
     BRIGHTNESS_MIN,
@@ -229,12 +230,8 @@ class NeumannKHNumber(NeumannKHEntity, NumberEntity):
         value = self.coordinator.value(self.entity_description.ssc_path)
         if value is None:
             return None
-        # Defensive conversion: non-numeric value -> "unknown" instead of an exception.
-        try:
-            number = float(value)
-        except (ValueError, TypeError):
-            number = math.nan
-        if not math.isfinite(number):
+        number = finite_float(value)
+        if number is None:
             _LOGGER.debug(
                 "Unusable value for %s: %r - showing 'unknown'",
                 self.entity_description.key,

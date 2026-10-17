@@ -122,7 +122,11 @@ def test_an_assigned_loudspeaker_passes_through_unchanged():
     assert _sensor("out1_loudspeaker", "KH 120 II").native_value == "KH 120 II"
 
 
-@pytest.mark.parametrize("value", [float("nan"), float("inf"), "-inf", "nan"])
+# 10**400 is valid JSON but too large for a float: float() raises OverflowError.
+@pytest.mark.parametrize(
+    "value",
+    [float("nan"), float("inf"), "-inf", "nan", pytest.param(10**400, id="too-large-for-a-float")],
+)
 def test_a_non_finite_device_value_shows_as_unknown(value):
     """Home Assistant refuses a non-finite state for a sensor with a unit.
 
@@ -133,7 +137,7 @@ def test_a_non_finite_device_value_shows_as_unknown(value):
 
 
 def test_a_non_finite_channel_does_not_win_the_loudest_channel():
-    assert _sensor("input_level_meter", [float("inf"), -40.0]).native_value == -40.0
+    assert _sensor("input_level_meter", [float("inf"), 10**400, -40.0]).native_value == -40.0
 
 
 def test_the_temperature_is_not_stored_with_float_noise():

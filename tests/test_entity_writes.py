@@ -236,7 +236,9 @@ async def test_a_non_finite_number_is_never_sent(value):
     assert coordinator.client.sent == []
 
 
-@pytest.mark.parametrize("value", [math.nan, math.inf, "nan", "-inf"])
+@pytest.mark.parametrize(
+    "value", [math.nan, math.inf, "nan", "-inf", pytest.param(10**400, id="too-large-for-a-float")]
+)
 def test_a_non_finite_device_value_shows_as_unknown_in_a_number(value):
     assert _number("output_level", _Coordinator(_Client(), value)).native_value is None
 

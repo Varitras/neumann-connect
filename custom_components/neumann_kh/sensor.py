@@ -8,7 +8,6 @@ of in number.py/select.py.
 from __future__ import annotations
 
 import logging
-import math
 from dataclasses import dataclass
 
 from homeassistant.components.sensor import (
@@ -22,6 +21,7 @@ from homeassistant.const import EntityCategory, UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from ._util import finite_float
 from .const import (
     CONF_MODEL,
     MODELS_WITH_SUBWOOFER_FEATURES,
@@ -365,19 +365,19 @@ class NeumannKHSensor(NeumannKHEntity, SensorEntity):
 
         # Live levels return a LIST (one value per channel) - show the loudest channel.
         if isinstance(value, list):
-            numeric_items = [v for v in value if isinstance(v, (int, float)) and math.isfinite(v)]
+            numeric_items = [
+                number
+                for item in value
+                if isinstance(item, (int, float)) and (number := finite_float(item)) is not None
+            ]
             if not numeric_items:
                 return None
             value = max(numeric_items)
 
-        # Defensive conversion: non-numeric value -> "unknown" instead of an exception.
-        try:
-            numeric_value = float(value)
-        except (ValueError, TypeError):
-            numeric_value = math.nan
         # Home Assistant refuses a non-finite state for a sensor with a unit;
         # the entity would freeze or never be added.
-        if not math.isfinite(numeric_value):
+        numeric_value = finite_float(value)
+        if numeric_value is None:
             _LOGGER.debug(
                 "Unusable value for %s: %r - showing 'unknown'",
                 self.entity_description.key,
