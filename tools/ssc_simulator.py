@@ -373,17 +373,28 @@ _OSC_METHOD_ANSWERS: dict[str, Any] = {
 
 
 def _osc_method_answer(osc: dict[str, Any]) -> dict[str, Any] | None:
-    """The answer to osc methods other than schema/limits, or None if unrecorded."""
+    """The answer to osc methods other than schema/limits, or None if unrecorded.
+
+    Recorded are gets (null) of version, ping and single features, and the xid
+    echo; a set, a container query or an empty request was never recorded.
+    """
+    if not osc:
+        return None
     answer: dict[str, Any] = {}
     for key, value in osc.items():
         if key == "xid":
             answer[key] = value
-        elif key == "feature" and isinstance(value, dict):
+        elif key == "feature":
             features = _OSC_METHOD_ANSWERS["feature"]
-            if not set(value) <= set(features):
+            asked = value if isinstance(value, dict) else {}
+            if (
+                not asked
+                or set(asked) - set(features)
+                or any(v is not None for v in asked.values())
+            ):
                 return None
-            answer[key] = {name: features[name] for name in value}
-        elif key in _OSC_METHOD_ANSWERS and value is None:
+            answer[key] = {name: features[name] for name in asked}
+        elif key in ("version", "ping") and value is None:
             answer[key] = _OSC_METHOD_ANSWERS[key]
         else:
             return None
