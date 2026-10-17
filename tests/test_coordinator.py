@@ -275,3 +275,47 @@ async def test_a_reread_does_not_hold_the_caller_for_a_whole_poll(hass, coordina
     assert coordinator._slow_poll_pending
     release.set()
     await hass.async_block_till_done()
+
+
+class _SavingClient(FakeClient):
+    def __init__(self, reject: bool = False) -> None:
+        super().__init__({})
+        self.saved: list = []
+        self.reject = reject
+
+    async def set(self, path, value):
+        if self.reject:
+            raise SSCDeviceError("save rejected (test)")
+        self.saved.append((path, value))
+        return value
+
+
+async def test_a_kh80_saves_its_settings_after_a_change(hass):
+    """Only the KH 80 forgets changes at power-off unless told to save."""
+    client = _SavingClient()
+    coordinator = NeumannKHCoordinator(hass, client, "test", model="KH 80")
+
+    await coordinator.async_persist()
+
+    assert client.saved == [(("device", "save_settings"), True)]
+
+
+@pytest.mark.parametrize("model", ["KH 120 II", "KH 750", None])
+async def test_other_models_are_not_asked_to_save(hass, model):
+    """They save by themselves, and answer the save path with a 404."""
+    client = _SavingClient()
+    coordinator = NeumannKHCoordinator(hass, client, "test", model=model)
+
+    await coordinator.async_persist()
+
+    assert client.saved == []
+
+
+async def test_a_failed_save_says_the_change_will_not_survive(hass):
+    from homeassistant.exceptions import HomeAssistantError
+
+    coordinator = NeumannKHCoordinator(hass, _SavingClient(reject=True), "test", model="KH 80")
+
+    with pytest.raises(HomeAssistantError) as caught:
+        await coordinator.async_persist()
+    assert caught.value.translation_key == "settings_not_saved"

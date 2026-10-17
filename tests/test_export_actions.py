@@ -57,9 +57,13 @@ class _FakeCoordinator:
         self.applied: list[tuple[tuple[str, ...], Any]] = []
         self.published = 0
         self.reread: list[tuple[str, ...]] = []
+        self.persisted = 0
 
     def request_reread(self, path: tuple[str, ...]) -> None:
         self.reread.append(path)
+
+    async def async_persist(self) -> None:
+        self.persisted += 1
 
     def apply_confirmed_value(self, path: tuple[str, ...], value: Any, *, publish=True) -> None:
         self.applied.append((path, value))
@@ -577,7 +581,23 @@ def test_the_coordinator_fake_only_models_methods_the_real_one_has():
 
     from custom_components.neumann_kh.coordinator import NeumannKHCoordinator
 
-    for name in ("apply_confirmed_value", "async_update_listeners", "request_reread"):
+    for name in (
+        "apply_confirmed_value",
+        "async_update_listeners",
+        "request_reread",
+        "async_persist",
+    ):
         real = getattr(NeumannKHCoordinator, name)
         fake = getattr(_FakeCoordinator, name)
         assert inspect.iscoroutinefunction(real) == inspect.iscoroutinefunction(fake), name
+
+
+async def test_a_restore_is_persisted_once_at_the_end():
+    """One save for the whole restore, not one per value."""
+    coordinator = _FakeCoordinator(_FakeClient(answers_none=set()))
+
+    await async_run_restore(
+        _FakeHass(), _FakeEntry(_KH_120_II), coordinator, backup=_backup_covering(_KH_120_II)
+    )
+
+    assert coordinator.persisted == 1

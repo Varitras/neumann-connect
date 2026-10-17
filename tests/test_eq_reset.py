@@ -45,6 +45,10 @@ class _Coordinator:
     def __init__(self, client: _Client) -> None:
         self.action_lock = asyncio.Lock()
         self.client = client
+        self.persisted = 0
+
+    async def async_persist(self) -> None:
+        self.persisted += 1
 
 
 def _button(client: _Client):
@@ -84,3 +88,16 @@ async def test_a_successful_reset_writes_both():
     await NeumannKHEQResetButton.async_press(button)
 
     assert button.coordinator.client.written == ["gain", "boost"]
+
+
+async def test_a_successful_reset_is_persisted():
+    button = _button(_Client())
+    await NeumannKHEQResetButton.async_press(button)
+    assert button.coordinator.persisted == 1
+
+
+async def test_a_rejected_reset_is_not_persisted():
+    button = _button(_Client(reject="gain"))
+    with pytest.raises(HomeAssistantError):
+        await NeumannKHEQResetButton.async_press(button)
+    assert button.coordinator.persisted == 0

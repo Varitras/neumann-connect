@@ -67,6 +67,7 @@ class _Coordinator:
         self.data = {}
         self.confirmed: list[tuple[tuple[str, ...], object]] = []
         self.reread: list[tuple[str, ...]] = []
+        self.persisted = 0
         self._value = value
 
     def value(self, path):
@@ -80,6 +81,9 @@ class _Coordinator:
 
     def request_reread(self, path):
         self.reread.append(path)
+
+    async def async_persist(self):
+        self.persisted += 1
 
 
 def _entry(**data):
@@ -271,7 +275,28 @@ def test_the_coordinator_stub_only_models_methods_the_real_one_has():
 
     from custom_components.neumann_kh.coordinator import NeumannKHCoordinator
 
-    for name in ("value", "apply_confirmed_value", "request_reread", "async_add_listener"):
+    for name in (
+        "value",
+        "apply_confirmed_value",
+        "request_reread",
+        "async_add_listener",
+        "async_persist",
+    ):
         real = getattr(NeumannKHCoordinator, name)
         stub = getattr(_Coordinator, name)
         assert inspect.iscoroutinefunction(real) == inspect.iscoroutinefunction(stub), name
+
+
+@pytest.mark.parametrize(("label", "build", "write", "path", "payload"), WRITES, ids=IDS)
+async def test_every_accepted_write_is_persisted(label, build, write, path, payload):
+    """The coordinator decides whether the model needs an explicit save."""
+    coordinator = _Coordinator(_Client())
+    await write(build(coordinator))
+    assert coordinator.persisted == 1
+
+
+async def test_a_rejected_write_is_not_persisted():
+    coordinator = _Coordinator(_Client(SSCDeviceError("rejected")))
+    with pytest.raises(HomeAssistantError):
+        await _switch(coordinator).async_turn_on()
+    assert coordinator.persisted == 0
