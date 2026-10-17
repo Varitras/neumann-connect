@@ -2,7 +2,7 @@
 
 **Deutsch** | [English](./README.md)
 
-Steuert Neumann-KH-DSP-Lautsprecher (KH 80, KH 120 II, KH 150, KH 750 DSP)
+Steuert Neumann-KH-DSP-Lautsprecher (KH 80 DSP, KH 120 II, KH 150, KH 750 DSP)
 über das Sennheiser Sound Control Protocol (SSC), TCP-Port 45. Es muss kein
 zusätzliches pip-Paket installiert werden – für das SSC-Protokoll selbst
 ist ein schlanker eigener asyncio-Client enthalten, die Geräte-Suche nutzt
@@ -207,7 +207,7 @@ ersten auseinanderläuft.
 | Entity | Typ | Bereich | SSC-Pfad |
 |---|---|---|---|
 | Ausgangspegel | `number` | 0–120 dB | `audio/out/level` |
-| Verzögerung | `number` | 0–5760 Samples @48kHz (KH 750 DSP: 0–1000) | `audio/out/delay` |
+| Verzögerung | `number` | 0–5760 Samples bei 48 kHz (KH 750 DSP: 0–1000) | `audio/out/delay` |
 | Logo-Helligkeit* | `number` | 0–125 % | `ui/logo/brightness` |
 | Auto-Standby-Zeit | `number` | 1–240 min | `device/standby/auto_standby_time` |
 | Standby-Schwellwert | `number` | −80 bis −55 dBu | `device/standby/level` |
@@ -226,12 +226,12 @@ ersten auseinanderläuft.
 | Warnung (Diagnose) | `binary_sensor` | – | `warnings` |
 | Werkseinstellungen wiederherstellen (Default: deaktiviert, Zwei-Schritt-Bestätigung) | `button` | – | `device/restore` |
 | Backup erstellen (alle bekannten Werte außer Live-Messwerten) | `button` | – | – |
-| Backup zurückspielen (schreibt das gespeicherte Backup zurück, standardmäßig deaktiviert) | `button` | – | – |
+| Backup zurückspielen (schreibt das gespeicherte Backup zurück, standardmäßig deaktiviert, Zwei-Schritt-Bestätigung) | `button` | – | – |
 | Geräte-Discovery ausführen (Diagnose) | `button` | – | – |
 
-\* **Nur** bei KH 80 / KH 150 / KH 120 II – laut khtool-Dokumentation nicht bei
+\* **Nur** bei KH 80 DSP / KH 150 / KH 120 II – laut khtool-Dokumentation nicht bei
 KH 750 DSP verfügbar. Die Integration erkennt das Modell automatisch beim
-Einrichten und blendet diese Entities für die KH 750 DSP aus.
+Einrichten und blendet diese Entity für die KH 750 DSP aus.
 
 ### Zusätzliche Entities nur bei erkanntem Subwoofer (KH 750 DSP)
 
@@ -256,7 +256,7 @@ die Integration akzeptiert beide Schreibweisen).
 | Auto-Standby (nur lesend – auf der KH 750 DSP per Hardware-Test nicht schreibbar, siehe „Bekannte Grenzen“) | `binary_sensor` | – | `device/standby/enabled` |
 
 Standardmäßig deaktivierte Entities kannst du in **Einstellungen → Geräte &
-Dienste → [Gerät] → Entities** manuell aktivieren.
+Dienste → [Gerät] → Entitäten** manuell aktivieren.
 
 ## Polling
 
@@ -279,19 +279,20 @@ korrekterweise **„nicht verfügbar“** – das ist das von Home Assistant
 empfohlene Verhalten (`CoordinatorEntity` markiert Entities automatisch als
 unavailable, sobald ein Poll-Zyklus fehlschlägt), kein Fehler der
 Integration. Sobald das Gerät aus dem Standby aufwacht, erkennt Home
-Assistant das von selbst wieder. Im Log steht dazu je eine Info-Zeile beim
-Wegfallen und beim Wiederkommen – keine Fehler. Wie schnell es zurückkommt,
-hängt davon ab, welcher der beiden Mechanismen greift.
+Assistant das von selbst wieder. Wie schnell es zurückkommt, hängt davon ab,
+welcher der beiden Mechanismen greift.
 
 War der Lautsprecher schon beim Start von Home Assistant nicht erreichbar, kam
 der Eintrag nie zustande und Home Assistant versucht es mit wachsendem Abstand
 erneut: 5 s, 10 s, 20 s, 40 s, 80 s und danach alle 80 s. Seit Home Assistant
 2026.6 verdoppelt sich der Abstand stattdessen weiter (160 s, 320 s) bis auf
-10 Minuten. Aufgegeben wird nie.
+10 Minuten. Aufgegeben wird nie. Jeden Wiederholungsversuch vermerkt Home
+Assistant selbst im Log.
 
 Lief der Eintrag bereits, als der Lautsprecher einschlief, läuft der
 Abfragezyklus einfach in seinem normalen 30-Sekunden-Takt weiter und greift den
-Lautsprecher beim ersten erfolgreichen Zyklus wieder auf.
+Lautsprecher beim ersten erfolgreichen Zyklus wieder auf. Im Log steht dazu
+je eine Info-Zeile beim Wegfallen und beim Wiederkommen – keine Fehler.
 
 Die Wiederholabstände bestimmt Home Assistant selbst. Zusätzlich sucht die
 Integration nach jedem fehlgeschlagenen Einrichten im Netzwerk anhand der
@@ -316,6 +317,9 @@ umgezogen ist.
 - Steuerungsmodus (`ui/control_mode`) ist standardmäßig deaktiviert und
   sollte es bleiben: Ein Wechsel zu `LOCAL` könnte die Netzwerksteuerung vom
   Gerät trennen.
+- „Backup zurückspielen“ hat dieselbe Zwei-Schritt-Bestätigung wie der
+  Werksreset unten: Der erste Tastendruck schaltet nur scharf, ein zweiter
+  Druck frühestens 2 s und spätestens 30 s danach schreibt das Backup.
 - Werksreset (`device/restore`) hat eine Zwei-Schritt-Sicherheitsabfrage:
   Der erste Tastendruck schaltet nur scharf, ein zweiter Druck frühestens 2 s
   und spätestens 30 s danach löst aus. Alternativ über eine physische Schalterfolge am Gerät selbst:
@@ -383,8 +387,8 @@ Die Auswahlliste beim automatischen Scan enthält außerdem einen Eintrag
 ## EQ (parametrischer Equalizer)
 
 Eine vollständige 1:1-Abbildung aller EQ-Parameter (Typ/Frequenz/Gain/Boost/
-Q/Enabled je Band) wäre bei der KH 750 DSP ca. 800 Entities – nicht mehr
-überschaubar. Stattdessen bewusst auf Container-Ebene reduziert:
+Q/Enabled je Band) wäre bei der KH 750 DSP 360 Entities (6 Container
+× 10 Bänder × 6 Parameter) – nicht mehr überschaubar. Stattdessen bewusst auf Container-Ebene reduziert:
 
 - **Ein Ein/Aus-Schalter pro EQ-Container** (`switch`, Kategorie
   „Konfiguration“, standardmäßig aktiviert): schaltet **alle Bänder dieses

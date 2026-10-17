@@ -2,7 +2,7 @@
 
 **English** | [Deutsch](./README.de.md)
 
-Controls Neumann KH DSP loudspeakers (KH 80, KH 120 II, KH 150, KH 750 DSP)
+Controls Neumann KH DSP loudspeakers (KH 80 DSP, KH 120 II, KH 150, KH 750 DSP)
 via the Sennheiser Sound Control Protocol (SSC), TCP port 45. No additional
 pip package needs to be installed – a lean, self-contained asyncio client is
 included for the SSC protocol itself, and device discovery uses Home
@@ -199,7 +199,7 @@ because a second list is one that drifts out of step with the first.
 | Entity | Type | Range | SSC path |
 |---|---|---|---|
 | Output level | `number` | 0–120 dB | `audio/out/level` |
-| Delay | `number` | 0–5760 samples @48kHz (KH 750 DSP: 0–1000) | `audio/out/delay` |
+| Delay | `number` | 0–5760 samples at 48 kHz (KH 750 DSP: 0–1000) | `audio/out/delay` |
 | Logo brightness* | `number` | 0–125 % | `ui/logo/brightness` |
 | Auto standby time | `number` | 1–240 min | `device/standby/auto_standby_time` |
 | Standby threshold level | `number` | −80 to −55 dBu | `device/standby/level` |
@@ -218,12 +218,12 @@ because a second list is one that drifts out of step with the first.
 | Warning (diagnostic) | `binary_sensor` | – | `warnings` |
 | Restore factory defaults (default: disabled, two-step confirmation) | `button` | – | `device/restore` |
 | Create backup (all known values except live measurements) | `button` | – | – |
-| Restore backup (writes the stored backup back, disabled by default) | `button` | – | – |
+| Restore backup (writes the stored backup back, disabled by default, two-step confirmation) | `button` | – | – |
 | Run device discovery (diagnostic) | `button` | – | – |
 
-\* **Only** on the KH 80 / KH 150 / KH 120 II – according to the khtool
+\* **Only** on the KH 80 DSP / KH 150 / KH 120 II – according to the khtool
 documentation not available on the KH 750 DSP. The integration detects the
-model automatically during setup and hides these entities for the KH 750 DSP.
+model automatically during setup and hides this entity for the KH 750 DSP.
 
 ### Additional entities only on a detected subwoofer (KH 750 DSP)
 
@@ -269,19 +269,20 @@ requests (observed on both the KH 120 II and the KH 750 DSP). All entities then 
 **"unavailable"** – this is the behaviour recommended by Home Assistant
 (`CoordinatorEntity` automatically marks entities as unavailable as soon as a
 poll cycle fails) and is not a bug in the integration. As soon as the device
-wakes from standby, Home Assistant picks it up again on its own. The log gets
-one info line when the speaker drops out and one when it is back – no errors.
-How quickly it returns depends on which of two mechanisms is running.
+wakes from standby, Home Assistant picks it up again on its own. How quickly
+it returns depends on which of two mechanisms is running.
 
 If the speaker was already unavailable when Home Assistant started, the config
 entry never finished setting up and Home Assistant retries it with a widening
 gap: 5 s, 10 s, 20 s, 40 s, 80 s, and from then on every 80 s. Since Home
 Assistant 2026.6 the gap keeps doubling instead (160 s, 320 s) until it
-reaches 10 minutes. It never gives up.
+reaches 10 minutes. It never gives up. Home Assistant notes each retry in
+the log itself.
 
 If the entry was up and running when the speaker went to sleep, the poll cycle
 simply keeps going at its normal 30 second interval and picks the speaker up
-on the first cycle that succeeds.
+on the first cycle that succeeds. The log gets one info line when the
+speaker drops out and one when it is back – no errors.
 
 The retry timing is Home Assistant's own. In addition, after every failed
 setup the integration searches the network for the speaker by its serial
@@ -303,6 +304,9 @@ number and stores the new address if it has moved.
   line, so this concerns other firmware rather than the hardware in use.
 - Control mode (`ui/control_mode`) is disabled by default and should stay
   that way: switching to `LOCAL` could cut network control off from the device.
+- Restore backup has the same two-step confirmation as the factory reset
+  below: the first press only arms it, a second press between 2 s and 30 s
+  later writes the backup.
 - Factory reset (`device/restore`) has a two-step safety confirmation: the
   first press only arms it, a second press between 2 s and 30 s later
   triggers it.
@@ -365,8 +369,8 @@ entry to restart the network search directly from the list.
 ## EQ (parametric equalizer)
 
 A complete 1:1 mapping of all EQ parameters (type/frequency/gain/boost/Q/
-enabled per band) would come to roughly 800 entities on the KH 750 DSP – no
-longer manageable. Deliberately reduced to container level instead:
+enabled per band) would come to 360 entities on the KH 750 DSP (6 containers
+× 10 bands × 6 parameters) – no longer manageable. Deliberately reduced to container level instead:
 
 - **One on/off switch per EQ container** (`switch`, category "Configuration",
   enabled by default): switches **all bands of that container together**

@@ -77,7 +77,7 @@ konnten also nie einen Wert tragen oder ihre Aktion ausführen.
 - Die in den Geräteinformationen angezeigte Firmware-Version wird bei jedem
   Setup aktualisiert. Sie wurde einmal beim Anlegen des Eintrags gelesen und
   danach nie wieder
-- Ein Restore lehnt ein Backup ab, das keinen für diesen Lautsprecher
+- Das Zurückspielen lehnt ein Backup ab, das keinen für diesen Lautsprecher
   wiederherstellbaren Wert enthält, statt Erfolg zu melden, ohne etwas
   geschrieben zu haben. Eine Discovery ohne gelesene Werte überschreibt die
   letzte brauchbare nicht mehr
@@ -88,16 +88,16 @@ konnten also nie einen Wert tragen oder ihre Aktion ausführen.
   über alle bekannten Pfade, ohne dass irgendetwas sie beendet hätte – ein
   Lautsprecher, der antwortet, aber nie mit dem angefragten Pfad, konnte den
   Button eine Viertelstunde drehen lassen. Backup und Discovery speichern nun
-  nichts statt eines halben Schnappschusses; ein Restore hört auf zu schreiben
+  nichts statt eines halben Schnappschusses; das Zurückspielen hört auf zu schreiben
   und meldet, wie viele Werte angekommen waren
 - Auf einem Lautsprecher läuft nur noch eine Aktion gleichzeitig. Backup,
   Discovery, Zurückspielen und Werksreset bewachten sich getrennt, sodass ein
-  Backup lesen konnte, während ein Restore schrieb – und ein Schnappschuss aus
+  Backup lesen konnte, während das Zurückspielen lief – und ein Schnappschuss aus
   Werten von vor und nach dem Schreiben gespeichert wurde
 - Die Phasenumkehr wird auf der KH 750 nicht mehr abgefragt oder
   zurückgespielt. An beiden Testgeräten gemessen: der Pfad antwortet auf der
   KH 120 II und ist auf dem Subwoofer unbekannt, der damit pro Abfragezyklus
-  eine abgelehnte Anfrage und pro Restore einen übersprungenen Wert sammelte
+  eine abgelehnte Anfrage und pro Zurückspielen einen übersprungenen Wert sammelte
 - Die Zehn-Sekunden-Grenze für eine einzelne Antwort konnte nicht greifen:
   der Lesevorgang lief kurz vor der Grenze in seine Zeitüberschreitung und
   endete, als wäre das Gerät einfach verstummt. Bei einem Lautsprecher, der
@@ -114,7 +114,7 @@ konnten also nie einen Wert tragen oder ihre Aktion ausführen.
   Entity auf den alten Wert zurücksprang – bei selten abgefragten Werten bis zu
   fünf Minuten lang
 - Ein Reload oder Entfernen eines Geräts lässt ein laufendes Backup, eine
-  Discovery oder ein Restore nicht mehr weiterschreiben. Die Aktion endet,
+  Discovery oder ein Zurückspielen nicht mehr weiterschreiben. Die Aktion endet,
   statt die gerade geschlossene Verbindung wieder zu öffnen
 - Ein Werksreset, dessen Antwort verloren geht, verwirft jetzt die
   zwischengespeicherten Werte. Der Reset startet den Lautsprecher neu, die
