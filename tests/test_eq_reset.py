@@ -1,9 +1,9 @@
 """Regression tests for the EQ reset button.
 
-Two failures the audit of v1.18.1b4 found, neither covered by any test: the
-reset was the one device action outside the action lock, and a reset that
-wrote gain and then failed on boost left the cached values untouched, so the
-entities kept showing the old curve for a speaker that no longer has it.
+The audit of v1.18.1b4 found the reset to be the one device action outside
+the action lock. A half-written reset (gain landed, boost rejected) must also
+report the rejection. It needs no refresh: gain and boost are never polled, so
+no cached value can be stale.
 """
 
 from __future__ import annotations
@@ -45,10 +45,6 @@ class _Coordinator:
     def __init__(self, client: _Client) -> None:
         self.action_lock = asyncio.Lock()
         self.client = client
-        self.refreshes = 0
-
-    async def async_request_refresh(self) -> None:
-        self.refreshes += 1
 
 
 def _button(client: _Client):
@@ -71,23 +67,20 @@ async def test_a_reset_cannot_start_while_another_action_owns_the_device():
     assert button.coordinator.client.written == [], "wrote despite a busy device"
 
 
-async def test_a_half_written_reset_still_refreshes():
-    """gain landed, boost was rejected - the cache is stale either way."""
+async def test_a_half_written_reset_reports_the_rejection():
+    """gain landed, boost was rejected - the user must hear about it."""
     button = _button(_Client(reject="boost"))
 
-    with pytest.raises(HomeAssistantError):
+    with pytest.raises(HomeAssistantError) as err:
         await NeumannKHEQResetButton.async_press(button)
 
+    assert err.value.translation_key == "eq_reset_rejected"
     assert button.coordinator.client.written == ["gain"]
-    assert button.coordinator.refreshes == 1, (
-        "a reset that wrote half the container left the cached values alone"
-    )
 
 
-async def test_a_successful_reset_writes_both_and_refreshes():
+async def test_a_successful_reset_writes_both():
     button = _button(_Client())
 
     await NeumannKHEQResetButton.async_press(button)
 
     assert button.coordinator.client.written == ["gain", "boost"]
-    assert button.coordinator.refreshes == 1

@@ -14,13 +14,6 @@
     "expect": "tests/test_eq_reset.py::test_a_reset_cannot_start_while_another_action_owns_the_device"
   },
   {
-    "name": "a half-written EQ reset skips the refresh",
-    "path": "custom_components/neumann_kh/eq.py",
-    "find": "                await self.coordinator.async_request_refresh()",
-    "replace": "                pass",
-    "expect": "tests/test_eq_reset.py::test_a_half_written_reset_still_refreshes"
-  },
-  {
     "name": "the poll drops values confirmed while it ran",
     "path": "custom_components/neumann_kh/coordinator.py",
     "find": "        for path, value in self._confirmed_during_poll:",
