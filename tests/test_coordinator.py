@@ -157,6 +157,20 @@ async def test_invalidate_and_refresh_rereads_the_slow_paths(coordinator, fake_c
     assert _value(coordinator, PATH_DEVICE_NAME) == "Factory default"
 
 
+async def test_a_slow_value_unanswered_after_a_reset_is_not_shown_from_before_it(
+    coordinator, fake_client
+):
+    """The re-read above overwrites every path that answers; this one does not."""
+    await coordinator.async_refresh()  # cycle 0: slow paths cached
+    assert _value(coordinator, PATH_DEVICE_NAME) == "Links"
+
+    fake_client.rejected_paths.add(PATH_DEVICE_NAME)
+    await coordinator.async_invalidate_and_refresh()
+    await coordinator.async_refresh()
+
+    assert _value(coordinator, PATH_DEVICE_NAME) is None
+
+
 async def test_a_plain_refresh_still_uses_the_slow_cache(coordinator, fake_client):
     """Guard against the invalidation above turning every cycle into a slow one."""
     await coordinator.async_refresh()  # cycle 0: slow
