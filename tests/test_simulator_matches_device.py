@@ -17,7 +17,13 @@ from recorded_replies import (
     CONTAINER_REPLY,
     KH_120_II_READ_ONLY_SET_REPLIES,
     KH_750_NOT_FOUND_REPLIES,
+    LIMITS_LEVEL_REQUEST,
+    LIMITS_LEVEL_TYPE,
+    MALFORMED_OSC_REPLIES,
     NOT_FOUND_REPLIES,
+    SCHEMA_AUDIO_REPLIES,
+    SCHEMA_AUDIO_REQUEST,
+    SCHEMA_ROOT_REPLY,
     SET_REPLIES,
 )
 
@@ -57,6 +63,32 @@ def test_the_simulator_answers_sets_like_the_device(model, request_, line):
 )
 def test_the_simulated_kh_120_ii_refuses_read_only_sets_like_the_device(request_, line):
     assert SSCSimulator(MODEL_KH_120_II).handle(request_) == json.loads(line)
+
+
+@pytest.mark.parametrize("model", MODELS)
+def test_the_simulator_describes_its_tree_like_the_device(model):
+    simulator = SSCSimulator(model)
+    assert simulator.handle(SCHEMA_ROOT_REPLY[0]) == json.loads(SCHEMA_ROOT_REPLY[1])
+    assert simulator.handle(SCHEMA_AUDIO_REQUEST) == json.loads(SCHEMA_AUDIO_REPLIES[model])
+
+
+@pytest.mark.parametrize("model", MODELS)
+def test_the_simulator_reports_limits_like_the_device(model):
+    reply = SSCSimulator(model).handle(LIMITS_LEVEL_REQUEST)
+    limits = reply["osc"]["limits"][0]["audio"]["out"]["level"]
+    assert isinstance(limits, list)
+    assert len(limits) == 1
+    assert limits[0]["type"] == LIMITS_LEVEL_TYPE
+
+
+@pytest.mark.parametrize("model", MODELS)
+@pytest.mark.parametrize(
+    ("request_", "line"),
+    MALFORMED_OSC_REPLIES,
+    ids=["schema-null", "schema-empty", "limits-no-list"],
+)
+def test_the_simulator_refuses_malformed_introspection_like_the_device(model, request_, line):
+    assert SSCSimulator(model).handle(request_) == json.loads(line)
 
 
 def _get(simulator: SSCSimulator, *path: str):

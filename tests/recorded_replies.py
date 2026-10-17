@@ -102,3 +102,38 @@ KH_120_II_READ_ONLY_SET_REPLIES = (
         ),
     ),
 )
+
+# osc/schema and osc/limits - answered by both models in exactly the form the
+# integration sends (an older note said 400; it is not).
+SCHEMA_ROOT_REPLY = (
+    {"osc": {"schema": None}},
+    '{"osc":{"schema":[{"device":{},"osc":{},"audio":{},"m":{},"ui":{},"warnings":null}]}}',
+)
+
+# One level per model: containers as {}, leaves as null.
+SCHEMA_AUDIO_REPLIES = {
+    "KH 120 II": '{"osc":{"schema":[{"audio":{"in":{},"out":{}}}]}}',
+    "KH 750": '{"osc":{"schema":[{"audio":{"in":{},"out":{},"out1":{},"out2":{},"digital_bypass":null}}]}}',
+}
+SCHEMA_AUDIO_REQUEST = {"osc": {"schema": [{"audio": None}]}}
+
+# The leaf's limits come back as a list with one dict (shortened here to the
+# fields every leaf carries).
+LIMITS_LEVEL_REQUEST = {"osc": {"limits": [{"audio": {"out": {"level": None}}}]}}
+LIMITS_LEVEL_TYPE = "Number"
+
+# Malformed introspection requests, both models alike.
+MALFORMED_OSC_REPLIES = (
+    (
+        {"osc": {"schema": [None]}},
+        '{"osc":{"error":[{"osc":{"schema":[454,{"desc":"parameter address not found"}]}}]}}',
+    ),
+    (
+        {"osc": {"schema": [{"audio": {}}]}},
+        '{"osc":{"error":[{"osc":{"schema":[406,{"desc":"not acceptable"}]}}]}}',
+    ),
+    (
+        {"osc": {"limits": {"audio": {"out": {"level": None}}}}},
+        '{"osc":{"error":[{"osc":{"limits":[454,{"desc":"parameter address not found"}]}}]}}',
+    ),
+)
