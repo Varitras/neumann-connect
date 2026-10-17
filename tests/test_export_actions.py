@@ -58,7 +58,7 @@ class _FakeCoordinator:
         self.published = 0
         self.reread: list[tuple[str, ...]] = []
 
-    async def async_request_reread(self, path: tuple[str, ...]) -> None:
+    def request_reread(self, path: tuple[str, ...]) -> None:
         self.reread.append(path)
 
     def apply_confirmed_value(self, path: tuple[str, ...], value: Any, *, publish=True) -> None:

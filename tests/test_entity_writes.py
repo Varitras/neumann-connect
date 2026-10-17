@@ -78,7 +78,7 @@ class _Coordinator:
     def apply_confirmed_value(self, path, value):
         self.confirmed.append((path, value))
 
-    async def async_request_reread(self, path):
+    def request_reread(self, path):
         self.reread.append(path)
 
 

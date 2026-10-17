@@ -250,7 +250,28 @@ async def test_a_reread_of_a_slow_path_fetches_it_on_the_next_cycle(coordinator,
     await coordinator.async_refresh()  # cycle 1: fast only from here on
     fake_client.values[PATH_DEVICE_NAME] = "Renamed"
 
-    await coordinator.async_request_reread(PATH_DEVICE_NAME)
+    coordinator.request_reread(PATH_DEVICE_NAME)
     await coordinator.async_refresh()
 
     assert _value(coordinator, PATH_DEVICE_NAME) == "Renamed"
+
+
+async def test_a_reread_does_not_hold_the_caller_for_a_whole_poll(hass, coordinator):
+    """The caller is a failed write or a restore in the middle of its loop.
+
+    Awaiting the refresh made the user wait for a second connect attempt
+    before seeing the error, and ran a full poll - with a publish - inside the
+    restore.
+    """
+    release = asyncio.Event()
+
+    async def _slow_refresh() -> None:
+        await release.wait()
+
+    coordinator.async_request_refresh = _slow_refresh
+
+    coordinator.request_reread(PATH_DEVICE_NAME)
+
+    assert coordinator._slow_poll_pending
+    release.set()
+    await hass.async_block_till_done()
