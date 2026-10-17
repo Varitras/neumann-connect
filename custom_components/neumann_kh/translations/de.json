@@ -322,7 +322,7 @@
       "message": "Das Zurückspielen wurde nach {seconds} Sekunden abgebrochen; bis dahin waren {written} Werte geschrieben. Der Lautsprecher ist nur teilweise zurückgespielt. Ein neuer Versuch braucht wieder zwei Drücke – einen zum Scharfschalten, einen zum Bestätigen – und beginnt beim ersten Wert, nicht an der Abbruchstelle."
     },
     "device_action_in_progress": {
-      "message": "Auf diesem Lautsprecher läuft bereits eine andere Aktion (Backup, Discovery, Zurückspielen oder Werksreset). Warte, bis sie fertig ist, und drücke dann erneut."
+      "message": "Auf diesem Lautsprecher läuft bereits eine andere Aktion (Backup, Discovery, Zurückspielen, Werksreset oder EQ-Reset). Warte, bis sie fertig ist, und drücke dann erneut."
     },
     "restore_nothing_written": {
       "message": "Der Lautsprecher hat keinen einzigen Wert aus dem Backup angenommen ({skipped} übersprungen), es wurde also nichts geändert. Prüfe, ob das Backup zu diesem Modell und dieser Firmware gehört."

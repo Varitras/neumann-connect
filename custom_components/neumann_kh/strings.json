@@ -322,7 +322,7 @@
       "message": "The restore was stopped after {seconds} seconds; {written} values had been written by then. The speaker is only partly restored. Starting over needs two presses again – one to arm, one to confirm – and it begins at the first value rather than where it stopped."
     },
     "device_action_in_progress": {
-      "message": "Another action is still running on this speaker (backup, discovery, restore or factory reset). Wait for it to finish, then press again."
+      "message": "Another action is still running on this speaker (backup, discovery, restore, factory reset or EQ reset). Wait for it to finish, then press again."
     },
     "restore_nothing_written": {
       "message": "The speaker accepted none of the values in the backup ({skipped} skipped), so nothing was changed. Check that the backup belongs to this model and firmware."
