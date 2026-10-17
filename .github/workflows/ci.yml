@@ -57,19 +57,19 @@ jobs:
       # a wheel executes on import just as freely, and the tests import
       # everything.
       #
-      # This also installs the pinned Ruff, so the pin lives in that file
-      # alone. It used to be repeated here, which is one edit away from CI
-      # and the developer linting against different releases.
+      # This also installs the pinned tools (via requirements_tools.txt), so
+      # their pins live in that file alone. They used to be repeated here,
+      # which is one edit away from CI and the developer linting against
+      # different releases.
       - run: pip install -r requirements_test.txt
       - run: .github/scripts/check.sh
 
-  minimum-ha:
-    # The full suite runs against the newest stable Home Assistant. That says
-    # nothing about the version hacs.json promises, and the gap is not
-    # theoretical: 1.18.0 shipped an import that only exists from 2025.2 while
-    # the manifest still claimed 2024.11. Importing every module is enough to
-    # catch that class of mistake and costs a fraction of a test run.
-    name: Import on the minimum version
+  check-minimum:
+    # The same gates on the version hacs.json promises. Importing every module
+    # used to be all this job did; that catches a name that does not exist
+    # yet, but not an API whose behaviour or signature differs. The whole
+    # suite ran green on 2025.2 when this was set up.
+    name: Check on the minimum version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -77,17 +77,66 @@ jobs:
         with:
           # 2025.2 predates Python 3.14.
           python-version: "3.13"
-      # The version hacs.json promises; tests/test_ci_parity.py keeps the two
-      # in step.
-      - run: pip install "homeassistant==2025.2.0"
-      - name: Import every module of the integration
+      # The plugin release that ships exactly the Home Assistant hacs.json
+      # declares; naming both makes pip refuse a mismatch, and
+      # tests/test_ci_parity.py keeps the version in step with hacs.json.
+      # The tools come from requirements_tools.txt, so their pins live there alone.
+      # The plugin is named in env, not in the command: test_ci_parity.py
+      # refuses tool names in run steps so every gate stays in check.sh.
+      - env:
+          PHCC_SPEC: "pytest-homeassistant-custom-component==0.13.210"
+        run: pip install "$PHCC_SPEC" "homeassistant==2025.2.0" -r requirements_tools.txt
+      - name: The job must run the version hacs.json declares
         run: |
           python - <<'PY'
-          import importlib, pathlib, sys
-          sys.path.insert(0, ".")
-          package = pathlib.Path("custom_components/neumann_kh")
-          for path in sorted(package.glob("*.py")):
-              name = f"custom_components.neumann_kh.{path.stem}"
-              importlib.import_module(name)
-              print("ok", name)
+          import json
+          from homeassistant.const import __version__
+          declared = json.load(open("hacs.json"))["homeassistant"]
+          assert __version__ == declared, f"running {__version__}, hacs.json declares {declared}"
+          print("Home Assistant", __version__)
           PY
+      - run: .github/scripts/check.sh
+
+  check-latest:
+    # The same gates on the newest FINAL Home Assistant. The pinned plugin in
+    # requirements_test.txt is raised by hand, and between two raises users
+    # already run newer releases - removed or deprecated APIs show up here
+    # first. resolve_phcc.py skips plugin releases that pin a beta.
+    name: Check on the latest Home Assistant
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - name: Resolve the plugin version to install
+        run: python .github/scripts/resolve_phcc.py latest-stable-ha | tee -a "$GITHUB_ENV"
+      - run: pip install "$PHCC_SPEC" -r requirements_tools.txt
+      - run: python -c "from homeassistant.const import __version__; print('Home Assistant', __version__)"
+      - run: .github/scripts/check.sh
+
+  secret-scan:
+    # The pre-push hook scans locally; this is its portable twin for every
+    # clone, over the whole history. check.sh fails while the pin below is
+    # behind the latest release (check_gitleaks_pin.py), because Dependabot
+    # only follows `uses:` lines.
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Install gitleaks
+        env:
+          GITLEAKS_VERSION: "8.30.1"
+          GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+        run: |
+          cd "$RUNNER_TEMP"
+          curl -sSfL -o gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf gitleaks.tar.gz gitleaks
+          ./gitleaks version
+      - name: Scan the full history
+        # Redacted, so a finding never prints the secret into a public log.
+        run: |
+          "$RUNNER_TEMP/gitleaks" git --config .gitleaks.toml --redact --no-banner .

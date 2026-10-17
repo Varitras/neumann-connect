@@ -10,8 +10,10 @@ no memory of why any of it is here.
 .github/scripts/check.sh
 ```
 
-Ruff, the full test suite, a compile pass and the mutation run, in that
-order, stopping at the first failure.
+Ruff, the full test suite, a compile pass, the gitleaks pin check and the
+mutation run, in that order, stopping at the first failure. The pin check asks
+GitHub for the latest gitleaks release, so the script needs the network; a
+check that cannot ask fails rather than passes.
 
 The suite is **Linux-only**: `pytest-homeassistant-custom-component` imports
 `homeassistant.runner` while collecting, which imports `fcntl`. Run it under
@@ -22,6 +24,20 @@ python -m pytest tests/ -q          # everyday run, e2e deselected
 python -m pytest tests/ -q -m e2e   # only the slow ones: full HA boots, nested pytest runs
 python -m pytest tests/ -q -m ""    # everything - mandatory before a release
 ```
+
+## What CI runs
+
+| Job | Runs |
+|---|---|
+| Check | `check.sh` on the Home Assistant `requirements_test.txt` pins |
+| Check on the minimum version | `check.sh` on the Home Assistant `hacs.json` declares (Python 3.13); the job asserts it really runs that version |
+| Check on the latest Home Assistant | `check.sh` on the newest plugin release that pins a final Home Assistant (`.github/scripts/resolve_phcc.py`) |
+| Secret scan | gitleaks over the whole history, pinned and checksum-verified |
+| Hassfest, HACS validation | the upstream validators |
+
+All three check jobs call the same script, so "done" means the same on every
+Home Assistant the integration claims to support. `requirements_tools.txt`
+holds the tool pins every check job installs.
 
 ## Why a mutation run
 
@@ -57,6 +73,7 @@ the thing it prevents actually happened here.
 | `test_device_writes.py` | Every button press claims the device before writing |
 | `test_log_privacy.py` | No log call or raised message hands out a serial or an address in full |
 | `test_mutation_harness.py` | The mutation run fails loudly instead of reporting a breakage it never applied |
+| `test_resolve_phcc.py` | The latest-HA job picks the newest plugin release that pins a final Home Assistant, never a beta |
 | `test_sensor_states.py` | The not_assigned mapping and its translations stay in step |
 | `test_translations.py` | strings.json, en.json and de.json carry the same keys |
 | `test_guards.py` | Every guard is listed, scans a real directory, and is not pinned to one file |
