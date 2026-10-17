@@ -44,7 +44,7 @@ COMPLEXITY_BUDGETS = {
     "ssc_client.py::SSCClient._read_lines_until_settled": 35,
     # Writes, counts and reports per path, with a deadline between paths and
     # two ways out that both have to keep what already landed.
-    "export_actions.py::async_run_restore": 20,
+    "export_actions.py::async_run_restore": 19,
     # Walks an unknown schema one level at a time against two budgets.
     "discovery_export.py::_async_discover_via_schema": 18,
     # Matches an announcement against known entries, unknown devices and

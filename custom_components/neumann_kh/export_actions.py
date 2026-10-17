@@ -256,7 +256,7 @@ async def async_run_restore(
     hass: HomeAssistant,
     entry: ConfigEntry,
     coordinator: Any,
-    backup: dict[str, Any] | None = None,
+    backup: dict[str, Any],
 ) -> tuple[int, int, int]:
     """Write a stored backup back to the device.
 
@@ -273,15 +273,12 @@ async def async_run_restore(
     be updated afterwards: nothing else notices that the values changed, so
     the UI would keep showing the pre-restore state until the next poll.
     """
-    if backup is None:
-        backup = await async_check_restorable(hass, entry)
     client = coordinator.client
     values = backup["values"]
 
     written = 0
     adjusted = 0
     skipped = 0
-    confirmed_values: list[tuple[tuple[str, ...], Any]] = []
     # Checked between paths, never around the whole loop: cancelling inside a
     # set() would drop the values already confirmed and leave the user with a
     # bare abort instead of "wrote 12 of 23" on a half-written speaker.
@@ -295,7 +292,7 @@ async def async_run_restore(
         would also drop the entity states that match what is on the device,
         and a bare error would not say how much was already written.
         """
-        if confirmed_values:
+        if written + adjusted:
             coordinator.async_update_listeners()
         return HomeAssistantError(
             translation_domain=DOMAIN,
@@ -335,7 +332,6 @@ async def async_run_restore(
             # Applied now, published later: the device has this value from
             # this moment on, and a write that lands after it must win.
             coordinator.apply_confirmed_value(path, confirmed, publish=False)
-            confirmed_values.append((path, confirmed))
             if confirmed != value:
                 # The device clamped or normalised the value. Reporting it as
                 # restored would be a lie.
@@ -346,7 +342,7 @@ async def async_run_restore(
     # One notification for the whole restore instead of one per path: each
     # publish notifies every entity of the device, so per-path publishing
     # produced thousands of state changes for a single press.
-    if not confirmed_values:
+    if not written + adjusted:
         # Every path was refused or went unconfirmed. Announcing a successful
         # restore of nothing is worse than an error: the user walks away
         # believing the speaker was rewritten.
