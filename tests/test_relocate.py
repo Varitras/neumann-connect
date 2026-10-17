@@ -297,12 +297,14 @@ async def test_silent_candidates_are_asked_concurrently(hass, _custom_integratio
     """One after another this cost a connection timeout per silent candidate.
 
     A segment with a handful of stale announcements then held the repair for
-    minutes - on every failed setup retry.
+    minutes - on every failed setup retry. Counted rather than timed: a wall
+    clock limit failed under load although the queries did overlap.
     """
     import asyncio
-    import time
 
     entry = _entry(hass)
+    running = 0
+    peak = 0
     found = [
         DiscoveredSpeaker(mdns_name=f"s{i}._ssc._tcp.local.", host=f"fe80::{i}%2", port=45)
         for i in range(8)
@@ -315,7 +317,11 @@ async def test_silent_candidates_are_asked_concurrently(hass, _custom_integratio
             pass
 
         async def get(self, path):  # skipcq: PYL-R0201 - a stand-in, not a design
-            await asyncio.sleep(0.2)
+            nonlocal running, peak
+            running += 1
+            peak = max(peak, running)
+            await asyncio.sleep(0)
+            running -= 1
             return "SIM0009999"  # never the entry's serial
 
         async def close(self):  # skipcq: PYL-R0201 - a stand-in, not a design
@@ -325,9 +331,6 @@ async def test_silent_candidates_are_asked_concurrently(hass, _custom_integratio
         patch("custom_components.neumann_kh.async_scan_for_speakers", return_value=found),
         patch("custom_components.neumann_kh.SSCClient", _SlowClient),
     ):
-        start = time.monotonic()
         assert await _async_relocate(hass, entry) is False
-        elapsed = time.monotonic() - start
 
-    # Serially this would be 8 x 0.2 s; concurrently it is one round.
-    assert elapsed < 0.8, f"the candidates were queried one after another ({elapsed:.2f}s)"
+    assert peak > 1, "the candidates were queried one after another"

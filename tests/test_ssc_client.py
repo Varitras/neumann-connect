@@ -651,9 +651,41 @@ async def test_a_reset_while_reading_becomes_a_connection_error(socket_enabled):
         await _shutdown(raw_server, handled)
 
 
-async def test_a_slow_endless_talker_is_ended_by_the_time_limit(
-    socket_enabled, monkeypatch, caplog
-):
+class _EndlessTalker:
+    """Reader and writer of a device that answers every request forever.
+
+    Every line is ready before it is asked for, so the settle window can never
+    run out - on a real socket a scheduler hiccup under load let it run out
+    anyway, and the read ended through the settle path instead.
+    """
+
+    def __init__(self) -> None:
+        self.talking = False
+        self.closed = False
+
+    async def readuntil(self, separator):
+        if not self.talking:
+            await asyncio.Event().wait()  # nothing stale for the drain
+        await asyncio.sleep(0)
+        return json.dumps({"other": {"value": 1}}).encode() + b"\r\n"
+
+    def write(self, data) -> None:
+        self.talking = True
+
+    async def drain(self) -> None:
+        return None
+
+    def is_closing(self) -> bool:
+        return self.closed
+
+    def close(self) -> None:
+        self.closed = True
+
+    async def wait_closed(self) -> None:
+        return None
+
+
+async def test_a_slow_endless_talker_is_ended_by_the_time_limit(monkeypatch, caplog):
     """The only bound that catches a device talking slowly but forever.
 
     The line and byte caps need volume; a device that answers just often
@@ -665,36 +697,19 @@ async def test_a_slow_endless_talker_is_ended_by_the_time_limit(
     read then ended through the settle timeout instead: bounded in time, but
     with the connection kept and nothing logged.
     """
-    monkeypatch.setattr(ssc_client, "_MAX_READ_SECONDS", 0.5)
+    monkeypatch.setattr(ssc_client, "_MAX_READ_SECONDS", 0.05)
+    # The caps are lifted so that only the time limit is left to fire.
+    monkeypatch.setattr(ssc_client, "_MAX_RESPONSE_LINES", 10**9)
+    monkeypatch.setattr(ssc_client, "_MAX_RESPONSE_BYTES", 10**12)
 
-    # A generous settle window on purpose. What is under test is "lines keep
-    # arriving inside the window"; the shared 0.05 s left so little margin that
-    # a scheduler hiccup during the full suite ended the read through the
-    # settle path instead - green on its own, red under load.
-    settle = 0.3
-
-    async def _handle(reader, writer):
-        await reader.readline()
-        # Far inside the settle window, so the read never ends on its own, and
-        # far too slow to reach the line or byte cap within the limit.
-        while True:
-            writer.write(json.dumps({"other": {"value": 1}}).encode() + b"\r\n")
-            await writer.drain()
-            await asyncio.sleep(0.01)
-
-    raw_server, handled = await _serve(_handle)
-    port = raw_server.sockets[0].getsockname()[1]
-    client = SSCClient(host="127.0.0.1", port=port, timeout=5.0, settle_time=settle)
-    try:
-        with caplog.at_level(logging.WARNING):
+    talker = _EndlessTalker()
+    client = SSCClient(host="127.0.0.1", port=45, timeout=5.0, settle_time=0.3)
+    client._reader = client._writer = talker
+    with caplog.at_level(logging.WARNING):
+        async with asyncio.timeout(5):
             assert await client.get(("device", "name")) is None
-        assert "kept sending for" in caplog.text, (
-            f"the read ended through another path: {caplog.text}"
-        )
-        assert client._writer is None, "the connection was kept despite the limit"
-    finally:
-        await client.close()
-        await _shutdown(raw_server, handled)
+    assert "kept sending for" in caplog.text, f"the read ended through another path: {caplog.text}"
+    assert talker.closed, "the connection was kept despite the limit"
 
 
 async def test_a_closed_client_does_not_reconnect(monkeypatch):
