@@ -118,9 +118,9 @@ def _connection_fields(interface_options: list[selector.SelectOptionDict]) -> di
 def _split_scope_id(host: str, interface: str | None) -> tuple[str, str | None]:
     """Accept "fe80::1%eth0" in the address field and pull the scope apart.
 
-    ipaddress.IPv6Address does not know about scope IDs, so the address has to
-    be split before it can be validated. An interface picked in the dropdown
-    wins over one typed into the address.
+    The entry stores address and interface separately, so a scope typed into
+    the address field is moved into the interface. An interface picked in the
+    dropdown wins over one typed into the address.
     """
     if "%" not in host:
         return host, interface
@@ -253,7 +253,7 @@ async def _async_identify_all(
 
     Serially this cost one connection timeout per silent candidate, which adds
     up to minutes on a segment carrying stale announcements - paid by a config
-    flow the user is watching, and by the setup repair on every failed retry.
+    flow the user is watching.
     """
     semaphore = asyncio.Semaphore(MAX_PARALLEL_IDENTITY_QUERIES)
 
@@ -699,7 +699,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         candidate = self._discovered.get(self._pending_key or "")
         identity = self._discovery_info.get(self._pending_key or "")
         if candidate is None or identity is None:
-            # Discovery result expired (e.g. flow open too long) -> rescan.
+            # Not in the current scan result (a rescan replaced it) -> scan again.
             return self._rescan_form("discovery_expired")
 
         if user_input is None:

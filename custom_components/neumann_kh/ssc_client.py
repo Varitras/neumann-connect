@@ -271,8 +271,9 @@ class SSCClient:
                 # Nothing more waiting - the normal case by far.
                 return
             except asyncio.IncompleteReadError:
-                # The peer closed while we were draining. Sending the request
-                # over this socket would only fail, so reconnect first.
+                # The peer closed while we were draining. Drop the socket: this
+                # request then fails, and the next one connects again
+                # (accepted risk A5 - one lost request, no wrong value).
                 self._drop_connection()
                 return
             except (asyncio.LimitOverrunError, OSError):

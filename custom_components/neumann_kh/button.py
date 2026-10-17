@@ -141,8 +141,6 @@ class NeumannKHRestoreButton(NeumannKHEntity, ButtonEntity):
             self._armed_at = None
             async_dismiss_notification(self.hass, self._notification_id)
             try:
-                # The most destructive action of the four, and the only one
-                # that never had a guard.
                 async with self.coordinator.claim_device():
                     await self.coordinator.client.set(PATH_RESTORE, RESTORE_FACTORY_DEFAULTS_VALUE)
             except SSCDeviceError as err:

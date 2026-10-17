@@ -115,8 +115,8 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         self.client = client
         self.model = model
-        # Held for a whole button action (backup, discovery, restore, factory
-        # reset), not for a single request. The client's lock serialises
+        # Held for a whole device action (every button that talks to the
+        # speaker, the EQ reset included), not for a single request. The client's lock serialises
         # individual messages, which is not enough: a backup running while a
         # restore writes reads some values from before and some from after,
         # and that mixed snapshot then replaces the last good one.
@@ -268,7 +268,7 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def claim_device(self) -> asyncio.Lock:
         """Refuse the caller if another action already owns the device.
 
-        Waiting would be worse than refusing: these actions are long and two
+        Waiting would be worse than refusing: these actions are long and some
         of them rewrite the speaker, so a queued second press would fire
         minutes later on a device the user has stopped watching.
 
