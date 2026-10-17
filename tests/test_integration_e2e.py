@@ -229,6 +229,29 @@ async def test_no_update_listener_is_registered(hass, socket_enabled):
         assert not entry.update_listeners
 
 
+async def test_control_mode_is_a_sensor_and_the_old_select_is_removed(hass, socket_enabled):
+    """The mode follows the rear switch, so a select could only ever fail.
+
+    Earlier versions registered a select; left in the registry it would show
+    up as an orphaned, unavailable entity next to the new sensor.
+    """
+    serial = "SIM0001234"
+    registry = er.async_get(hass)
+    old = registry.async_get_or_create("select", DOMAIN, f"{serial}_control_mode")
+
+    async with _simulator(MODEL_KH_120_II) as port:
+        entry = await _setup_entry(hass, MODEL_KH_120_II, port, serial)
+
+        assert registry.async_get(old.entity_id) is None
+        sensor = _find_entity(
+            hass,
+            entry,
+            lambda e: e.domain == "sensor" and e.unique_id == f"{serial}_control_mode",
+            "sensor with the control mode",
+        )
+        assert hass.states.get(sensor.entity_id).state == "NETWORK"
+
+
 async def test_eq_entities_are_named_after_their_container(hass, socket_enabled):
     """The container label fills the {container} placeholder of both EQ names."""
     async with _simulator(MODEL_KH_120_II) as port:

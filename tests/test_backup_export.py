@@ -78,7 +78,6 @@ _WRITABLE = {
     "PATH_STANDBY_AUTO_TIME": ("KH 120 II", "KH 750"),
     "PATH_STANDBY_ENABLED": ("KH 120 II", "KH 750"),
     "PATH_STANDBY_LEVEL": ("KH 120 II", "KH 750"),
-    "PATH_UI_CONTROL_MODE": ("KH 120 II", "KH 750"),
     # Model-specific: a logo only on the monitors, out1/out2 only on the sub.
     "PATH_LOGO_BRIGHTNESS": ("KH 120 II",),
     "PATH_OUT1_DELAY": ("KH 750",),
@@ -164,12 +163,11 @@ def test_auto_standby_is_only_restorable_where_it_is_writable():
 
 
 @pytest.mark.parametrize("model", [_KH_120_II, _KH_750])
-def test_control_mode_is_written_last(model):
-    """LOCAL would cut network control - so write it after everything else."""
+def test_control_mode_is_not_restored(model):
+    """It follows the rear CONTROL switch; both models refuse a write with 405."""
     from custom_components.neumann_kh import const
 
-    paths = restorable_paths_for_model(model)
-    assert paths[-1] == const.PATH_UI_CONTROL_MODE
+    assert const.PATH_UI_CONTROL_MODE not in restorable_paths_for_model(model)
 
 
 @pytest.mark.parametrize("model", [_KH_120_II, _KH_750])
