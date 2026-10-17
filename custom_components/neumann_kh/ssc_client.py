@@ -14,6 +14,7 @@ import asyncio
 import contextlib
 import json
 import logging
+import os
 from typing import Any
 
 from ._util import build_nested, deep_merge, extract
@@ -38,6 +39,19 @@ def mask_host(host: str) -> str:
     if len(identifier) <= 2:
         return host
     return f"{prefix}{delimiter}xx{identifier[-2:]}{separator}{scope}"
+
+
+def _os_reason(err: OSError) -> str:
+    """The reason of an OS error, without the text the OS wrapped around it.
+
+    asyncio puts "Connect call failed ('<address>', ...)" into strerror itself,
+    and every caller hands str() of our error to the log or to a UI message -
+    the address would leak past mask_host() through the back door. The errno's
+    standard description carries the reason and nothing else.
+    """
+    if err.errno is None:
+        return type(err).__name__
+    return os.strerror(err.errno)
 
 
 # Terminator per the SSC specification: CR+LF or LF alone are allowed.
@@ -177,7 +191,7 @@ class SSCClient:
             # must keep catching TimeoutError BEFORE OSError - swapping those
             # two turns every settle-window timeout into a connection error.
             raise SSCConnectionError(
-                f"Connection to {mask_host(self._connect_host)}:{self._port} failed: {err}"
+                f"Connection to {mask_host(self._connect_host)}:{self._port} failed: {_os_reason(err)}"
             ) from err
 
     def _drop_connection(self) -> None:
@@ -213,7 +227,9 @@ class SSCClient:
             # connecting and writing. Surface it as a connection error so the
             # caller drops the socket instead of waiting for a reply that can
             # never arrive.
-            raise SSCConnectionError(f"Writing to {mask_host(self._host)} failed: {err}") from err
+            raise SSCConnectionError(
+                f"Writing to {mask_host(self._host)} failed: {_os_reason(err)}"
+            ) from err
 
     async def _discard_stale_lines(self) -> None:
         """Drop anything the previous answer left on the socket.
@@ -350,7 +366,7 @@ class SSCClient:
                 # place, and the coordinator would log a traceback for every
                 # remaining path of the cycle instead of failing it once.
                 raise SSCConnectionError(
-                    f"Reading from {mask_host(self._host)} failed: {err}"
+                    f"Reading from {mask_host(self._host)} failed: {_os_reason(err)}"
                 ) from err
 
             if len(raw_line) > _MAX_LINE_BYTES:

@@ -646,8 +646,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         for identity, speaker in await _async_identify_all(speakers):
             if identity.error_key:
                 _LOGGER.debug(
-                    "Discovered device %s (%s) did not respond to SSC requests: %s",
-                    speaker.mdns_name,
+                    "Discovered device at %s did not respond to SSC requests: %s",
                     speaker.host,
                     identity.error_key,
                 )

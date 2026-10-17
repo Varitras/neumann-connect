@@ -122,7 +122,7 @@ async def async_scan_for_speakers(
         try:
             resolved = await info.async_request(aiozc.zeroconf, _RESOLVE_TIMEOUT_MS)
         except Exception:
-            _LOGGER.debug("Could not resolve mDNS service %s", mdns_name, exc_info=True)
+            _LOGGER.debug("Could not resolve announced SSC service %d", index, exc_info=True)
             continue
 
         if not resolved or info.port is None:
@@ -130,7 +130,7 @@ async def async_scan_for_speakers(
 
         host = pick_host(info.parsed_scoped_addresses())
         if host is None:
-            _LOGGER.debug("mDNS service %s announced no IPv6 address", mdns_name)
+            _LOGGER.debug("Announced SSC service %d has no IPv6 address", index)
             continue
 
         speakers.append(DiscoveredSpeaker(mdns_name=mdns_name, host=host, port=info.port))
