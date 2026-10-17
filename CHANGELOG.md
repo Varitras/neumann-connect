@@ -106,9 +106,9 @@ them could never hold a value or carry out their action.
 - A factory reset whose reply is lost now drops the cached values. The reset
   reboots the speaker, so a missing answer was read as "nothing happened" and
   every entity kept showing the settings from before
-- The "Reset EQ" button waits for another action to finish instead of running
-  alongside it, and refreshes the values even when only part of the reset was
-  written
+- The EQ reset buttons ("…: reset to flat") wait for another action to finish
+  instead of running alongside it, and refresh the values even when only part
+  of the reset was written
 - A device discovery whose file reached the disk is no longer reported as
   failed. Only the internal copy had failed, and nothing reads it back
 

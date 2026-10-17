@@ -82,7 +82,7 @@ konnten also nie einen Wert tragen oder ihre Aktion ausführen.
   geschrieben zu haben. Eine Discovery ohne gelesene Werte überschreibt die
   letzte brauchbare nicht mehr
 - Ein Zurückspielen, dessen Werte der Lautsprecher alle ablehnt, meldet jetzt
-  einen Fehler statt „zurückgespielt". Nichts zu schreiben und Erfolg zu melden
+  einen Fehler statt „zurückgespielt“. Nichts zu schreiben und Erfolg zu melden
   hinterließ den Eindruck, das Gerät sei umgeschrieben worden
 - Backup, Discovery und Zurückspielen haben jetzt eine Zeitgrenze. Sie liefen
   über alle bekannten Pfade, ohne dass irgendetwas sie beendet hätte - ein
@@ -120,9 +120,9 @@ konnten also nie einen Wert tragen oder ihre Aktion ausführen.
   zwischengespeicherten Werte. Der Reset startet den Lautsprecher neu, die
   fehlende Antwort wurde also als "nichts passiert" gelesen, und alle Entities
   zeigten weiter die Einstellungen von vorher
-- Der Button "EQ zurücksetzen" wartet auf das Ende einer anderen Aktion, statt
-  parallel zu laufen, und gleicht die Werte auch dann ab, wenn nur ein Teil des
-  Resets geschrieben wurde
+- Die EQ-Reset-Buttons („…: auf neutral zurücksetzen“) warten auf das Ende
+  einer anderen Aktion, statt parallel zu laufen, und gleichen die Werte auch
+  dann ab, wenn nur ein Teil des Resets geschrieben wurde
 - Eine Geräteerkennung, deren Datei auf der Platte gelandet ist, wird nicht mehr
   als fehlgeschlagen gemeldet. Fehlgeschlagen war nur die interne Kopie, die
   niemand zurückliest
@@ -172,8 +172,8 @@ konfiguriert wird. Drei Änderungen gehen das von verschiedenen Seiten an.
 
 ### Behoben
 - Ein zurückgespielter Wert, den das Gerät nicht bestätigt hat, wurde als
-  „angepasst" gezählt und als aktueller Wert übernommen. Die betroffene Entität
-  fiel dadurch auf „unbekannt", bei langsam abgefragten Pfaden bis zum nächsten
+  „angepasst“ gezählt und als aktueller Wert übernommen. Die betroffene Entität
+  fiel dadurch auf „unbekannt“, bei langsam abgefragten Pfaden bis zum nächsten
   langsamen Zyklus. Solche Werte zählen jetzt als übersprungen
 - Auto-Standby ist auf den Monitoren schreibbar und auf dem Subwoofer nur
   lesbar, weshalb es dort als Sensor statt als Schalter erscheint. Die
@@ -235,7 +235,7 @@ konfiguriert wird. Drei Änderungen gehen das von verschiedenen Seiten an.
 - Scheiterte das Setup einer Plattform, blieben Verbindung und Coordinator
   zurück, und der nächste Versuch stapelte den nächsten obendrauf
 - Die Gerätesuche konnte aus einem mDNS-Eintrag eine IPv4-Adresse wählen, die
-  dann bei der Einrichtung an „keine gültige IPv6-Adresse" scheiterte
+  dann bei der Einrichtung an „keine gültige IPv6-Adresse“ scheiterte
 - Ein Gerät, das nicht aufhörte zu senden, konnte einen Lesevorgang – und damit
   die Client-Sperre – dauerhaft belegen
 - Die Link-Local-Prüfung akzeptierte nur Adressen, die mit `fe80` beginnen,
@@ -265,7 +265,7 @@ konfiguriert wird. Drei Änderungen gehen das von verschiedenen Seiten an.
 - Meldungen an den Nutzer folgen der Home-Assistant-Sprache statt fest deutsch
   zu sein: Fehlermeldungen laufen über Übersetzungsschlüssel, und
   Benachrichtigungen, dynamische Labels im Einrichtungsdialog, EQ-Container-
-  Namen sowie der Zustand „nicht zugewiesen" liegen auf Deutsch und Englisch vor
+  Namen sowie der Zustand „nicht zugewiesen“ liegen auf Deutsch und Englisch vor
 - Repo-Sprache ist durchgängig Englisch (Kommentare, Docstrings, Log- und
   Entwicklermeldungen); die zweisprachige Dokumentation bleibt bestehen
 - Testsuite setzt Linux (WSL2 oder CI) und Home Assistant 2026.7 voraus. Die
