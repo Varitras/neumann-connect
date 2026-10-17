@@ -27,8 +27,9 @@ import pathlib
 PACKAGE = pathlib.Path(__file__).resolve().parents[1] / "custom_components" / "neumann_kh"
 
 # The mDNS instance name carries the serial too ("<name> <serial>._ssc..."),
-# under a name the guard would otherwise never recognise.
-SERIAL = (("serial", "mdns_name"), "mask_serial")
+# and so can a raw line the device sent - under names the guard would
+# otherwise never recognise.
+SERIAL = (("serial", "mdns_name", "line", "leftover"), "mask_serial")
 HOST = (("host",), "mask_host")
 LEVELS_THAT_REACH_A_SUPPORT_THREAD = {"info", "warning", "error", "exception", "critical"}
 
@@ -123,3 +124,5 @@ def test_the_scan_finds_what_it_is_looking_for():
     assert not list(_unmasked_log_arguments(log_leak.replace("speaker.host", "mask_host(x)")))
     mdns_leak = 'def f():\n    _LOGGER.debug("service %s", speaker.mdns_name)\n'
     assert list(_unmasked_log_arguments(mdns_leak))
+    raw_line_leak = 'def f():\n    _LOGGER.debug("ignored %s", line)\n'
+    assert list(_unmasked_log_arguments(raw_line_leak))

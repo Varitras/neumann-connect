@@ -788,3 +788,20 @@ async def test_a_non_finite_number_never_reaches_the_device(server, value):
         assert not server.request_received.is_set()
     finally:
         await client.close()
+
+
+async def test_a_failed_name_lookup_keeps_its_reason(monkeypatch):
+    """A mistyped interface ends in getaddrinfo, whose errno is negative.
+
+    os.strerror() has no text for those and said "Unknown error -2".
+    """
+    import socket
+
+    async def _no_such_interface(*args, **kwargs):
+        raise socket.gaierror(-2, "Name or service not known")
+
+    monkeypatch.setattr(ssc_client.asyncio, "open_connection", _no_such_interface)
+    client = SSCClient(host=_LINK_LOCAL, port=45, interface="nosuchif", timeout=_TIMEOUT)
+    with pytest.raises(SSCConnectionError) as caught:
+        await client.get(("device", "name"))
+    assert "Name or service not known" in str(caught.value)
