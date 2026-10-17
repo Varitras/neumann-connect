@@ -723,3 +723,56 @@ async def test_a_closed_client_does_not_reconnect(monkeypatch):
         await client.get(("device", "identity", "serial"))
 
     assert not attempts, "a closed client opened a new connection"
+
+
+# An invented link-local address; the tests only need its shape.
+_LINK_LOCAL = "fe80::0a1b:2cff:fe3d:4e5f"
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        OSError(113, f"Connect call failed ('{_LINK_LOCAL}%2', 45, 0, 2)"),
+        OSError(f"Multiple exceptions: [Errno 111] Connect call failed ('{_LINK_LOCAL}', 45)"),
+    ],
+    ids=["single-address", "multiple-exceptions"],
+)
+async def test_a_failed_link_local_connect_does_not_name_the_address(monkeypatch, error):
+    async def _refuse(*args, **kwargs):
+        raise error
+
+    monkeypatch.setattr(ssc_client.asyncio, "open_connection", _refuse)
+    client = SSCClient(host=_LINK_LOCAL, port=45, interface="2", timeout=_TIMEOUT)
+    with pytest.raises(SSCConnectionError) as caught:
+        await client.get(("device", "name"))
+    assert "0a1b" not in str(caught.value)
+    assert "4e5f" not in str(caught.value)
+
+
+async def test_a_failed_write_does_not_name_the_address(server, monkeypatch):
+    server.responder = lambda req: [{"device": {"name": "x"}}]
+    client = _client(server.port)
+    try:
+        await client.get(("device", "name"))
+
+        def _broken_pipe(data):
+            raise BrokenPipeError(32, f"Broken pipe to '{_LINK_LOCAL}'")
+
+        monkeypatch.setattr(client._writer, "write", _broken_pipe)
+        with pytest.raises(SSCConnectionError) as caught:
+            await client.get(("device", "name"))
+        assert "0a1b" not in str(caught.value)
+    finally:
+        await client.close()
+
+
+@pytest.mark.parametrize(
+    ("host", "masked"),
+    [
+        (f"{_LINK_LOCAL}%eth0", "fe80::xx5f%eth0"),
+        (_LINK_LOCAL, "fe80::xx5f"),
+        ("2001:db8::1234", "2001:db8::xx34"),
+    ],
+)
+def test_a_masked_host_keeps_only_the_prefix_and_two_characters(host, masked):
+    assert ssc_client.mask_host(host) == masked

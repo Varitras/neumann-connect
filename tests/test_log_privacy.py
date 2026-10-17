@@ -26,8 +26,10 @@ import pathlib
 
 PACKAGE = pathlib.Path(__file__).resolve().parents[1] / "custom_components" / "neumann_kh"
 
-SERIAL = ("serial", "mask_serial")
-HOST = ("host", "mask_host")
+# The mDNS instance name carries the serial too ("<name> <serial>._ssc..."),
+# under a name the guard would otherwise never recognise.
+SERIAL = (("serial", "mdns_name"), "mask_serial")
+HOST = (("host",), "mask_host")
 LEVELS_THAT_REACH_A_SUPPORT_THREAD = {"info", "warning", "error", "exception", "critical"}
 
 
@@ -49,8 +51,8 @@ def _mentions(node, term: str) -> bool:
 
 
 def _offends(node, identifier) -> bool:
-    term, mask = identifier
-    return _mentions(node, term) and not _is_masked(node, mask)
+    terms, mask = identifier
+    return any(_mentions(node, term) for term in terms) and not _is_masked(node, mask)
 
 
 def _log_calls(tree):
@@ -119,3 +121,5 @@ def test_the_scan_finds_what_it_is_looking_for():
     assert list(_unmasked_exception_messages(raise_leak))
     assert not list(_unmasked_log_arguments(debug_is_allowed))
     assert not list(_unmasked_log_arguments(log_leak.replace("speaker.host", "mask_host(x)")))
+    mdns_leak = 'def f():\n    _LOGGER.debug("service %s", speaker.mdns_name)\n'
+    assert list(_unmasked_log_arguments(mdns_leak))
