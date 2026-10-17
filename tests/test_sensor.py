@@ -15,6 +15,8 @@ import pytest
 
 pytest.importorskip("homeassistant")
 
+from homeassistant.const import EntityCategory
+
 from custom_components.neumann_kh.sensor import (
     COMMON_SENSOR_DESCRIPTIONS,
     NON_SUBWOOFER_SENSOR_DESCRIPTIONS,
@@ -137,3 +139,13 @@ def test_a_non_finite_channel_does_not_win_the_loudest_channel():
 def test_the_temperature_is_not_stored_with_float_noise():
     """310 K is 36.85 degC, not 36.850000000000023."""
     assert _sensor("device_temperature", 310).native_value == 36.85
+
+
+@pytest.mark.parametrize("key", ["input_gain", "subwoofer_input_gain", "subwoofer_low_cut"])
+def test_a_front_panel_setting_is_a_diagnostic_sensor(key):
+    """Read-only settings belong with the diagnostics, as the README says.
+
+    Only the live meters are primary sensors; a fixed gain listed among them
+    looks like a measurement.
+    """
+    assert _description(key).entity_category is EntityCategory.DIAGNOSTIC
