@@ -77,6 +77,7 @@ GATES = {
     # Anchored at the line end: anything after -m "" (-k, --deselect) narrows it.
     "pytest full run": r'-m pytest tests/ -q -m ""\s*$',
     "mutation run": r'^\s*"\$PYTHON" \.github/scripts/mutate\.py ',
+    "gitleaks pin": r'^\s*"\$PYTHON" \.github/scripts/check_gitleaks_pin\.py\s*$',
 }
 
 

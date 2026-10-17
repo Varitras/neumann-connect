@@ -33,6 +33,12 @@ step "pytest (full run, e2e included)"
 step "compile every module"
 "$PYTHON" -m compileall -q "$PACKAGE"
 
+# The gitleaks release the secret-scan job installs is pinned in a run step,
+# which Dependabot never sees. Asked of GitHub here, so the pin cannot age
+# unnoticed; needs the network, and "could not ask" is a failure.
+step "gitleaks pin"
+"$PYTHON" .github/scripts/check_gitleaks_pin.py
+
 # No dead-code gate. vulture was measured against this package and does not
 # work here: at confidence 90 all five hits are framework contracts (zeroconf's
 # callback signature, Home Assistant's **kwargs on async_turn_on/off), at 60 it
