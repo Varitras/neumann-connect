@@ -31,6 +31,7 @@ class _SchemaClient:
         self.tree = tree
         self.bundled = bundled
         self.limits_asked: list[tuple[str, ...]] = []
+        self.expected: list[tuple[str, ...] | None] = []
 
     @staticmethod
     def _path_of(request: dict[str, Any]) -> tuple[str, ...]:
@@ -60,7 +61,10 @@ class _SchemaClient:
             node = node[key]
         return {key: {} if isinstance(value, dict) else None for key, value in node.items()}
 
-    async def request(self, payload: dict[str, Any]) -> dict[str, Any]:
+    async def request(
+        self, payload: dict[str, Any], expect_path: tuple[str, ...] | None = None
+    ) -> dict[str, Any]:
+        self.expected.append(expect_path)
         path = self._path_of(payload)
         if "limits" in payload["osc"]:
             self.limits_asked.append(path)
@@ -81,6 +85,19 @@ async def test_the_walk_follows_containers_and_asks_limits_for_leaves():
     assert client.limits_asked == [("device", "identity", "product"), ("device", "name")]
     assert result["device"]["identity"]["product"] == {"type": "Number"}
     assert result["device"]["name"] == {"type": "Number"}
+
+
+async def test_every_osc_request_names_the_reply_it_waits_for():
+    """Without it the client sits out the settle window after every answer.
+
+    On real speakers that is 0.4 s for each of 80-180 requests, so the walk
+    ran into its own 30 s limit with only part of the tree collected.
+    """
+    client = _SchemaClient(_TREE)
+
+    await _async_discover_via_schema(client)
+
+    assert set(client.expected) == {("osc", "schema"), ("osc", "limits")}
 
 
 async def test_the_unbundled_response_form_is_understood():
@@ -140,13 +157,13 @@ async def test_a_timeout_keeps_what_was_already_collected(monkeypatch):
             self.blocked = asyncio.Event()
             self.reached_second = False
 
-        async def request(self, payload):
+        async def request(self, payload, expect_path=None):
             if "limits" in payload["osc"] and self._path_of(payload) == ("second",):
                 # Recorded before blocking - the base class only notes a path
                 # once it answers, which this call never does.
                 self.reached_second = True
                 await self.blocked.wait()  # never released
-            return await super().request(payload)
+            return await super().request(payload, expect_path)
 
     client = _StallsOnTheSecondLeaf()
 

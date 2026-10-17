@@ -5,6 +5,22 @@
 All notable changes to this integration are documented here.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.19.1] – Reading the speakers' error codes
+
+### Fixed
+- Error answers from the speakers are read correctly. They carry their code
+  nested at the address that failed, and only a flat form was understood, so
+  no code was ever read. As a result:
+  - the KH 750 firmware 1.2.x output detection (`audio/out5`) could never
+    switch and always stayed on `audio/out` (still not tested on hardware)
+  - on the KH 80 DSP, a speaker that does not know the save command would have
+    reported every change as not saved
+  - rejection messages showed the raw answer instead of the device's text,
+    e.g. "address not found"
+- "Run device discovery" collects the speaker's full command tree in a few
+  seconds. Every answer used to wait out a 0.4 s pause, so the scan stopped at
+  its 30 s limit with less than half of a KH 750's tree
+
 ## [1.19.0] – KH 750 firmware 1.2, KH 80 saving, the measured EQ
 
 ### Added

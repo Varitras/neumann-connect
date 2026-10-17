@@ -24,9 +24,7 @@ import complexity
 
 PACKAGE = pathlib.Path(__file__).resolve().parents[1] / "custom_components" / "neumann_kh"
 
-# The gap in this package runs between 442 (ssc_client.py) and 776
-# (config_flow.py); the limit sits in it, so only the module carrying real
-# history needs an entry.
+# Every module above the limit carries a written entry below.
 LINE_LIMIT = 500
 LINE_BUDGETS = {
     # Four flows (manual, zeroconf, scan, reconfigure) plus their shared
@@ -35,7 +33,8 @@ LINE_BUDGETS = {
     "config_flow.py": 752,
     # Raised from 500 for the KH 750 out5 support (device error code, path
     # aliases); the alternative was splitting the read loop out of its owner.
-    "ssc_client.py": 530,
+    # Raised to 540 for reading the nested osc/error format real speakers send.
+    "ssc_client.py": 540,
 }
 
 # SonarSource's default. Everything above needs a written entry.

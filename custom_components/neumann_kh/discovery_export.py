@@ -4,10 +4,11 @@ Two combined methods:
 1. Guaranteed part: query every path known to us for the model (fast, slow and
    EQ paths, see backup_export.known_paths_for_model) individually - always
    works, but only returns already known values.
-2. Best-effort part: `osc/schema` (determine command tree) + `osc/limits` (type/
-   range/options/writeable per endpoint) - per the SSC specification OPTIONAL
-   methods that not every firmware supports. If this part fails, it simply
-   stays empty; the guaranteed part is unaffected.
+2. Best-effort part: `osc/schema` (determine command tree) + `osc/limits` (type,
+   description, unit, range, options per endpoint) - OPTIONAL per the SSC
+   specification, answered by both tested firmwares (KH 120 II 1_7_3, KH 750
+   2_1_2). If this part fails, it simply stays empty; the guaranteed part is
+   unaffected.
 """
 
 from __future__ import annotations
@@ -22,15 +23,20 @@ from .ssc_client import SSCClient
 
 _LOGGER = logging.getLogger(__name__)
 
-# Protection against an unexpectedly huge or endless command tree in case a
-# device does support osc/schema. Both are compared with ">=", so they mean
-# what they say: at most this many nodes, at most this many levels below the
-# root. The node count used to be compared with ">" and allowed one more.
+# Protection against an unexpectedly huge or endless command tree. Both are
+# compared with ">=", so they mean what they say: at most this many nodes, at
+# most this many levels below the root. The node count used to be compared
+# with ">" and allowed one more.
 _MAX_SCHEMA_NODES = 500
 _MAX_SCHEMA_DEPTH = 10
 # Overall time limit for the best-effort schema part (osc/schema + osc/limits).
 # With up to 500 nodes × individual request this could otherwise run very long.
 _SCHEMA_DISCOVERY_TIMEOUT = 30.0
+# Named so the client returns as soon as the answer is in. Without it every
+# reply sat out the settle window (0.4 s), and on a KH 750 the walk ran into
+# the time limit above with less than half of the tree.
+_SCHEMA_REPLY = ("osc", "schema")
+_LIMITS_REPLY = ("osc", "limits")
 
 
 class DiscoveryTimeoutError(Exception):
@@ -50,8 +56,8 @@ async def async_discover_all_values(client: SSCClient, model: str | None = None)
 async def _fetch_schema_subtree(client: SSCClient, path: tuple[str, ...]) -> dict[str, Any] | None:
     """Ask the device for the children of `path`, or None if it will not say.
 
-    Best-effort by contract: osc/schema is optional per the SSC specification
-    and many firmwares reject it outright. Every failure - a rejection, a lost
+    Best-effort by contract: osc/schema is optional per the SSC specification,
+    so another firmware may reject it. Every failure - a rejection, a lost
     connection, a malformed answer - means the same thing to the caller, so
     they all return None rather than propagating. The known-paths part of the
     discovery has already been collected and must survive this.
@@ -60,7 +66,7 @@ async def _fetch_schema_subtree(client: SSCClient, path: tuple[str, ...]) -> dic
         {"osc": {"schema": None}} if not path else {"osc": {"schema": [build_nested(path, None)]}}
     )
     try:
-        response = await client.request(request)
+        response = await client.request(request, expect_path=_SCHEMA_REPLY)
     except Exception:
         _LOGGER.debug("osc/schema for path %s failed", path, exc_info=True)
         return None
@@ -82,8 +88,8 @@ async def _fetch_schema_subtree(client: SSCClient, path: tuple[str, ...]) -> dic
 async def _async_discover_via_schema(client: SSCClient) -> dict[str, Any]:
     """Best-effort: query osc/schema recursively, query osc/limits per leaf.
 
-    Both methods are optional per the SSC specification - many devices reject
-    them with error 400/404. In that case the result stays empty.
+    Both methods are optional per the SSC specification; a device that rejects
+    them leaves the result empty.
     """
     result: dict[str, Any] = {}
     node_count = 0
@@ -130,7 +136,7 @@ async def _async_query_limits(client: SSCClient, path: tuple[str, ...]) -> Any:
     """Query osc/limits for a single path (see module docstring)."""
     request = {"osc": {"limits": [build_nested(path, None)]}}
     try:
-        response = await client.request(request)
+        response = await client.request(request, expect_path=_LIMITS_REPLY)
     except Exception:
         _LOGGER.debug("osc/limits for path %s failed", path, exc_info=True)
         return None

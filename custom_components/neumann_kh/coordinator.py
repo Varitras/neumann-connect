@@ -1,9 +1,9 @@
 """DataUpdateCoordinator for the Neumann KH (SSC) integration.
 
 Queries each value individually on every poll cycle (one SSC message per
-leaf path). Collective messages and container queries (e.g. {"device":null})
-are rejected by the firmware - only individual, concrete leaf paths
-work reliably.
+leaf path). A container query (e.g. {"device":null}) is answered with a 404,
+and a bundled message only answers the leaves the device has, next to an
+error for the rest - one leaf per message keeps every answer unambiguous.
 
 Error handling: connection errors fail the whole cycle.
 A rejected/faulty single path is skipped, the remaining values

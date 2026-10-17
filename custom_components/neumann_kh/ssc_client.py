@@ -131,11 +131,26 @@ class SSCDeviceError(Exception):
         self.code = code
 
 
-def _error_code(osc_error: Any) -> int | None:
-    """The numeric code of an osc/error answer, e.g. 404 in [404, {"desc": ...}]."""
-    if not isinstance(osc_error, list) or not osc_error or type(osc_error[0]) is not int:
-        return None
-    return osc_error[0]
+def _error_details(osc_error: Any) -> tuple[int | None, str]:
+    """Code and description of an osc/error answer, or (None, "") if it has none.
+
+    Real speakers nest the [code, {"desc": ...}] pair somewhere in the request's
+    address tree ([{"audio": {"out5": [404, {...}]}}]); a flat pair is read as
+    well. Its position does not reliably name the failed path, so it is ignored.
+    """
+    if isinstance(osc_error, dict):
+        osc_error = list(osc_error.values())
+    if not isinstance(osc_error, list) or not osc_error:
+        return None, ""
+    if type(osc_error[0]) is int:
+        detail = osc_error[1] if len(osc_error) > 1 else {}
+        description = detail.get("desc", "") if isinstance(detail, dict) else ""
+        return osc_error[0], str(description)
+    for child in osc_error:
+        code, description = _error_details(child)
+        if code is not None:
+            return code, description
+    return None, ""
 
 
 class SSCClient:
@@ -326,9 +341,10 @@ class SSCClient:
         Known limitation, accepted deliberately. Returning early can leave a
         trailing line of that answer in flight. _discard_stale_lines() catches
         one that is already queued when the next request goes out, but not one
-        that lands after the drain and before the real reply - and since SSC
-        carries no transaction id, a trailing line for the requested path is
-        indistinguishable from a fresh answer to it.
+        that lands after the drain and before the real reply - and since the
+        client sends no transaction id (the firmware would echo osc/xid), a
+        trailing line for the requested path is indistinguishable from a fresh
+        answer to it.
 
         There is no cheap fix: waiting out the settle window every time is
         what the early return exists to avoid, reconnecting per request costs
@@ -490,15 +506,10 @@ class SSCClient:
 
         osc_error = extract(merged, ("osc", "error"))
         if osc_error:
-            # Format per test result: [400, {"desc": "message not understood"}]
-            description = ""
-            if isinstance(osc_error, list):
-                for part in osc_error:
-                    if isinstance(part, dict) and "desc" in part:
-                        description = part["desc"]
+            code, description = _error_details(osc_error)
             raise SSCDeviceError(
                 f"Device {mask_host(self._host)} rejected the request: {description or osc_error}",
-                code=_error_code(osc_error),
+                code=code,
             )
 
         return merged

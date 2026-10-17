@@ -16,7 +16,7 @@ python tools/ssc_simulator.py --model "KH 750" --port 8046
 | `--model` | `KH 120 II` | `KH 120 II` or `KH 750` |
 | `--host` | `::1` | Bind address (IPv6 loopback) |
 | `--port` | `8045` | TCP port |
-| `--enable-schema` | off | Answer `osc/schema` / `osc/limits` instead of rejecting them |
+| `--disable-schema` | off | Reject `osc/schema` / `osc/limits`, like firmware without them |
 | `--output-on-out5` | off | KH 750 firmware 1.2.x layout: output level and mute in `audio/out5` (as reported for 1.2.4, not measured here) |
 | `--verbose` | off | Log every request and response |
 
@@ -31,23 +31,33 @@ network interface has to be selected during setup.
 
 ### Fidelity
 
-The simulator reproduces the behaviour verified against real hardware rather
-than what the khtool metadata advertises. Real devices reject considerably more
-than the metadata suggests, and a permissive simulator would make the
-integration look healthy while it is broken against real speakers.
+The simulator answers the way the real speakers were recorded answering
+(KH 120 II firmware 1_7_3, KH 750 firmware 2_1_2), not the way a schema
+advertises. A simulator that invents its own replies makes the integration look
+healthy while it is broken against real speakers - one did, and a parser that
+read no error code from a real device passed every test.
 
-- Only single leaf paths are answered; collective and container queries are
-  rejected with `400`.
-- Fields confirmed read-only reject a write with `405`, per model.
+- Errors are nested in the shape of the request: a missing path is a `404` at
+  its first missing node, a container query a `404` at the container, a write
+  to a read-only field a `405` and a value of the wrong type a `406`, both at
+  the field.
+- A message with several addresses answers every one it can - reads and
+  writes alike - and lists the rest as errors; an unknown leaf's `404` then
+  sits at its parent.
 - Paths a model does not have return `404` — `audio/out/dimm` and
   `device/save_settings` on both models, `device/temperature` and
   `m/out/level` on the KH 120 II.
 - The KH 750 reports its product name as `KH 750`, without the `DSP` suffix.
-- `osc/schema` and `osc/limits` are rejected with `400` unless
-  `--enable-schema` is passed.
+- `osc/schema` answers in the recorded form, `osc/limits` with the recorded
+  envelope and type only; malformed requests get `454` or `406`.
+  `--disable-schema` rejects them. `osc/version`, `osc/ping`,
+  `osc/feature/pattern|subscription` and the `osc/xid` echo answer as recorded.
+- Not simulated: address patterns (`*`, `?`) and subscriptions.
 - Malformed JSON lines are ignored, matching the client's behaviour.
 
-`tests/test_simulator.py` covers these restrictions.
+`tests/test_simulator_matches_device.py` compares the simulator with the
+recorded replies in `tests/recorded_replies.py`; `tests/test_simulator.py`
+covers the rest.
 
 ## Home Assistant test environment
 

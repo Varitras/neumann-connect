@@ -264,13 +264,12 @@ Ein Lautsprecher wird alle 30 Sekunden abgefragt. Dabei wird nicht jedes Mal
 alles geholt: Selten wechselnde Werte (Identität, Rückseiten-Schalter,
 Gerätename) werden nur in jedem zehnten Zyklus abgefragt, also alle 5 Minuten.
 Abgefragt wird **jeder Wert einzeln** (ein Blattpfad pro SSC-Nachricht), nicht als
-Sammelnachricht und nicht als Container-Abfrage. Grund (per zwei
-Hardware-Tests bestätigt): Die Firmware lehnt sowohl eine Sammelnachricht
-mit mehreren Blättern (sobald eines davon unbekannt ist) als auch eine
-Container-Abfrage wie `{"device":null}` komplett ab. Nur einzelne, konkrete,
-existierende Blattpfade funktionieren zuverlässig. Lehnt das Gerät einen
-einzelnen Wert ab, wird nur dieser
-übersprungen – die übrigen Werte werden trotzdem aktualisiert.
+Sammelnachricht und nicht als Container-Abfrage: Eine Container-Abfrage wie
+`{"device":null}` beantwortet das Gerät mit einem Fehler, eine Sammelnachricht
+nur für die Blätter, die es hat, und daneben mit einem Fehler für den Rest. Ein
+Blatt pro Nachricht hält jede Antwort eindeutig. Lehnt das Gerät einen
+einzelnen Wert ab, wird nur dieser übersprungen – die übrigen Werte werden
+trotzdem aktualisiert.
 
 **Standby-Verhalten (wichtig, kein Bug):** Geht ein Lautsprecher in den
 Standby, schaltet er auch seinen Netzwerk-Stack ab und antwortet nicht mehr auf
@@ -308,9 +307,10 @@ umgezogen ist.
   standardmäßig aktiviert.
 - Antwortet ein Lautsprecher auf eine einzelne Abfrage mit mehr als einer
   Zeile, kann in einem engen Fall eine Folgezeile der einen Antwort als die
-  nächste ausgegeben werden. Das Protokoll führt keine Transaktionskennung,
-  eine Folgezeile für den gerade abgefragten Pfad ist von einer frischen
-  Antwort darauf also nicht zu unterscheiden. Bereits anliegende Zeilen werden
+  nächste ausgegeben werden. Die Integration sendet keine Transaktionskennung
+  (`osc/xid`, die beide Testgeräte zurückgeben), eine Folgezeile für den gerade
+  abgefragten Pfad ist von einer frischen Antwort darauf also nicht zu
+  unterscheiden. Bereits anliegende Zeilen werden
   vor der nächsten Anfrage verworfen; betroffen ist nur eine, die genau
   dazwischen eintrifft. Beide Testgeräte antworten mit exakt einer Zeile, das
   betrifft also andere Firmware, nicht die eingesetzte Hardware.
@@ -372,8 +372,8 @@ Drei getrennte, dauerhafte Speicher (unabhängig von Config Entries,
 - **`.storage/neumann_kh_discovery`**: Ergebnis des `Geräte-Discovery
   ausführen`-Buttons (Diagnose) – kombiniert unsere bekannten Pfade mit
   einem Best-effort-Versuch über `osc/schema` + `osc/limits` (optionale
-  SSC-Methoden, nicht jede Firmware unterstützt sie – schlägt dieser Teil
-  fehl, bleibt er einfach leer). Zusätzlich als JSON-Datei unter
+  SSC-Methoden, von den getesteten KH 120 II und KH 750 beantwortet – bei einer
+  Firmware ohne sie bleibt dieser Teil einfach leer). Zusätzlich als JSON-Datei unter
   `<config>/neumann_kh/`; die Benachrichtigung nennt den Pfad. Die
   Seriennummer ist in diesem Export zensiert (nur die letzten 3 Zeichen
   bleiben sichtbar).

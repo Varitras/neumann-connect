@@ -15,6 +15,12 @@ import socket
 import struct
 
 import pytest
+from recorded_replies import (
+    KH_120_II_READ_ONLY_SET_REPLIES,
+    KH_750_NOT_FOUND_REPLIES,
+    NOT_FOUND_REPLIES,
+    SET_REPLIES,
+)
 
 from custom_components.neumann_kh import ssc_client
 from custom_components.neumann_kh.ssc_client import (
@@ -831,6 +837,60 @@ async def test_a_device_error_reports_its_code(server):
         assert caught.value.code == 404
     finally:
         await client.close()
+
+
+@pytest.mark.parametrize(
+    ("request_", "line"),
+    NOT_FOUND_REPLIES + KH_750_NOT_FOUND_REPLIES,
+    ids=["leaf", "missing-container", "save-settings", "phaseinversion-kh750"],
+)
+async def test_a_real_device_404_is_read_as_404(server, request_, line):
+    """Real speakers nest the code at the first missing node.
+
+    The parser only understood a flat [404, {...}] directly under osc/error -
+    the simulator's invention - and read no code from a real device, so the
+    out5 detection could never switch and a 404 on save_settings failed.
+    """
+    path = _leaf_path(request_)
+    server.responder = lambda req: [json.loads(line)]
+    client = _client(server.port)
+    try:
+        with pytest.raises(SSCDeviceError) as caught:
+            await client.get(path)
+        assert caught.value.code == 404
+        assert "address not found" in str(caught.value)
+    finally:
+        await client.close()
+
+
+@pytest.mark.parametrize(
+    ("line", "code", "description"),
+    [
+        (KH_120_II_READ_ONLY_SET_REPLIES[0][1], 405, "method not allowed"),
+        (SET_REPLIES[2][1], 406, "not acceptable"),
+    ],
+    ids=["read-only", "wrong-type"],
+)
+async def test_a_real_device_rejection_of_a_set_carries_its_code(server, line, code, description):
+    server.responder = lambda req: [json.loads(line)]
+    client = _client(server.port)
+    try:
+        with pytest.raises(SSCDeviceError) as caught:
+            await client.set(("audio", "out", "mute"), False)
+        assert caught.value.code == code
+        assert description in str(caught.value)
+    finally:
+        await client.close()
+
+
+def _leaf_path(request: dict) -> tuple[str, ...]:
+    path: list[str] = []
+    node = request
+    while isinstance(node, dict):
+        key = next(iter(node))
+        path.append(key)
+        node = node[key]
+    return tuple(path)
 
 
 async def test_a_device_error_without_a_numeric_code_has_no_code(server):
