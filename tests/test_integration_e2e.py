@@ -36,8 +36,8 @@ from tools.ssc_simulator import (
 )
 
 # Deselected by default (see pytest.ini) because each test boots a full Home
-# Assistant instance. The global 30 s hang guard is too tight for that - the
-# KH 750 setup alone takes ~24 s.
+# Assistant instance. The global 30 s hang guard is too tight for that on a
+# loaded machine or CI runner, so this module gets more room.
 pytestmark = [
     pytest.mark.e2e,
     pytest.mark.timeout(120),

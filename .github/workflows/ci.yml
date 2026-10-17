@@ -77,7 +77,8 @@ jobs:
         with:
           # 2025.2 predates Python 3.14.
           python-version: "3.13"
-      # Same reason as the test job above.
+      # The version hacs.json promises; tests/test_ci_parity.py keeps the two
+      # in step.
       - run: pip install "homeassistant==2025.2.0"
       - name: Import every module of the integration
         run: |

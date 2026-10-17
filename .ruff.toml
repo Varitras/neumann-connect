@@ -1,6 +1,6 @@
-# Ruff is pinned in .github/workflows/ci.yml. Without the pin a new release
-# turns the build red for rules that did not exist when the code was written,
-# which is what happened on the 0.16.0 upgrade.
+# Ruff is pinned in requirements_test.txt, which CI installs. Without the pin
+# a new release turns the build red for rules that did not exist when the code
+# was written, which is what happened on the 0.16.0 upgrade.
 
 # The oldest Python the supported Home Assistant version runs on (2025.2).
 # Without this Ruff assumes a much older Python and misjudges what is idiomatic.
