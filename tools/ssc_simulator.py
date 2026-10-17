@@ -15,8 +15,9 @@ healthy while it is broken against real hardware:
   type a 406, both at the leaf
 * a bundle answers every leaf it can - gets and sets alike - and lists the
   rest as errors; a missing leaf's 404 then sits at its parent
-* "osc/schema" and "osc/limits" are answered in the recorded form (both tested
-  firmwares support them); --disable-schema mimics firmware that does not
+* "osc/schema" is answered in the recorded form, "osc/limits" with the recorded
+  envelope and the type only (both tested firmwares support them);
+  --disable-schema mimics firmware that does not
 
 Usage:
     python tools/ssc_simulator.py --model "KH 120 II"
@@ -363,6 +364,32 @@ _OSC_TREE: dict[str, Any] = {
 }
 
 
+# osc methods and their recorded answers (both models alike); xid is echoed.
+_OSC_METHOD_ANSWERS: dict[str, Any] = {
+    "version": "1.1",
+    "ping": None,
+    "feature": {"pattern": "*?", "subscription": True},
+}
+
+
+def _osc_method_answer(osc: dict[str, Any]) -> dict[str, Any] | None:
+    """The answer to osc methods other than schema/limits, or None if unrecorded."""
+    answer: dict[str, Any] = {}
+    for key, value in osc.items():
+        if key == "xid":
+            answer[key] = value
+        elif key == "feature" and isinstance(value, dict):
+            features = _OSC_METHOD_ANSWERS["feature"]
+            if not set(value) <= set(features):
+                return None
+            answer[key] = {name: features[name] for name in value}
+        elif key in _OSC_METHOD_ANSWERS and value is None:
+            answer[key] = _OSC_METHOD_ANSWERS[key]
+        else:
+            return None
+    return answer
+
+
 def _limits_type(value: Any) -> str:
     """The type name osc/limits reports, as the devices spell it."""
     if isinstance(value, list):
@@ -527,13 +554,11 @@ class SSCSimulator:
         found, node = _lookup(self._address_tree(), path)
         if not found or isinstance(node, dict):
             return _osc_error("limits", _ERR_PARAMETER_NOT_FOUND)
+        # Only the type is reproduced; the devices' other fields (desc, units,
+        # min, max, ...) are not, and none is invented in their place.
         description: dict[str, Any] = {}
         if path[0] != "osc":
             description["type"] = _limits_type(node)
-            if isinstance(node, list):
-                description["count"] = len(node)
-            if path in self.read_only:
-                description["writeable"] = False
         return {"osc": {"limits": [_build_nested(path, [description])]}}
 
     def handle(self, request: dict[str, Any]) -> dict[str, Any]:
@@ -541,17 +566,26 @@ class SSCSimulator:
         # osc/schema and osc/limits are optional per the specification; both
         # tested firmwares answer them. Without them, the reply is unrecorded.
         if "osc" in request:
-            if not self.enable_schema:
-                return _error(_ERR_BAD_REQUEST)
             osc = request["osc"]
             if not isinstance(osc, dict):
                 return _error(_ERR_BAD_REQUEST)
-            if "schema" in osc:
-                return self._osc_schema(osc["schema"])
-            if "limits" in osc:
+            if "schema" in osc or "limits" in osc:
+                if not self.enable_schema:
+                    return _error(_ERR_BAD_REQUEST)
+                if "schema" in osc:
+                    return self._osc_schema(osc["schema"])
                 return self._osc_limits(osc["limits"])
-            return _error(_ERR_BAD_REQUEST)
+            methods = _osc_method_answer(osc)
+            if methods is None:
+                return _error(_ERR_BAD_REQUEST)
+            values = {key: value for key, value in request.items() if key != "osc"}
+            answer = self._answer_values(values) if values else {}
+            _merge(answer, {"osc": methods})
+            return answer
+        return self._answer_values(request)
 
+    def _answer_values(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Gets and sets of device values, single or bundled."""
         leaves = _collect_leaves(request)
         if not leaves:
             return _error(_ERR_BAD_REQUEST)

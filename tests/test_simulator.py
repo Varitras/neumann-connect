@@ -160,7 +160,6 @@ async def test_the_schema_walk_covers_the_whole_tree_at_the_real_settle_time(soc
             for key in path:
                 node = node[key]
             assert node[0]["type"] in ("Number", "String", "Boolean"), path
-        assert limits["ui"]["input_gain"][0]["writeable"] is False
     finally:
         await client.close()
         await srv.stop()
