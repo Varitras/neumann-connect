@@ -42,6 +42,7 @@ from .const import (
     PATH_UI_BASS_GAIN,
     PATH_UI_BASS_MANAGEMENT,
     PATH_UI_CHANNEL_B_INPUT_MODE,
+    PATH_UI_CONTROL_MODE,
     PATH_UI_MID_GAIN,
     PATH_UI_OUTPUT_LEVEL,
     PATH_UI_SUB_INPUT_GAIN,
@@ -113,6 +114,17 @@ COMMON_SENSOR_DESCRIPTIONS: tuple[NeumannKHSensorDescription, ...] = (
         icon="mdi:chip",
         entity_category=EntityCategory.DIAGNOSTIC,
         ssc_path=PATH_IDENTITY_HW_VERSION,
+        numeric=False,
+    ),
+    # Follows the rear CONTROL (MODE) switch, so it cannot be a select: both
+    # models refuse a write (405). In LOCAL every other write is refused too
+    # (401), which is what this sensor makes visible.
+    NeumannKHSensorDescription(
+        key="control_mode",
+        translation_key="control_mode",
+        icon="mdi:network-outline",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        ssc_path=PATH_UI_CONTROL_MODE,
         numeric=False,
     ),
     NeumannKHSensorDescription(

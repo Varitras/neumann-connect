@@ -107,9 +107,6 @@
       }
     },
     "select": {
-      "control_mode": {
-        "name": "Control mode"
-      },
       "input_interface": {
         "name": "Input interface"
       }
@@ -138,6 +135,9 @@
       }
     },
     "sensor": {
+      "control_mode": {
+        "name": "Control mode"
+      },
       "input_level_meter": {
         "name": "Input level (live)"
       },

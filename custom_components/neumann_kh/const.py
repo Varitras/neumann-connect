@@ -143,7 +143,6 @@ INPUT_INTERFACE_OPTIONS = ("ANALOG ONLY", "DIGITAL ONLY", "DIGITAL DISCARDS ANAL
 # Control mode NETWORK/LOCAL. Disabled by default: switching to LOCAL
 # cuts off network control until manually reset on the device.
 PATH_UI_CONTROL_MODE = ("ui", "control_mode")
-CONTROL_MODE_OPTIONS = ("NETWORK", "LOCAL")
 
 # Pure info/diagnostic paths (read-only)
 PATH_IDENTITY_HW_VERSION = ("device", "identity", "hw_version")

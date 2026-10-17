@@ -1,8 +1,4 @@
-"""Select entities: fixed value choices (string enums).
-
-"Control mode" (NETWORK/LOCAL) is disabled by default and should stay so:
-switching to LOCAL could cut off network control to the device (not tested).
-"""
+"""Select entities: fixed value choices (string enums)."""
 
 from __future__ import annotations
 
@@ -13,12 +9,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import (
-    CONTROL_MODE_OPTIONS,
-    INPUT_INTERFACE_OPTIONS,
-    PATH_INPUT_INTERFACE_TYPE,
-    PATH_UI_CONTROL_MODE,
-)
+from .const import INPUT_INTERFACE_OPTIONS, PATH_INPUT_INTERFACE_TYPE
 from .coordinator import NeumannKHConfigEntry, NeumannKHCoordinator
 from .entity import NeumannKHEntity
 
@@ -28,17 +19,6 @@ class NeumannKHSelectDescription(SelectEntityDescription):
     """Description of a select entity including the SSC path."""
 
     ssc_path: tuple[str, ...] = ()
-
-
-# Always created, disabled by default (safety exception).
-CONTROL_MODE_DESCRIPTION = NeumannKHSelectDescription(
-    key="control_mode",
-    translation_key="control_mode",
-    icon="mdi:network-outline",
-    options=list(CONTROL_MODE_OPTIONS),
-    entity_registry_enabled_default=False,
-    ssc_path=PATH_UI_CONTROL_MODE,
-)
 
 
 # Confirmed writable on the KH 120 II and the KH 750 DSP, so it is the same on
@@ -61,14 +41,7 @@ async def async_setup_entry(
     """Sets up the select entities for a speaker."""
     coordinator = entry.runtime_data
 
-    descriptions = [
-        CONTROL_MODE_DESCRIPTION,
-        INPUT_INTERFACE_DESCRIPTION,
-    ]
-
-    async_add_entities(
-        NeumannKHSelect(coordinator, entry, description) for description in descriptions
-    )
+    async_add_entities([NeumannKHSelect(coordinator, entry, INPUT_INTERFACE_DESCRIPTION)])
 
 
 class NeumannKHSelect(NeumannKHEntity, SelectEntity):

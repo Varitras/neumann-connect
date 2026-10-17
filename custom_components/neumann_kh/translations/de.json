@@ -107,9 +107,6 @@
       }
     },
     "select": {
-      "control_mode": {
-        "name": "Steuerungsmodus"
-      },
       "input_interface": {
         "name": "Eingangs-Interface"
       }
@@ -138,6 +135,9 @@
       }
     },
     "sensor": {
+      "control_mode": {
+        "name": "Steuerungsmodus"
+      },
       "input_level_meter": {
         "name": "Eingangspegel (live)"
       },

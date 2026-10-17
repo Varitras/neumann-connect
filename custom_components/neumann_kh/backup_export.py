@@ -35,7 +35,6 @@ from .const import (
     PATH_STANDBY_COUNTDOWN,
     PATH_STANDBY_ENABLED,
     PATH_STANDBY_LEVEL,
-    PATH_UI_CONTROL_MODE,
 )
 from .coordinator import poll_paths_for_model
 from .eq_containers import eq_leaf_paths
@@ -96,13 +95,7 @@ _RESTORABLE_SUBWOOFER = (
 
 
 def restorable_paths_for_model(model: str | None) -> list[tuple[str, ...]]:
-    """Ordered list of paths a restore may write for a model.
-
-    ui/control_mode comes last on purpose. Its values are NETWORK and LOCAL; a
-    backup taken in LOCAL would switch the speaker away from network control
-    while we are still writing over the network. Writing it last means
-    everything else has already landed even if that cuts us off.
-    """
+    """Ordered list of paths a restore may write for a model."""
     paths = list(_RESTORABLE_COMMON)
     if model in MODELS_WITH_SUBWOOFER_FEATURES:
         paths += list(_RESTORABLE_SUBWOOFER)
@@ -117,7 +110,6 @@ def restorable_paths_for_model(model: str | None) -> list[tuple[str, ...]]:
     if model in MODELS_WITH_LOGO_BRIGHTNESS:
         paths.append(PATH_LOGO_BRIGHTNESS)
     paths += list(eq_leaf_paths(model))
-    paths.append(PATH_UI_CONTROL_MODE)
     return paths
 
 
