@@ -88,10 +88,13 @@ class _OfflineIsNotAnError(logging.Filter):
         is_expected_offline = record.levelno == logging.ERROR and any(
             isinstance(argument, SpeakerUnreachable) for argument in record.args or ()
         )
-        if is_expected_offline:
-            record.levelno = logging.INFO
-            record.levelname = logging.getLevelName(logging.INFO)
-        return True
+        if not is_expected_offline:
+            return True
+        record.levelno = logging.INFO
+        record.levelname = logging.getLevelName(logging.INFO)
+        # The level check ran before this filter, at error level - so a logger
+        # set to warning would otherwise still emit the downgraded line.
+        return _LOGGER.isEnabledFor(logging.INFO)
 
 
 _LOGGER.addFilter(_OfflineIsNotAnError())
