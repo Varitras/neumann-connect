@@ -137,3 +137,20 @@ MALFORMED_OSC_REPLIES = (
         '{"osc":{"error":[{"osc":{"limits":[454,{"desc":"parameter address not found"}]}}]}}',
     ),
 )
+
+# Protocol methods of the osc container and the transaction id, both models.
+OSC_METHOD_REPLIES = (
+    ({"osc": {"version": None}}, '{"osc":{"version":"1.1"}}'),
+    ({"osc": {"feature": {"pattern": None}}}, '{"osc":{"feature":{"pattern":"*?"}}}'),
+    ({"osc": {"feature": {"subscription": None}}}, '{"osc":{"feature":{"subscription":true}}}'),
+    ({"osc": {"ping": None}}, '{"osc":{"ping":null}}'),
+    (
+        # A client-chosen id comes back in the same line as the answer.
+        {"osc": {"xid": 4711}, "audio": {"out": {"level": None}}},
+        '{"audio":{"out":{"level":100.0}},"osc":{"xid":4711}}',
+    ),
+    (
+        {"osc": {"xid": "abc"}, "audio": {"out": {"mute": None}}},
+        '{"audio":{"out":{"mute":false}},"osc":{"xid":"abc"}}',
+    ),
+)

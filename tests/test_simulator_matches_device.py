@@ -21,6 +21,7 @@ from recorded_replies import (
     LIMITS_LEVEL_TYPE,
     MALFORMED_OSC_REPLIES,
     NOT_FOUND_REPLIES,
+    OSC_METHOD_REPLIES,
     SCHEMA_AUDIO_REPLIES,
     SCHEMA_AUDIO_REQUEST,
     SCHEMA_ROOT_REPLY,
@@ -88,6 +89,16 @@ def test_the_simulator_reports_limits_like_the_device(model):
     ids=["schema-null", "schema-empty", "limits-no-list"],
 )
 def test_the_simulator_refuses_malformed_introspection_like_the_device(model, request_, line):
+    assert SSCSimulator(model).handle(request_) == json.loads(line)
+
+
+@pytest.mark.parametrize("model", MODELS)
+@pytest.mark.parametrize(
+    ("request_", "line"),
+    OSC_METHOD_REPLIES,
+    ids=["version", "pattern", "subscription", "ping", "xid-number", "xid-text"],
+)
+def test_the_simulator_answers_osc_methods_like_the_device(model, request_, line):
     assert SSCSimulator(model).handle(request_) == json.loads(line)
 
 
