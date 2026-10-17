@@ -24,7 +24,12 @@ pytest.importorskip("homeassistant")
 
 from homeassistant.exceptions import HomeAssistantError
 
-from custom_components.neumann_kh.const import DEFAULT_VENDOR, DOMAIN, PATH_DEVICE_NAME
+from custom_components.neumann_kh.const import (
+    DEFAULT_VENDOR,
+    DOMAIN,
+    PATH_DEVICE_NAME,
+    PATH_IDENTIFY,
+)
 from custom_components.neumann_kh.eq import NeumannKHEQContainerSwitch
 from custom_components.neumann_kh.eq_containers import NON_SUBWOOFER_EQ_CONTAINERS
 from custom_components.neumann_kh.number import (
@@ -307,6 +312,8 @@ async def test_blinking_the_logo_is_not_persisted(value):
     await (switch.async_turn_on() if value else switch.async_turn_off())
 
     assert coordinator.persisted == 0
+    assert coordinator.client.sent == [(PATH_IDENTIFY, value)], "the blink itself must still go out"
+    assert coordinator.confirmed == [(PATH_IDENTIFY, value)]
 
 
 async def test_a_rejected_write_is_not_persisted():

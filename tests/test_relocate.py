@@ -30,7 +30,9 @@ from custom_components.neumann_kh.const import (
     FALLBACK_MODEL,
     PATH_IDENTITY_PRODUCT,
     PATH_IDENTITY_SERIAL,
+    PATH_OUTPUT_LEVEL,
 )
+from custom_components.neumann_kh.ssc_client import SSCDeviceError, SSCTimeoutError
 from custom_components.neumann_kh.discovery import DiscoveredSpeaker
 
 _SERIAL = "SIM0001234"
@@ -67,8 +69,15 @@ def _own_speaker(answer_for_other_paths=None, product="KH 120 II"):
     the same thing for every path would be refused as a different speaker.
     """
     answers = {PATH_IDENTITY_SERIAL: _SERIAL, PATH_IDENTITY_PRODUCT: product}
+
+    async def _get(path, **_):
+        answer = answers.get(path, answer_for_other_paths)
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
     client = AsyncMock()
-    client.get = AsyncMock(side_effect=lambda path, **_: answers.get(path, answer_for_other_paths))
+    client.get = AsyncMock(side_effect=_get)
     client.close = AsyncMock()
     return client
 
@@ -222,6 +231,7 @@ async def _run_setup(hass, entry, version, stored=None, product="KH 120 II"):
     ):
         assert await hass.config_entries.async_setup(entry.entry_id) is True
         await hass.async_block_till_done()
+    return client
 
 
 async def test_a_firmware_update_is_picked_up(hass, _custom_integration):
@@ -276,10 +286,29 @@ async def test_a_model_stored_as_the_fallback_is_corrected_at_setup(hass, _custo
     entry = _entry(hass)
     hass.config_entries.async_update_entry(entry, data={**entry.data, CONF_MODEL: FALLBACK_MODEL})
 
-    await _run_setup(hass, entry, version="2_1_2", product="KH 750")
+    client = await _run_setup(hass, entry, version="2_1_2", product="KH 750")
 
     assert entry.data[CONF_MODEL] == "KH 750"
     assert entry.runtime_data.model == "KH 750"
+    # The out5 detection runs for subwoofers only, so it has to see the
+    # corrected model, not the fallback.
+    asked = [call.args[0] for call in client.get.call_args_list]
+    assert PATH_OUTPUT_LEVEL in asked
+    assert asked.index(PATH_IDENTITY_PRODUCT) < asked.index(PATH_OUTPUT_LEVEL)
+
+
+@pytest.mark.parametrize(
+    "error", [SSCDeviceError("rejected", code=404), SSCTimeoutError("no answer")]
+)
+async def test_a_failed_product_read_still_refreshes_the_firmware(
+    hass, _custom_integration, error
+):
+    entry = _entry(hass)
+
+    await _run_setup(hass, entry, version="2_1_2", stored="1_7_3", product=error)
+
+    assert entry.data[CONF_FIRMWARE_VERSION] == "2_1_2"
+    assert entry.data[CONF_MODEL] == "KH 120 II"
 
 
 @pytest.mark.parametrize("answered", [None, "", ["KH 750"]])
