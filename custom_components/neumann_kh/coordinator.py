@@ -29,6 +29,7 @@ from .const import (
     MODELS_WITH_LOGO_BRIGHTNESS,
     MODELS_WITH_SUBWOOFER_FEATURES,
     NON_SUBWOOFER_POLL_PATHS,
+    NON_SUBWOOFER_SLOW_POLL_PATHS,
     PATH_LOGO_BRIGHTNESS,
     POLL_CYCLE_TIMEOUT_SECONDS,
     POLL_PATHS,
@@ -62,6 +63,7 @@ def poll_paths_for_model(model: str | None) -> tuple[list[tuple[str, ...]], list
         # Paths the subwoofer answers with a 404 - asking it every cycle only
         # earns a rejection (see NON_SUBWOOFER_POLL_PATHS).
         fast.extend(NON_SUBWOOFER_POLL_PATHS)
+        slow.extend(NON_SUBWOOFER_SLOW_POLL_PATHS)
     return fast, slow
 
 

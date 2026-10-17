@@ -210,12 +210,6 @@ POLL_PATHS = (
 # immediately themselves anyway - the slow poll is only the safeguard that
 # a value changed externally (via MA1) eventually gets picked up.
 SLOW_POLL_PATHS = (
-    PATH_INPUT_GAIN,
-    PATH_UI_OUTPUT_LEVEL,
-    PATH_UI_BASS_GAIN,
-    PATH_UI_MID_GAIN,
-    PATH_UI_TREBLE_GAIN,
-    PATH_INPUT_SELECT,
     PATH_DEVICE_NAME,
     PATH_IDENTITY_HW_VERSION,
     PATH_INPUT_CURRENT,
@@ -234,6 +228,18 @@ SLOW_POLL_EVERY_N_CYCLES = 10
 # cycle and the restore allowlist were not - so the subwoofer collected one
 # rejected request per cycle and one pointless failure per restore.
 NON_SUBWOOFER_POLL_PATHS = (PATH_OUTPUT_PHASE_INVERSION,)
+
+# Front-panel settings of the monitors. The KH 750 does not have them (absent
+# from its command schema, rejected by the simulator), so asking it only
+# earned six rejections per slow cycle.
+NON_SUBWOOFER_SLOW_POLL_PATHS = (
+    PATH_INPUT_GAIN,
+    PATH_UI_OUTPUT_LEVEL,
+    PATH_UI_BASS_GAIN,
+    PATH_UI_MID_GAIN,
+    PATH_UI_TREBLE_GAIN,
+    PATH_INPUT_SELECT,
+)
 
 SUBWOOFER_POLL_PATHS = (
     PATH_METER_OUTPUT_LEVEL,
