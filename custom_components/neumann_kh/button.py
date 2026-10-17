@@ -65,11 +65,6 @@ def _confirms(armed_at: float | None, now: float) -> bool:
     return _RESTORE_CONFIRM_MIN_GAP_SECONDS <= now - armed_at <= _RESTORE_CONFIRM_WINDOW_SECONDS
 
 
-def _too_soon(armed_at: float | None, now: float) -> bool:
-    """A press so close to arming that it can only be the rest of a double-click."""
-    return armed_at is not None and now - armed_at < _RESTORE_CONFIRM_MIN_GAP_SECONDS
-
-
 RESTORE_DESCRIPTION = ButtonEntityDescription(
     key="restore_factory_defaults",
     translation_key="restore_factory_defaults",
@@ -133,9 +128,6 @@ class NeumannKHRestoreButton(NeumannKHEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         now = time.monotonic()
-        if _too_soon(self._armed_at, now):
-            return
-
         if _confirms(self._armed_at, now):
             # Second press within the time window -> actually trigger the reset.
             self._armed_at = None
@@ -242,9 +234,6 @@ class NeumannKHRestoreBackupButton(NeumannKHEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         now = time.monotonic()
-        if _too_soon(self._armed_at, now):
-            return
-
         if _confirms(self._armed_at, now):
             armed_backup = self._armed_backup
             self._armed_at = None

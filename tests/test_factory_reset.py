@@ -139,7 +139,13 @@ async def test_a_double_click_does_not_restore_a_backup(monkeypatch):
     async def _restore(*args):
         restored.append(args)
 
+    async def _restorable(hass, entry):
+        return {"timestamp": "t", "values": {}}
+
     monkeypatch.setattr(button_module, "async_run_restore", _restore)
+    # A too-early second press arms again, which re-checks the backup.
+    monkeypatch.setattr(button_module, "async_check_restorable", _restorable)
+    monkeypatch.setattr(button_module, "async_create_notification", lambda *a, **k: None)
     monkeypatch.setattr(button_module, "async_dismiss_notification", lambda *a: None)
     button = SimpleNamespace(
         coordinator=_Coordinator(_Client()),

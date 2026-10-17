@@ -9,8 +9,8 @@
   {
     "name": "a double-click confirms the factory reset",
     "path": "custom_components/neumann_kh/button.py",
-    "find": "    return armed_at is not None and now - armed_at < _RESTORE_CONFIRM_MIN_GAP_SECONDS",
-    "replace": "    return False",
+    "find": "    return _RESTORE_CONFIRM_MIN_GAP_SECONDS <= now - armed_at <= _RESTORE_CONFIRM_WINDOW_SECONDS",
+    "replace": "    return now - armed_at <= _RESTORE_CONFIRM_WINDOW_SECONDS",
     "expect": "tests/test_factory_reset.py::test_a_double_click_does_not_reset"
   },
   {
