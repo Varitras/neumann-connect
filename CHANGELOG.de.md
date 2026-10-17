@@ -120,9 +120,9 @@ konnten also nie einen Wert tragen oder ihre Aktion ausführen.
   zwischengespeicherten Werte. Der Reset startet den Lautsprecher neu, die
   fehlende Antwort wurde also als „nichts passiert“ gelesen, und alle Entities
   zeigten weiter die Einstellungen von vorher
-- Die EQ-Reset-Buttons („…: auf neutral zurücksetzen“) starten nicht, solange
-  eine andere Aktion läuft, statt parallel zu laufen, und gleichen die Werte auch
-  dann ab, wenn nur ein Teil des Resets geschrieben wurde
+- Die EQ-Reset-Buttons („…: auf neutral zurücksetzen“) starten nicht,
+  solange eine andere Aktion läuft, statt parallel zu laufen, und gleichen die
+  Werte auch dann ab, wenn nur ein Teil des Resets geschrieben wurde
 - Eine Geräteerkennung, deren Datei auf der Platte gelandet ist, wird nicht mehr
   als fehlgeschlagen gemeldet. Fehlgeschlagen war nur die interne Kopie, die
   niemand zurückliest

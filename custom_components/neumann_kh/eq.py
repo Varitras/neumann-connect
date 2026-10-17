@@ -4,9 +4,10 @@ frequency/Q/type stay unchanged). Both enabled by default, with
 `entity_category: config` in the configuration section.
 
 A full 1:1 mapping of every EQ parameter per band would be 360 entities on
-the KH 750 (6 containers x 10 bands x 6 parameters) - no longer manageable. Therefore deliberately reduced to the
-container level: one switch writes "enabled" for ALL bands of the container at
-once, instead of each band individually. All container names deliberately
+the KH 750 (6 containers x 10 bands x 6 parameters) - no longer manageable.
+Therefore deliberately reduced to the container level: one switch writes
+"enabled" for ALL bands of the container at once, instead of each band
+individually. All container names deliberately
 begin with "EQ" so they appear grouped together alphabetically in the
 configuration section.
 """
