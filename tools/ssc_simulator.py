@@ -45,6 +45,7 @@ MODELS = (MODEL_KH_120_II, MODEL_KH_750)
 
 # Error codes as observed on real hardware.
 _ERR_BAD_REQUEST = 400
+_ERR_AUTHORISATION_NEEDED = 401
 _ERR_NOT_FOUND = 404
 _ERR_NOT_ALLOWED = 405
 _ERR_NOT_ACCEPTABLE = 406
@@ -52,6 +53,7 @@ _ERR_PARAMETER_NOT_FOUND = 454
 
 _ERR_DESCRIPTIONS = {
     _ERR_BAD_REQUEST: "message not understood",
+    _ERR_AUTHORISATION_NEEDED: "authorisation needed",
     _ERR_NOT_FOUND: "address not found",
     _ERR_NOT_ALLOWED: "method not allowed",
     _ERR_NOT_ACCEPTABLE: "not acceptable",
@@ -90,6 +92,9 @@ _READ_ONLY_COMMON = frozenset(
         ("m", "out", "level"),
         ("m", "out", "clip"),
         ("warnings",),
+        # Follows the rear CONTROL (MODE) switch; a set is refused even with
+        # the current value.
+        ("ui", "control_mode"),
     }
 )
 
@@ -131,6 +136,8 @@ _READ_ONLY_KH_750 = frozenset(
         # switch on one model and a binary sensor on the other. Accepting the
         # write would let a test pass that real hardware answers with a 405.
         ("device", "standby", "enabled"),
+        # Follows the AUTO STANDBY switch, like device/standby/enabled.
+        ("ui", "auto_standby"),
     }
 )
 
@@ -481,14 +488,23 @@ class SSCSimulator:
     """Holds the state of one simulated speaker and answers SSC requests."""
 
     def __init__(
-        self, model: str, enable_schema: bool = True, output_on_out5: bool = False
+        self,
+        model: str,
+        enable_schema: bool = True,
+        output_on_out5: bool = False,
+        local_mode: bool = False,
     ) -> None:
         self.model = model
         self.enable_schema = enable_schema
         self.state = _build_state(model)
         if output_on_out5:
             _move_output_to_out5(self.state)
+        if local_mode:
+            self.state["ui"]["control_mode"] = "LOCAL"
         self.read_only = _read_only_paths(model)
+
+    def _local_mode(self) -> bool:
+        return self.state["ui"]["control_mode"] == "LOCAL"
 
     def _resolve(self, path: tuple[str, ...]) -> tuple[bool, Any]:
         """Look a path up in the state. Returns (found, value)."""
@@ -516,6 +532,10 @@ class SSCSimulator:
             return None, _error_entry(node, _ERR_NOT_FOUND)
         if value is None:
             return _build_nested(path, current), None
+        # Recorded for a writable leaf only; which code a read-only leaf gets
+        # in LOCAL mode is not, and 401 first is the guess.
+        if self._local_mode():
+            return None, _error_entry(path, _ERR_AUTHORISATION_NEEDED)
         if path in self.read_only:
             return None, _error_entry(path, _ERR_NOT_ALLOWED)
         if not _same_kind(current, value):

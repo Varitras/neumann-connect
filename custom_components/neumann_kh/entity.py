@@ -26,7 +26,12 @@ from .const import (
     PATH_IDENTIFY,
 )
 from .coordinator import NeumannKHCoordinator
-from .ssc_client import SSCConnectionError, SSCDeviceError, SSCTimeoutError
+from .ssc_client import SSCConnectionError, SSCDeviceError, SSCLocalModeError, SSCTimeoutError
+
+
+def unique_id_base(entry: ConfigEntry) -> str:
+    """Prefix of every unique ID of this entry's entities."""
+    return str(entry.data.get(CONF_SERIAL) or entry.entry_id)
 
 
 class NeumannKHEntity(CoordinatorEntity[NeumannKHCoordinator]):
@@ -37,7 +42,7 @@ class NeumannKHEntity(CoordinatorEntity[NeumannKHCoordinator]):
     def __init__(self, coordinator: NeumannKHCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator)
         self._entry = entry
-        serial = entry.data.get(CONF_SERIAL) or entry.entry_id
+        serial = unique_id_base(entry)
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, serial)},
             name=entry.title,
@@ -62,6 +67,10 @@ class NeumannKHEntity(CoordinatorEntity[NeumannKHCoordinator]):
         """
         try:
             confirmed = await self.coordinator.client.set(path, value)
+        except SSCLocalModeError as err:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN, translation_key="local_mode"
+            ) from err
         except SSCDeviceError as err:
             raise HomeAssistantError(
                 translation_domain=DOMAIN,

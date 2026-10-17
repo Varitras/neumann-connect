@@ -27,7 +27,7 @@ Setup und „as-is“ geteilt.** Es ist keine offizielle Integration, es gibt
 keine Garantie und weder zugesicherten Support noch zugesicherte Wartung. Nutzung auf
 eigenes Risiko – besonders bei schreibbaren Einstellungen, die direkt die
 echte Lautsprecher-Hardware verändern (EQ, Pegel, Delay, Werksreset).
-Änderungen immer zusätzlich in Neumanns eigener MA1/Neumann.Control-Software
+Änderungen immer zusätzlich in Neumanns eigener MA 1 / Neumann.Control-Software
 oder direkt am Gerät überprüfen.
 
 Entwickelt mit KI-Unterstützung (Claude); sämtliche Tests, Entscheidungen
@@ -213,11 +213,11 @@ ersten auseinanderläuft.
 | Phasenumkehr (nur Nicht-Subwoofer) | `switch` | – | `audio/out/phaseinversion` |
 | Auto-Standby (nur Nicht-Subwoofer; auf KH 750 DSP stattdessen `binary_sensor`) | `switch` | – | `device/standby/enabled` |
 | Eingangs-Interface (schreibbar, bestätigt auf KH 120 II und KH 750 DSP) | `select` | ANALOG ONLY/DIGITAL ONLY/DIGITAL DISCARDS ANALOG | `audio/in/interface` |
-| Steuerungsmodus (Default: deaktiviert, siehe „Bekannte Grenzen“) | `select` | NETWORK/LOCAL | `ui/control_mode` |
 | Gerätename (Default: deaktiviert) | `text` | max. 52 Zeichen | `device/name` |
 | Eingangspegel (live) | `sensor` | dB | `m/in/level` |
 | Standby-Countdown (Default: deaktiviert, Diagnose) | `sensor` | min | `device/standby/countdown` |
 | Hardware-Version, aktueller Eingang (Diagnose) | `sensor` | Text | `device/identity/hw_version`, `audio/in/current_input` |
+| Steuerungsmodus (Diagnose; der Schalter CONTROL auf der Rückseite, siehe „Bekannte Grenzen“) | `sensor` | NETWORK/LOCAL | `ui/control_mode` |
 | Eingangsverstärkung, Eingangsauswahl, Bass, Mitten, Höhen, Ausgangspegel (SPL) (nur Nicht-Subwoofer; per Test nicht schreibbar, Diagnose) | `sensor` | dB bzw. Text | `ui/input_gain`, `ui/input_select`, `ui/bass_gain`, `ui/mid_gain`, `ui/treble_gain`, `ui/output_level` |
 | Eingang übersteuert (Clip) | `binary_sensor` | – | `m/in/clip` |
 | Warnung (Diagnose) | `binary_sensor` | – | `warnings` |
@@ -259,8 +259,10 @@ Dienste → [Gerät] → Entitäten** manuell aktivieren.
 ## Polling
 
 Ein Lautsprecher wird alle 30 Sekunden abgefragt. Dabei wird nicht jedes Mal
-alles geholt: Selten wechselnde Werte (Identität, Rückseiten-Schalter,
-Gerätename) werden nur in jedem zehnten Zyklus abgefragt, also alle 5 Minuten.
+alles geholt: Selten wechselnde Werte (Identität, die meisten
+Rückseiten-Einstellungen, Gerätename) werden nur in jedem zehnten Zyklus
+abgefragt, also alle 5 Minuten. Steuerungsmodus und Auto-Standby-Schalter werden
+in jedem Zyklus gelesen.
 Abgefragt wird **jeder Wert einzeln** (ein Blattpfad pro SSC-Nachricht), nicht als
 Sammelnachricht und nicht als Container-Abfrage: Eine Container-Abfrage wie
 `{"device":null}` beantwortet das Gerät mit einem Fehler, eine Sammelnachricht
@@ -295,10 +297,17 @@ Integration nach jedem fehlgeschlagenen Einrichten im Netzwerk anhand der
 Seriennummer nach dem Lautsprecher und speichert seine neue Adresse, falls er
 umgezogen ist.
 
+**Zu viele Verbindungen:** Ein Lautsprecher nimmt nur etwa vier
+Netzwerkverbindungen gleichzeitig an (gemessen an KH 120 II und KH 750 DSP).
+Home Assistant hält je Lautsprecher eine offen. Belegen Neumann.Control, MA 1
+oder andere Werkzeuge den Rest, läuft eine neue Verbindung ins Timeout und die
+Entities sind „nicht verfügbar“, bis eine wieder geschlossen wird.
+
 ## Bekannte Grenzen
 
 - Auto-Standby ist nur auf der KH 750 DSP nicht schreibbar (auf der KH 120 II
-  funktioniert es). Deshalb: KH 120 II → `switch`, KH 750 DSP → `binary_sensor`.
+  funktioniert es); dort folgt es dem Schalter AUTO STANDBY auf der Rückseite.
+  Deshalb: KH 120 II → `switch`, KH 750 DSP → `binary_sensor`.
 - `ui/input_select` bleibt nur lesend. Der schreibbare Pfad ist
   `audio/in/interface`, bestätigt auf KH 120 II und KH 750 DSP und dort
   standardmäßig aktiviert.
@@ -311,9 +320,15 @@ umgezogen ist.
   vor der nächsten Anfrage verworfen; betroffen ist nur eine, die genau
   dazwischen eintrifft. Beide Testgeräte antworten mit exakt einer Zeile, das
   betrifft also andere Firmware, nicht die eingesetzte Hardware.
-- Steuerungsmodus (`ui/control_mode`) ist standardmäßig deaktiviert und
-  sollte es bleiben: Ein Wechsel zu `LOCAL` könnte die Netzwerksteuerung vom
-  Gerät trennen.
+- Der Steuerungsmodus (`ui/control_mode`) wird mit dem Schalter CONTROL auf
+  der Rückseite eingestellt (KH 750 DSP: CONTROL MODE) und lässt sich über das
+  Netzwerk nicht ändern, deshalb ist er ein Sensor. Auf `LOCAL` antwortet der
+  Lautsprecher weiter, seine Werte bleiben also sichtbar, aber er nimmt über
+  das Netzwerk keine Änderungen an (ein Schreibversuch wird mit „authorisation
+  needed“ beantwortet) und nutzt seine lokalen Einstellungen statt der
+  Netzwerk-Konfiguration (gemessen: anderer Ausgangspegel und andere
+  Auto-Standby-Zeit). Für die Steuerung aus Home Assistant den Schalter auf
+  `NETWORK` stellen. Gemessen an der KH 750 DSP.
 - „Backup zurückspielen“ hat dieselbe Zwei-Schritt-Sicherheitsabfrage wie
   der Werksreset unten: Der erste Tastendruck schaltet nur scharf, ein zweiter
   Druck frühestens 2 s und spätestens 30 s danach schreibt das Backup.

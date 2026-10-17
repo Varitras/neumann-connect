@@ -24,7 +24,7 @@ from custom_components.neumann_kh.backup_export import (
 from custom_components.neumann_kh.const import CONF_MODEL, CONF_SERIAL
 from custom_components.neumann_kh.export_actions import async_run_restore
 from custom_components.neumann_kh.identity import mask_serial
-from custom_components.neumann_kh.ssc_client import SSCDeviceError
+from custom_components.neumann_kh.ssc_client import SSCDeviceError, SSCLocalModeError
 
 _KH_120_II = "KH 120 II"
 
@@ -542,6 +542,33 @@ async def test_a_restore_the_device_refuses_entirely_is_not_a_success():
 
     assert err.value.translation_key == "restore_nothing_written"
     assert not coordinator.applied, "nothing was confirmed, so nothing may be applied"
+
+
+async def test_a_restore_in_local_mode_stops_at_the_first_refusal():
+    """In LOCAL every write is refused; skipping them one by one ends in "nothing written".
+
+    That message blames the backup. The cause is the CONTROL switch, and the
+    first 401 already says so.
+    """
+
+    class _LocalModeClient(_FakeClient):
+        def __init__(self) -> None:
+            super().__init__(answers_none=set())
+            self.attempts = 0
+
+        async def set(self, path, value):
+            self.attempts += 1
+            raise SSCLocalModeError("authorisation needed", code=401)
+
+    client = _LocalModeClient()
+    coordinator = _FakeCoordinator(client)
+    hass, entry, backup = _FakeHass(), _FakeEntry(_KH_120_II), _backup_covering(_KH_120_II)
+
+    with pytest.raises(HomeAssistantError) as err:
+        await async_run_restore(hass, entry, coordinator, backup)
+
+    assert err.value.translation_key == "restore_local_mode"
+    assert client.attempts == 1
 
 
 async def test_a_store_failure_does_not_undo_a_written_discovery_export(monkeypatch):

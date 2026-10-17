@@ -19,6 +19,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PORT, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.helpers import entity_registry as er
 
 from ._util import finite_float
 from .const import (
@@ -28,6 +29,7 @@ from .const import (
     CONF_SERIAL,
     DEFAULT_PORT,
     DEFAULT_TIMEOUT,
+    DOMAIN,
     MAX_PARALLEL_IDENTITY_QUERIES,
     MODELS_WITH_SUBWOOFER_FEATURES,
     OUT5_OUTPUT_ALIASES,
@@ -39,6 +41,7 @@ from .const import (
 )
 from .coordinator import NeumannKHConfigEntry, NeumannKHCoordinator
 from .discovery import DiscoveredSpeaker, async_scan_for_speakers
+from .entity import unique_id_base
 from .identity import as_identity_text, mask_serial, serial_matches
 from .ssc_client import (
     ERROR_NOT_FOUND,
@@ -298,6 +301,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: NeumannKHConfigEntry) ->
         raise
 
     entry.runtime_data = coordinator
+    _remove_control_mode_select(hass, entry)
 
     try:
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -312,6 +316,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: NeumannKHConfigEntry) ->
         raise
 
     return True
+
+
+def _remove_control_mode_select(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Drop the control-mode select of versions before 1.20; it is a sensor now.
+
+    Left in the registry it would linger as an orphaned, unavailable entity.
+    """
+    registry = er.async_get(hass)
+    entity_id = registry.async_get_entity_id(
+        "select", DOMAIN, f"{unique_id_base(entry)}_control_mode"
+    )
+    if entity_id is not None:
+        registry.async_remove(entity_id)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: NeumannKHConfigEntry) -> bool:

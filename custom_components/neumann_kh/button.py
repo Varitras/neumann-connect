@@ -49,7 +49,7 @@ from .export_actions import (
     async_run_discovery,
     async_run_restore,
 )
-from .ssc_client import SSCConnectionError, SSCDeviceError, SSCTimeoutError
+from .ssc_client import SSCConnectionError, SSCDeviceError, SSCLocalModeError, SSCTimeoutError
 
 # Upper bound of the confirmation window shared by factory reset and restore
 # backup. After it elapses, the button must be armed again.
@@ -136,6 +136,10 @@ class NeumannKHRestoreButton(NeumannKHEntity, ButtonEntity):
             try:
                 async with self.coordinator.claim_device():
                     await self.coordinator.client.set(PATH_RESTORE, RESTORE_FACTORY_DEFAULTS_VALUE)
+            except SSCLocalModeError as err:
+                raise HomeAssistantError(
+                    translation_domain=DOMAIN, translation_key="local_mode"
+                ) from err
             except SSCDeviceError as err:
                 raise HomeAssistantError(
                     translation_domain=DOMAIN,

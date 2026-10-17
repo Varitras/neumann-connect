@@ -17,8 +17,10 @@ from recorded_replies import (
     CONTAINER_REPLY,
     KH_120_II_READ_ONLY_SET_REPLIES,
     KH_750_NOT_FOUND_REPLIES,
+    KH_750_SWITCH_SET_REPLIES,
     LIMITS_LEVEL_REQUEST,
     LIMITS_LEVEL_TYPE,
+    LOCAL_MODE_SET_REPLY,
     MALFORMED_OSC_REPLIES,
     NOT_FOUND_REPLIES,
     OSC_METHOD_REPLIES,
@@ -26,6 +28,7 @@ from recorded_replies import (
     SCHEMA_AUDIO_REQUEST,
     SCHEMA_ROOT_REPLY,
     SET_REPLIES,
+    SWITCH_SET_REPLIES,
 )
 
 from tools.ssc_simulator import MODEL_KH_120_II, MODEL_KH_750, SSCSimulator
@@ -64,6 +67,28 @@ def test_the_simulator_answers_sets_like_the_device(model, request_, line):
 )
 def test_the_simulated_kh_120_ii_refuses_read_only_sets_like_the_device(request_, line):
     assert SSCSimulator(MODEL_KH_120_II).handle(request_) == json.loads(line)
+
+
+@pytest.mark.parametrize("model", MODELS)
+@pytest.mark.parametrize(("request_", "line"), SWITCH_SET_REPLIES, ids=["control-mode"])
+def test_the_simulator_refuses_switch_settings_like_the_device(model, request_, line):
+    assert SSCSimulator(model).handle(request_) == json.loads(line)
+
+
+@pytest.mark.parametrize(("request_", "line"), KH_750_SWITCH_SET_REPLIES, ids=["auto-standby"])
+def test_the_simulated_kh_750_refuses_its_auto_standby_switch(request_, line):
+    assert SSCSimulator(MODEL_KH_750).handle(request_) == json.loads(line)
+
+
+@pytest.mark.parametrize("model", MODELS)
+def test_a_simulator_in_local_mode_answers_like_the_device(model):
+    """Measured on a KH 750; the KH 120 II has the same CONTROL switch."""
+    simulator = SSCSimulator(model, local_mode=True)
+    request_, line = LOCAL_MODE_SET_REPLY
+
+    assert simulator.handle(request_) == json.loads(line)
+    assert _get(simulator, "audio", "out", "mute") is False
+    assert _get(simulator, "ui", "control_mode") == "LOCAL"
 
 
 @pytest.mark.parametrize("model", MODELS)

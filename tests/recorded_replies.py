@@ -104,6 +104,31 @@ KH_120_II_READ_ONLY_SET_REPLIES = (
     ),
 )
 
+# Paths that follow a rear switch, recorded 2026-10-18 by writing back the
+# current value: the device refuses the set all the same.
+SWITCH_SET_REPLIES = (
+    (
+        # The CONTROL (MODE) switch.
+        {"ui": {"control_mode": "NETWORK"}},
+        '{"osc":{"error":[{"ui":{"control_mode":[405,{"desc":"method not allowed"}]}}]}}',
+    ),
+)
+
+# KH 750 only: the AUTO STANDBY switch.
+KH_750_SWITCH_SET_REPLIES = (
+    (
+        {"ui": {"auto_standby": "ON"}},
+        '{"osc":{"error":[{"ui":{"auto_standby":[405,{"desc":"method not allowed"}]}}]}}',
+    ),
+)
+
+# With the CONTROL MODE switch on LOCAL (KH 750, 2026-10-18): gets are answered,
+# a set is refused even with the current value.
+LOCAL_MODE_SET_REPLY = (
+    {"audio": {"out": {"mute": False}}},
+    '{"osc":{"error":[{"audio":{"out":{"mute":[401,{"desc":"authorisation needed"}]}}}]}}',
+)
+
 # osc/schema and osc/limits - answered by both models in exactly the form the
 # integration sends (an older note said 400; it is not).
 SCHEMA_ROOT_REPLY = (

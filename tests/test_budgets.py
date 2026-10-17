@@ -36,7 +36,8 @@ LINE_BUDGETS = {
     # aliases); the alternative was splitting the read loop out of its owner.
     # Raised to 540 for reading the nested osc/error format real speakers send.
     # Raised to 542 for the type arguments the mypy gate requires.
-    "ssc_client.py": 542,
+    # Raised to 549 for the LOCAL-mode error (401) every writer has to name.
+    "ssc_client.py": 549,
 }
 
 # SonarSource's default. Everything above needs a written entry.
@@ -47,8 +48,9 @@ COMPLEXITY_BUDGETS = {
     # every previous attempt moved the branching instead of removing it.
     "ssc_client.py::SSCClient._read_lines_until_settled": 35,
     # Writes, counts and reports per path, with a deadline between paths and
-    # two ways out that both have to keep what already landed.
-    "export_actions.py::async_run_restore": 19,
+    # three ways out that all have to keep what already landed (the third:
+    # LOCAL mode, where every further write would be refused too).
+    "export_actions.py::async_run_restore": 21,
     # Walks an unknown schema one level at a time against two budgets.
     "discovery_export.py::_async_discover_via_schema": 18,
     # Matches an announcement against known entries, unknown devices and
