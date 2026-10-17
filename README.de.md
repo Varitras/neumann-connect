@@ -45,7 +45,10 @@ und Validierungen habe ich selbst an meiner eigenen Installation
 laut Herstellerangaben, keine eigenen Tests): KH 80 DSP, KH 150 sowie
 deren AES67-Varianten (KH 120 II AES67, KH 150 AES67). Wertebereiche
 (Delay, Logo-Helligkeit etc.) sind von der KH 120 II übernommen und
-könnten bei diesen Modellen leicht abweichen.
+könnten bei diesen Modellen leicht abweichen. Die KH 80 DSP behält Änderungen
+nur dann über das Ausschalten hinaus, wenn sie ausdrücklich gespeichert werden;
+die Integration schickt ihr deshalb nach jeder Änderung einen Speicherbefehl
+(nicht auf echter Hardware getestet).
 
 **Nicht unterstützbar** (keine DSP-/Netzwerkfunktion, rein analog): KH 310,
 KH 420 und andere klassische analoge KH-Monitore. Diese lassen sich nicht
@@ -337,7 +340,8 @@ umgezogen ist.
 - `audio/out/dimm` und `device/save_settings` werden von beiden Testmodellen
   mit 404 beantwortet, existieren dort also nicht. Die Dimm-Entity und der
   Button „Einstellungen speichern“ wurden entfernt, statt dauerhaft
-  „unbekannt“ anzuzeigen bzw. bei jedem Druck zu scheitern.
+  „unbekannt“ anzuzeigen bzw. bei jedem Druck zu scheitern. Den Speicherbefehl
+  bekommt nur die KH 80 DSP, die ihn braucht.
 - „Identifizieren“ ist ein Schalter, kein Auto-Stopp-Button: Das Blinken
   hört erst nach mehreren Minuten von selbst auf.
 - Gerätetemperatur (KH 750 DSP): Einheit Kelvin, umgerechnet in °C.

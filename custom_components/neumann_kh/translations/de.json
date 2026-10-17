@@ -267,6 +267,9 @@
     "change_rejected": {
       "message": "Der Lautsprecher hat diese Änderung abgelehnt (evtl. von diesem Modell/dieser Firmware nicht unterstützt): {error}"
     },
+    "settings_not_saved": {
+      "message": "Die Änderung ist am Lautsprecher angekommen, ließ sich dort aber nicht speichern – sie geht beim Ausschalten verloren. ({error})"
+    },
     "selection_rejected": {
       "message": "Der Lautsprecher hat diese Auswahl abgelehnt (evtl. von diesem Modell/dieser Firmware nicht unterstützt): {error}"
     },

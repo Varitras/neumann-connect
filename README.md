@@ -42,7 +42,9 @@ validation performed by me against my own installation (KH 120 II, KH 750 DSP).
 manufacturer, no testing of my own): KH 80 DSP, KH 150, and their AES67
 variants (KH 120 II AES67, KH 150 AES67). Value ranges (delay, logo
 brightness, etc.) are taken from the KH 120 II and may differ slightly on
-these models.
+these models. The KH 80 DSP only keeps changes across a power cycle when told
+to save them, so the integration sends a save command to it after every change
+(not tested on hardware).
 
 **Cannot be supported** (no DSP/network capability, purely analog): KH 310,
 KH 420 and other classic analog KH monitors. These cannot be addressed via
@@ -323,7 +325,8 @@ number and stores the new address if it has moved.
 - `audio/out/dimm` and `device/save_settings` are answered with a 404 by both
   test models, so neither path exists on them. The dimm entity and the "save
   settings" button were removed rather than left showing "unknown" and
-  failing on every press.
+  failing on every press. The save command is only sent to the KH 80 DSP,
+  which needs it.
 - "Identify" is a switch, not an auto-stop button: the flashing only stops by
   itself after several minutes.
 - Device temperature (KH 750 DSP): reported in Kelvin, converted to °C.

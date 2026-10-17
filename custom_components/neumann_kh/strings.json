@@ -267,6 +267,9 @@
     "change_rejected": {
       "message": "The speaker rejected this change (possibly not supported by this model/firmware): {error}"
     },
+    "settings_not_saved": {
+      "message": "The change reached the speaker but could not be saved there; it will be lost when the speaker is switched off. ({error})"
+    },
     "selection_rejected": {
       "message": "The speaker rejected this selection (possibly not supported by this model/firmware): {error}"
     },

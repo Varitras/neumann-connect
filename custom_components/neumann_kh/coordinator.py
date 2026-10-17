@@ -26,11 +26,13 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from ._util import build_nested, deep_merge, extract
 from .const import (
     DOMAIN,
+    MODELS_THAT_NEED_A_SAVE,
     MODELS_WITH_LOGO_BRIGHTNESS,
     MODELS_WITH_SUBWOOFER_FEATURES,
     NON_SUBWOOFER_POLL_PATHS,
     NON_SUBWOOFER_SLOW_POLL_PATHS,
     PATH_LOGO_BRIGHTNESS,
+    PATH_SAVE_SETTINGS,
     POLL_CYCLE_TIMEOUT_SECONDS,
     POLL_PATHS,
     SLOW_POLL_EVERY_N_CYCLES,
@@ -354,6 +356,24 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if path in self._slow_path_set:
             self._slow_poll_pending = True
         self.hass.async_create_task(self.async_request_refresh())
+
+    async def async_persist(self) -> None:
+        """Make the speaker keep what was just written, where it needs telling.
+
+        Called after every accepted write. Raises when the save fails: the
+        change is on the device now, but would be gone after a power cycle,
+        and the user has to know that.
+        """
+        if self.model not in MODELS_THAT_NEED_A_SAVE:
+            return
+        try:
+            await self.client.set(PATH_SAVE_SETTINGS, True)
+        except (SSCConnectionError, SSCTimeoutError, SSCDeviceError) as err:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="settings_not_saved",
+                translation_placeholders={"error": str(err)},
+            ) from err
 
     def value(self, path: tuple[str, ...]) -> Any:
         """Convenient access to a value from the last polled data."""

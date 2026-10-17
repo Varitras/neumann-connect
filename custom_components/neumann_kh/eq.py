@@ -138,6 +138,7 @@ class NeumannKHEQResetButton(NeumannKHEntity, ButtonEntity):
                     translation_key="device_unreachable",
                     translation_placeholders={"error": str(err)},
                 ) from err
+            await self.coordinator.async_persist()
         # No refresh afterwards: gain and boost are never polled (only the
         # container's "enabled" array is), so there is no cached value a
         # refresh could correct - it would only hold the lock longer.

@@ -76,5 +76,6 @@ class NeumannKHEntity(CoordinatorEntity[NeumannKHCoordinator]):
             ) from err
         if confirmed is None:
             self.coordinator.request_reread(path)
-            return
-        self.coordinator.apply_confirmed_value(path, confirmed)
+        else:
+            self.coordinator.apply_confirmed_value(path, confirmed)
+        await self.coordinator.async_persist()

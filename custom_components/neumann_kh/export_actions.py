@@ -353,6 +353,8 @@ async def async_run_restore(
         )
 
     coordinator.async_update_listeners()
+    # Once for the whole restore, not once per value.
+    await coordinator.async_persist()
 
     _LOGGER.debug(
         "Restore for %s: %d written, %d adjusted, %d skipped",
