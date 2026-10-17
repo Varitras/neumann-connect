@@ -242,5 +242,7 @@ def test_the_subwoofer_is_not_asked_for_monitor_front_panel_values(path):
     """The KH 750 has none of these; every slow cycle earned six rejections."""
     from custom_components.neumann_kh.coordinator import poll_paths_for_model
 
-    assert path not in sum(poll_paths_for_model(_KH_750), [])
-    assert path in sum(poll_paths_for_model(_KH_120_II), [])
+    subwoofer_fast, subwoofer_slow = poll_paths_for_model(_KH_750)
+    monitor_fast, monitor_slow = poll_paths_for_model(_KH_120_II)
+    assert path not in subwoofer_fast + subwoofer_slow
+    assert path in monitor_fast + monitor_slow

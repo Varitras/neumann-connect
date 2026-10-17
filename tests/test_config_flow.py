@@ -386,9 +386,7 @@ async def test_zeroconf_does_not_contact_a_speaker_that_has_not_moved(hass, _cus
     assert not connect.called, "an unchanged announcement cost a network round trip"
 
 
-async def test_a_padded_serial_in_the_announcement_still_finds_the_entry(
-    hass, _custom_integration
-):
+async def test_a_padded_serial_in_the_announcement_still_finds_the_entry(hass, _custom_integration):
     """TXT values arrive as sent; whitespace must not make a known speaker new.
 
     Offered as new, confirming it would create a second entry polling the

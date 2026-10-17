@@ -32,7 +32,7 @@ from .const import (
 )
 from .coordinator import NeumannKHConfigEntry, NeumannKHCoordinator
 from .discovery import async_scan_for_speakers
-from .identity import mask_serial, serial_matches
+from .identity import as_identity_text, mask_serial, serial_matches
 from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeoutError, mask_host
 
 _LOGGER = logging.getLogger(__name__)
@@ -157,7 +157,7 @@ async def _async_refresh_firmware_version(
         _LOGGER.debug("Could not read the firmware version of %s", entry.title, exc_info=True)
         return
 
-    version = str(version) if version is not None else ""
+    version = as_identity_text(version) or ""
     if not version or version == entry.data.get(CONF_FIRMWARE_VERSION):
         return
 

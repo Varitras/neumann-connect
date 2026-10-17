@@ -497,7 +497,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         all, and anyone able to run it on the segment can already talk to the
         real speaker directly.
         """
-        serial = discovery_info.properties.get(ATTR_PROPERTIES_ID)
+        serial = as_identity_text(discovery_info.properties.get(ATTR_PROPERTIES_ID))
         if not serial:
             # Without the serial there is no safe way to tell which entry this
             # belongs to, and guessing by address is what got us here.
