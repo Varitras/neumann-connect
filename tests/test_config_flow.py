@@ -439,8 +439,8 @@ async def test_zeroconf_of_a_device_without_a_serial_is_not_set_up(hass, _custom
     """Keeping the announced serial would make mDNS the device's identity.
 
     The record is unauthenticated, so a forged one could occupy a serial the
-    real speaker needs later. The manual and reconfigure paths refuse a device
-    that reports none, and this one has to as well.
+    real speaker needs later. Manual setup and the scan accept such a device -
+    there the user picked it on purpose; a broadcast alone does not vouch.
     """
     identity = DeviceIdentity(product="KH 120 II", serial=None, vendor="Georg Neumann GmbH")
 

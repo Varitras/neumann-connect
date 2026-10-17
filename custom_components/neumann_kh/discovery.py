@@ -1,8 +1,10 @@
 """Active mDNS/Zeroconf device search for Neumann KH (SSC) speakers.
 
 SSC devices announce themselves via DNS-SD under "_ssc._tcp.local.". Uses
-Home Assistant's running Zeroconf instance for a time-limited active scan
-(scan button in the config flow, no background discovery).
+Home Assistant's running Zeroconf instance for a time-limited active scan.
+Two callers: the scan step of the config flow, and the address follow-up
+after every failed setup (__init__._async_relocate). Passive discovery is
+Home Assistant's own zeroconf flow, which only borrows pick_host() from here.
 """
 
 from __future__ import annotations
