@@ -270,6 +270,42 @@ async def test_a_reread_of_a_slow_path_fetches_it_on_the_next_cycle(coordinator,
     assert _value(coordinator, PATH_DEVICE_NAME) == "Renamed"
 
 
+async def test_a_reread_requested_during_a_slow_poll_is_not_used_up_by_it(
+    hass, coordinator, fake_client
+):
+    """The poll in flight has already read the old name when the reread comes.
+
+    It used to clear the pending flag on its way out, so the poll asked for
+    ran fast-only and merged the old name back in - for up to five minutes
+    while the device already held the new one.
+    """
+    await coordinator.async_refresh()  # cycle 0: slow, "Links" cached
+    coordinator._slow_poll_pending = True
+    name_read = asyncio.Event()
+    release = asyncio.Event()
+    real_get = fake_client.get
+
+    async def _get(path):
+        value = await real_get(path)
+        if path == PATH_DEVICE_NAME:
+            name_read.set()
+            await release.wait()
+        return value
+
+    fake_client.get = _get
+    old_poll = hass.async_create_task(coordinator.async_refresh())
+    await name_read.wait()
+
+    fake_client.values[PATH_DEVICE_NAME] = "Renamed"
+    coordinator.request_reread(PATH_DEVICE_NAME)
+    release.set()
+    await old_poll
+    await hass.async_block_till_done()
+    await coordinator.async_refresh()
+
+    assert _value(coordinator, PATH_DEVICE_NAME) == "Renamed"
+
+
 async def test_a_reread_does_not_hold_the_caller_for_a_whole_poll(hass, coordinator):
     """The caller is a failed write or a restore in the middle of its loop.
 

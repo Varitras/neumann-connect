@@ -172,6 +172,9 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # a snapshot of the device as it no longer is; the counter lets it
         # notice that and keep its stale slow values out of the cache.
         self._cache_generation = 0
+        # Bumped by every slow-path reread request, for the same reason: a
+        # poll that read the path before the request must not use it up.
+        self._reread_requests = 0
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Query each path individually; a rejected/faulty single path is skipped."""
@@ -188,6 +191,7 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._confirmed_during_poll = []
         self._poll_in_flight = True
         generation_at_start = self._cache_generation
+        rereads_at_start = self._reread_requests
         try:
             merged = await asyncio.wait_for(
                 self._poll_all_paths(paths), timeout=POLL_CYCLE_TIMEOUT_SECONDS
@@ -224,6 +228,10 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         if include_slow:
             self._refresh_slow_cache(merged)
+            if rereads_at_start != self._reread_requests:
+                # Asked for while this cycle was reading - possibly after it
+                # read that path, so the next cycle has to read it again.
+                self._slow_poll_pending = True
         # Every cycle carries the last known slow values; a slow cycle has
         # just renewed them, a fast cycle merely repeats them.
         deep_merge(merged, self._slow_data)
@@ -361,6 +369,7 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """
         if path in self._slow_path_set:
             self._slow_poll_pending = True
+            self._reread_requests += 1
         self.hass.async_create_task(self.async_request_refresh())
 
     async def async_persist(self) -> None:
