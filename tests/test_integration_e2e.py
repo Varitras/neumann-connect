@@ -74,7 +74,13 @@ def _confirm_without_waiting(monkeypatch):
 @contextlib.asynccontextmanager
 async def _simulator(model: str):
     """Run a simulator on an ephemeral loopback port for the test."""
-    simulator = SSCSimulator(model)
+    async with _running_simulator(SSCSimulator(model)) as port:
+        yield port
+
+
+@contextlib.asynccontextmanager
+async def _running_simulator(simulator: SSCSimulator):
+    """The same, for a test that also inspects the simulated device."""
     handlers: set[asyncio.Task] = set()
 
     async def connected(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
@@ -458,3 +464,57 @@ async def test_writing_a_value_reaches_the_device(hass, socket_enabled):
         await hass.services.async_call("switch", "turn_on", {"entity_id": mute}, blocking=True)
         await hass.async_block_till_done()
         assert hass.states.get(mute).state == "on"
+
+
+def _by_unique_id(hass, entry, unique_id: str) -> str:
+    return _find_entity(
+        hass, entry, lambda e: e.unique_id == unique_id, f"with unique id {unique_id}"
+    ).entity_id
+
+
+async def test_a_kh750_on_out5_firmware_shows_and_writes_level_and_mute(hass, socket_enabled):
+    """Firmware 1.2.x keeps level and mute in audio/out5; the entities still work."""
+    simulator = SSCSimulator(MODEL_KH_750, output_on_out5=True)
+    async with _running_simulator(simulator) as port:
+        entry = await _setup_entry(hass, MODEL_KH_750, port, "SIM0007500")
+        level = _by_unique_id(hass, entry, "SIM0007500_output_level")
+        mute = _by_unique_id(hass, entry, "SIM0007500_mute")
+        assert hass.states.get(level).state == "100.0"
+
+        await hass.services.async_call(
+            "number", "set_value", {"entity_id": level, "value": 90}, blocking=True
+        )
+        await hass.services.async_call("switch", "turn_on", {"entity_id": mute}, blocking=True)
+        await hass.async_block_till_done()
+
+        assert simulator.state["audio"]["out5"]["level"] == 90.0
+        assert simulator.state["audio"]["out5"]["mute"] is True
+        assert "level" not in simulator.state["audio"]["out"]
+
+
+async def test_a_backup_from_out5_firmware_restores_onto_out_firmware(
+    hass, socket_enabled, tmp_path
+):
+    """Backups keep the logical path, so a firmware update does not strand them."""
+    hass.config.config_dir = str(tmp_path)
+    old_firmware = SSCSimulator(MODEL_KH_750, output_on_out5=True)
+    new_firmware = SSCSimulator(MODEL_KH_750)
+    async with (
+        _running_simulator(old_firmware) as old_port,
+        _running_simulator(new_firmware) as new_port,
+    ):
+        entry = await _setup_entry(hass, MODEL_KH_750, old_port, "SIM0007500")
+        level = _by_unique_id(hass, entry, "SIM0007500_output_level")
+        await hass.services.async_call(
+            "number", "set_value", {"entity_id": level, "value": 90}, blocking=True
+        )
+        await _enable(hass, entry, "_restore_backup")
+        await _press(hass, entry, "_create_backup")
+
+        hass.config_entries.async_update_entry(entry, data={**entry.data, CONF_PORT: new_port})
+        await hass.config_entries.async_reload(entry.entry_id)
+        await hass.async_block_till_done()
+        await _press(hass, entry, "_restore_backup")
+        await _press(hass, entry, "_restore_backup")
+
+        assert new_firmware.state["audio"]["out"]["level"] == 90.0

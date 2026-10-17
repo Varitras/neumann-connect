@@ -223,3 +223,17 @@ async def test_output_loudspeaker_is_read_only(kh750, path):
             await client.set(path, "KH 120 II")
     finally:
         await client.close()
+
+
+def test_the_out5_variant_moves_only_level_and_mute():
+    """Firmware 1.2.x layout: level and mute live in audio/out5, delay stays."""
+    simulator = SSCSimulator(MODEL_KH_750, output_on_out5=True)
+
+    assert simulator.handle({"audio": {"out": {"level": None}}})["osc"]["error"][0] == 404
+    assert simulator.handle({"audio": {"out5": {"level": None}}}) == {
+        "audio": {"out5": {"level": 100.0}}
+    }
+    assert "osc" not in simulator.handle({"audio": {"out": {"delay": None}}})
+    assert simulator.handle({"device": {"identity": {"version": None}}}) == {
+        "device": {"identity": {"version": "1_2_4"}}
+    }
