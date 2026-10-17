@@ -121,6 +121,8 @@ class SSCTimeoutError(Exception):
 
 
 ERROR_NOT_FOUND = 404  # osc/error code for a path the device does not have
+# Every set while the rear CONTROL (MODE) switch is on LOCAL; gets still work.
+ERROR_LOCAL_MODE = 401
 
 
 class SSCDeviceError(Exception):
@@ -129,6 +131,10 @@ class SSCDeviceError(Exception):
     def __init__(self, message: str, code: int | None = None) -> None:
         super().__init__(message)
         self.code = code
+
+
+class SSCLocalModeError(SSCDeviceError):
+    """Device refuses a write because its CONTROL switch is on LOCAL (error 401)."""
 
 
 def _error_details(osc_error: Any) -> tuple[int | None, str]:
@@ -509,7 +515,8 @@ class SSCClient:
         osc_error = extract(merged, ("osc", "error"))
         if osc_error:
             code, description = _error_details(osc_error)
-            raise SSCDeviceError(
+            error = SSCLocalModeError if code == ERROR_LOCAL_MODE else SSCDeviceError
+            raise error(
                 f"Device {mask_host(self._host)} rejected the request: {description or osc_error}",
                 code=code,
             )

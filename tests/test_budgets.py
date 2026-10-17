@@ -36,7 +36,8 @@ LINE_BUDGETS = {
     # aliases); the alternative was splitting the read loop out of its owner.
     # Raised to 540 for reading the nested osc/error format real speakers send.
     # Raised to 542 for the type arguments the mypy gate requires.
-    "ssc_client.py": 542,
+    # Raised to 549 for the LOCAL-mode error (401) every writer has to name.
+    "ssc_client.py": 549,
 }
 
 # SonarSource's default. Everything above needs a written entry.
