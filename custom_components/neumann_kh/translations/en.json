@@ -264,6 +264,12 @@
     "invalid_number": {
       "message": "The value {value} is not a number the speaker can store."
     },
+    "local_mode": {
+      "message": "The speaker refuses changes from the network: its CONTROL (MODE) switch on the back is set to LOCAL. Set it to NETWORK to change settings from Home Assistant."
+    },
+    "restore_local_mode": {
+      "message": "The restore stopped after {written} values: the speaker refuses changes from the network because its CONTROL (MODE) switch on the back is set to LOCAL. Set it to NETWORK, then press the button twice again."
+    },
     "change_rejected": {
       "message": "The speaker rejected this change (possibly not supported by this model/firmware): {error}"
     },

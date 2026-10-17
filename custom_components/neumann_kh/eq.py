@@ -26,7 +26,7 @@ from .const import DOMAIN
 from .coordinator import NeumannKHCoordinator
 from .entity import NeumannKHEntity
 from .eq_containers import EQContainer, eq_containers_for_model
-from .ssc_client import SSCConnectionError, SSCDeviceError, SSCTimeoutError
+from .ssc_client import SSCConnectionError, SSCDeviceError, SSCLocalModeError, SSCTimeoutError
 
 # --- Container on/off switch -------------------------------------------------
 
@@ -127,6 +127,10 @@ class NeumannKHEQResetButton(NeumannKHEntity, ButtonEntity):
             try:
                 await self.coordinator.client.set(self._container.path + ("gain",), zero)
                 await self.coordinator.client.set(self._container.path + ("boost",), zero)
+            except SSCLocalModeError as err:
+                raise HomeAssistantError(
+                    translation_domain=DOMAIN, translation_key="local_mode"
+                ) from err
             except SSCDeviceError as err:
                 raise HomeAssistantError(
                     translation_domain=DOMAIN,

@@ -264,6 +264,12 @@
     "invalid_number": {
       "message": "Der Wert {value} ist keine Zahl, die der Lautsprecher speichern kann."
     },
+    "local_mode": {
+      "message": "Der Lautsprecher nimmt keine Änderungen aus dem Netzwerk an: Sein Schalter CONTROL (MODE) auf der Rückseite steht auf LOCAL. Stell ihn auf NETWORK, um Einstellungen aus Home Assistant zu ändern."
+    },
+    "restore_local_mode": {
+      "message": "Das Zurückspielen wurde nach {written} Werten beendet: Der Lautsprecher nimmt keine Änderungen aus dem Netzwerk an, weil sein Schalter CONTROL (MODE) auf der Rückseite auf LOCAL steht. Stell ihn auf NETWORK und drücke den Button dann erneut zweimal."
+    },
     "change_rejected": {
       "message": "Der Lautsprecher hat diese Änderung abgelehnt (evtl. von diesem Modell/dieser Firmware nicht unterstützt): {error}"
     },

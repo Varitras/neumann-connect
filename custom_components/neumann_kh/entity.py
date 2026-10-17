@@ -26,7 +26,7 @@ from .const import (
     PATH_IDENTIFY,
 )
 from .coordinator import NeumannKHCoordinator
-from .ssc_client import SSCConnectionError, SSCDeviceError, SSCTimeoutError
+from .ssc_client import SSCConnectionError, SSCDeviceError, SSCLocalModeError, SSCTimeoutError
 
 
 class NeumannKHEntity(CoordinatorEntity[NeumannKHCoordinator]):
@@ -62,6 +62,10 @@ class NeumannKHEntity(CoordinatorEntity[NeumannKHCoordinator]):
         """
         try:
             confirmed = await self.coordinator.client.set(path, value)
+        except SSCLocalModeError as err:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN, translation_key="local_mode"
+            ) from err
         except SSCDeviceError as err:
             raise HomeAssistantError(
                 translation_domain=DOMAIN,

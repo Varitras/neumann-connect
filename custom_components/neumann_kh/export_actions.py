@@ -25,7 +25,13 @@ from .const import CONF_MODEL, CONF_SERIAL, DEVICE_ACTION_TIMEOUT_SECONDS, DOMAI
 from .discovery_export import DiscoveryTimeoutError, async_discover_all_values
 from .export_file import async_write_export
 from .identity import mask_serial
-from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeoutError
+from .ssc_client import (
+    SSCClient,
+    SSCConnectionError,
+    SSCDeviceError,
+    SSCLocalModeError,
+    SSCTimeoutError,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -312,6 +318,9 @@ async def async_run_restore(
             continue
         try:
             confirmed = await client.set(path, value)
+        except SSCLocalModeError as err:
+            # The whole device refuses, so every further write would too.
+            raise _stop("restore_local_mode") from err
         except SSCDeviceError:
             # Not writable on this model or firmware.
             skipped += 1
