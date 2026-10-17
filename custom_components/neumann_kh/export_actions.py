@@ -159,7 +159,7 @@ async def async_run_discovery(hass: HomeAssistant, entry: ConfigEntry, client: S
     # Same bar as the backup: a run that read nothing would otherwise replace
     # the last usable discovery with empty trees and still report success. Any
     # non-empty part counts - the schema part is best-effort and stays empty on
-    # most firmware, so requiring it would refuse every normal run. Checked
+    # firmware without osc/schema, so requiring it would refuse such a run. Checked
     # without naming the parts so this keeps working if the shape gains one.
     if not any(discovery.values()):
         raise HomeAssistantError(

@@ -4,10 +4,11 @@ Two combined methods:
 1. Guaranteed part: query every path known to us for the model (fast, slow and
    EQ paths, see backup_export.known_paths_for_model) individually - always
    works, but only returns already known values.
-2. Best-effort part: `osc/schema` (determine command tree) + `osc/limits` (type/
-   range/options/writeable per endpoint) - OPTIONAL per the SSC specification,
-   answered by both tested firmwares (KH 120 II 1_7_3, KH 750 2_1_2). If this
-   part fails, it simply stays empty; the guaranteed part is unaffected.
+2. Best-effort part: `osc/schema` (determine command tree) + `osc/limits` (type,
+   description, unit, range, options per endpoint) - OPTIONAL per the SSC
+   specification, answered by both tested firmwares (KH 120 II 1_7_3, KH 750
+   2_1_2). If this part fails, it simply stays empty; the guaranteed part is
+   unaffected.
 """
 
 from __future__ import annotations
@@ -23,9 +24,9 @@ from .ssc_client import SSCClient
 _LOGGER = logging.getLogger(__name__)
 
 # Protection against an unexpectedly huge or endless command tree. Both are
-# compared with ">=", so they mean
-# what they say: at most this many nodes, at most this many levels below the
-# root. The node count used to be compared with ">" and allowed one more.
+# compared with ">=", so they mean what they say: at most this many nodes, at
+# most this many levels below the root. The node count used to be compared
+# with ">" and allowed one more.
 _MAX_SCHEMA_NODES = 500
 _MAX_SCHEMA_DEPTH = 10
 # Overall time limit for the best-effort schema part (osc/schema + osc/limits).

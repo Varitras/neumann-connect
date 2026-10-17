@@ -298,8 +298,8 @@ number and stores the new address if it has moved.
   narrow case, have a trailing line of one answer returned as the next one.
   The integration sends no transaction id (`osc/xid`, which both test
   speakers echo), so a trailing line for the path just requested cannot be
-  told apart from a fresh reply to it. Lines already
-  waiting on the socket are discarded before the next request; only one that
+  told apart from a fresh reply to it. Lines already waiting on the socket
+  are discarded before the next request; only one that
   lands in between is affected. Both test devices answer with exactly one
   line, so this concerns other firmware rather than the hardware in use.
 - Control mode (`ui/control_mode`) is disabled by default and should stay
