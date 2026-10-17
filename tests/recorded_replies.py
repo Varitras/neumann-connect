@@ -47,6 +47,8 @@ CONTAINER_REPLY = (
 # the 404 attached to the parent of the unknown leaf.
 BUNDLE_REPLY = (
     {"audio": {"out": {"level": None, "dimm": None}}},
-    '{"audio":{"out":{"level":100.0}},'
-    '"osc":{"error":[{"audio":{"out":[404,{"desc":"address not found"}]}}]}}',
+    (
+        '{"audio":{"out":{"level":100.0}},'
+        '"osc":{"error":[{"audio":{"out":[404,{"desc":"address not found"}]}}]}}'
+    ),
 )

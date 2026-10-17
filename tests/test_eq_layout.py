@@ -14,6 +14,7 @@ other.
 from __future__ import annotations
 
 from custom_components.neumann_kh.eq_containers import SUBWOOFER_EQ_CONTAINERS
+from custom_components.neumann_kh.ssc_client import _error_details
 from tools.ssc_simulator import MODEL_KH_750, SSCSimulator
 
 MEASURED_KH_750 = {
@@ -40,7 +41,7 @@ def test_the_simulator_answers_like_the_measured_kh750():
         assert len(enabled) == bands, path
     for output in ("out", "out1", "out2"):
         answer = simulator.handle(_nested(("audio", output, "eq1", "enabled")))
-        assert answer["osc"]["error"][0] == 404, output
+        assert _error_details(answer["osc"]["error"])[0] == 404, output
 
 
 def _nested(path: tuple[str, ...]) -> dict:

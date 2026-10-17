@@ -9,9 +9,10 @@ than what the khtool metadata advertises. Real devices reject far more than the
 metadata suggests, so a permissive simulator would make the integration look
 healthy while it is broken against real hardware:
 
-* only single leaf paths are answered - collective/container queries fail (400)
+* a missing path is a 404 nested at its first missing node, as recorded from
+  the devices; a container query is a 404 at the container, and a bundled get
+  answers the known leaves plus a 404 for the unknown one
 * fields confirmed to be read-only reject a "set" (405)
-* paths a model does not have are unknown (404)
 * "osc/schema" and "osc/limits" are rejected unless --enable-schema is given
 
 Usage:
@@ -45,7 +46,7 @@ _ERR_NOT_ALLOWED = 405
 
 _ERR_DESCRIPTIONS = {
     _ERR_BAD_REQUEST: "message not understood",
-    _ERR_NOT_FOUND: "no such address",
+    _ERR_NOT_FOUND: "address not found",
     _ERR_NOT_ALLOWED: "method not allowed",
 }
 
@@ -150,6 +151,30 @@ def _eq_state(containers: tuple[tuple[tuple[str, ...], int], ...]) -> dict[str, 
     return state
 
 
+def _crossover_state() -> dict[str, Any]:
+    """KH 750 crossover: eq1/in1 and eq1/in2, two bands each, as read on 2_1_2.
+
+    The main output low-passes, out1/out2 high-pass, all at 80 Hz. The
+    integration does not expose it; the simulator has it because the device does.
+    """
+    audio: dict[str, Any] = {}
+    for output, filter_type in (("out", "LOWPASS"), ("out1", "HIGHPASS"), ("out2", "HIGHPASS")):
+        audio[output] = {
+            "eq1": {
+                sub: {
+                    "enabled": [True, True],
+                    "gain": [0.0, 0.0],
+                    "boost": [0.0, 0.0],
+                    "frequency": [80.0, 80.0],
+                    "q": [0.7, 0.7],
+                    "type": [filter_type, filter_type],
+                }
+                for sub in ("in1", "in2")
+            }
+        }
+    return {"audio": audio}
+
+
 def _merge(target: dict[str, Any], source: dict[str, Any]) -> None:
     """Recursively merge source into target (source wins on leaves)."""
     for key, value in source.items():
@@ -181,7 +206,7 @@ def _build_state(model: str) -> dict[str, Any]:
                 "vendor": "Georg Neumann GmbH",
                 "serial": "SIM0001234" if not is_subwoofer else "SIM0007500",
                 "version": "2_1_2" if is_subwoofer else "1_7_3",
-                "hw_version": "1.0",
+                "hw_version": 1,
             },
             "name": f"Simulated {model}",
             "restore": "",
@@ -192,6 +217,14 @@ def _build_state(model: str) -> dict[str, Any]:
                 "countdown": 0,
             },
             "identification": {"visual": False},
+            # Paths the integration never reads, with the values measured on
+            # both models; the MAC is a documentation-range placeholder.
+            "auth": {"exclusive": ""},
+            "system": "",
+            "time": 0,
+            "timeprecision": 0,
+            "update": {"enable": False, "startover": False},
+            "network": {"ether": {"macs": "00:00:5E:00:53:01"}},
         },
         "audio": {
             "in": {"interface": "ANALOG ONLY", "current_input": "ANALOG INPUT"},
@@ -199,6 +232,8 @@ def _build_state(model: str) -> dict[str, Any]:
                 "level": 100.0,
                 "delay": 0,
                 "mute": False,
+                "mute_persist": False,
+                "mixer": {"levels": [0.0, -100.0]},
             },
         },
         "ui": {"control_mode": "NETWORK"},
@@ -222,6 +257,8 @@ def _build_state(model: str) -> dict[str, Any]:
                         "level": 100.0,
                         "delay": 0,
                         "mute": False,
+                        "mute_persist": False,
+                        "mixer": {"levels": [0.0, -100.0]},
                         "label": "OUT1",
                         "loudspeaker": "UNKNOWN",
                     },
@@ -229,11 +266,14 @@ def _build_state(model: str) -> dict[str, Any]:
                         "level": 100.0,
                         "delay": 0,
                         "mute": False,
+                        "mute_persist": False,
+                        "mixer": {"levels": [0.0, -100.0]},
                         "label": "OUT2",
                         "loudspeaker": "UNKNOWN",
                     },
                 },
                 "ui": {
+                    "auto_standby": "ON",
                     "bass_management": "DISABLED",
                     "channel_b_input_mode": "Ext.BM LFE (fullrange)",
                     "subwoofer_input_gain": 2.0,
@@ -242,10 +282,12 @@ def _build_state(model: str) -> dict[str, Any]:
                     "subwoofer_phase": "0",
                     "subwoofer_phase_inversion": "0",
                 },
-                "m": {"out": {"level": [-35.0], "clip": [False]}},
+                # [A, B, subwoofer], as the schema describes and the devices answer.
+                "m": {"out": {"level": [-35.0, -35.0, -35.0], "clip": [False, False, False]}},
             },
         )
         _merge(state, _eq_state(_EQ_SUBWOOFER))
+        _merge(state, _crossover_state())
     else:
         _merge(
             state,
@@ -309,8 +351,14 @@ def _limits_type(value: Any) -> str:
 
 
 def _error(code: int) -> dict[str, Any]:
-    """Build an SSC error response in the format real devices return."""
+    """A flat SSC error, for the cases whose real reply was never recorded (400, 405)."""
     return {"osc": {"error": [code, {"desc": _ERR_DESCRIPTIONS[code]}]}}
+
+
+def _not_found(node: tuple[str, ...]) -> dict[str, Any]:
+    """A 404 nested at `node`, verbatim the format recorded from the devices."""
+    pair = [_ERR_NOT_FOUND, {"desc": _ERR_DESCRIPTIONS[_ERR_NOT_FOUND]}]
+    return {"osc": {"error": [_build_nested(node, pair)]}}
 
 
 def _move_output_to_out5(state: dict[str, Any]) -> None:
@@ -345,6 +393,30 @@ class SSCSimulator:
                 return False, None
             node = node[key]
         return True, node
+
+    def _first_missing(self, path: tuple[str, ...]) -> tuple[str, ...]:
+        """The path down to the first node that does not exist."""
+        node: Any = self.state
+        for depth, key in enumerate(path):
+            if not isinstance(node, dict) or key not in node:
+                return path[: depth + 1]
+            node = node[key]
+        return path
+
+    def _bundled_get(self, leaves: list[tuple[tuple[str, ...], Any]]) -> dict[str, Any]:
+        """Recorded once: known leaves answered, the 404 at the unknown one's parent."""
+        answer: dict[str, Any] = {}
+        errors: list[dict[str, Any]] = []
+        for path, _ in leaves:
+            found, value = self._resolve(path)
+            if found and not isinstance(value, dict):
+                _merge(answer, _build_nested(path, value))
+                continue
+            node = self._first_missing(path)[:-1] or path[:1]
+            errors.extend(_not_found(node)["osc"]["error"])
+        if errors:
+            answer["osc"] = {"error": errors}
+        return answer
 
     def _apply_set(self, path: tuple[str, ...], value: Any) -> None:
         node: Any = self.state
@@ -416,16 +488,18 @@ class SSCSimulator:
 
         leaves = _collect_leaves(request)
         if len(leaves) != 1:
-            # Collective messages are rejected by the real firmware.
-            return _error(_ERR_BAD_REQUEST)
+            if any(value is not None for _, value in leaves):
+                # A bundled set was never recorded; refuse it rather than guess.
+                return _error(_ERR_BAD_REQUEST)
+            return self._bundled_get(leaves)
 
         path, value = leaves[0]
         found, current = self._resolve(path)
         if not found:
-            return _error(_ERR_NOT_FOUND)
+            return _not_found(self._first_missing(path))
         if isinstance(current, dict):
-            # Container query (e.g. {"device": null}) - rejected by the firmware.
-            return _error(_ERR_BAD_REQUEST)
+            # Container query (e.g. {"device": null}): a 404 at the container.
+            return _not_found(path)
 
         if value is None:
             return _build_nested(path, current)

@@ -119,7 +119,7 @@ async def test_read_only_path_rejects_set(kh120):
 
 
 async def test_container_query_is_rejected(kh120):
-    """Container/collective queries are rejected by the firmware (400)."""
+    """A container query is answered with a 404 at the container (recorded)."""
     client = _client(kh120.port)
     try:
         with pytest.raises(SSCDeviceError):
@@ -229,7 +229,9 @@ def test_the_out5_variant_moves_only_level_and_mute():
     """Firmware 1.2.x layout: level and mute live in audio/out5, delay stays."""
     simulator = SSCSimulator(MODEL_KH_750, output_on_out5=True)
 
-    assert simulator.handle({"audio": {"out": {"level": None}}})["osc"]["error"][0] == 404
+    assert simulator.handle({"audio": {"out": {"level": None}}}) == {
+        "osc": {"error": [{"audio": {"out": {"level": [404, {"desc": "address not found"}]}}}]}
+    }
     assert simulator.handle({"audio": {"out5": {"level": None}}}) == {
         "audio": {"out5": {"level": 100.0}}
     }
