@@ -119,8 +119,8 @@ PATH_STANDBY_COUNTDOWN = ("device", "standby", "countdown")  # read-only
 # blinking does not reliably stop quickly on its own.
 PATH_IDENTIFY = ("device", "identification", "visual")
 
-# Tone controls (non-subwoofer models only). String enums with fixed steps
-# -> `select`, not `number`. Only bass gain is writable.
+# Tone controls (non-subwoofer models only): string values with fixed steps,
+# confirmed read-only on real hardware -> sensors, not selects.
 PATH_UI_BASS_GAIN = ("ui", "bass_gain")  # read-only (KH 120 II)
 PATH_UI_MID_GAIN = ("ui", "mid_gain")  # read-only
 PATH_UI_TREBLE_GAIN = ("ui", "treble_gain")  # read-only

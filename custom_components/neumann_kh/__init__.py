@@ -62,7 +62,8 @@ async def _async_relocate(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     re-read when the pointer record is refreshed at 75 % of its 4500 s TTL -
     roughly an hour. This shortens that to the next setup retry.
 
-    Returns True if the address changed, meaning a retry is worth it.
+    Returns whether the address changed. The setup does not need it - Home
+    Assistant retries either way - but it is what the tests assert on.
     """
     serial = entry.data.get(CONF_SERIAL)
     if not serial:
@@ -78,7 +79,8 @@ async def _async_relocate(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         return False
 
     # Already exactly where we looked means the address is not the problem -
-    # and rewriting it would schedule a reload that changes nothing. The port
+    # and rewriting it would only cost a storage write and an update signal for
+    # nothing. The port
     # belongs in that comparison: a speaker that kept its address but moved to
     # another port is precisely the case this repair exists for.
     current = (entry.data.get(CONF_HOST), entry.data.get(CONF_PORT, DEFAULT_PORT))
@@ -143,8 +145,8 @@ async def _async_refresh_firmware_version(
     it every cycle to close that gap would cost a request per cycle for a value
     that changes once a year.
 
-    Only written when it actually differs: an update rewrites the entry, and
-    rewriting it on every start would reload the entry on every start.
+    Only written when it actually differs: every update rewrites the stored
+    entry and notifies its listeners, which is pointless when nothing changed.
     """
     try:
         version = await client.get(PATH_IDENTITY_VERSION)
