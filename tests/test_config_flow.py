@@ -16,7 +16,7 @@ import pytest
 
 pytest.importorskip("homeassistant")
 
-from homeassistant.config_entries import SOURCE_ZEROCONF
+from homeassistant.config_entries import SOURCE_IGNORE, SOURCE_ZEROCONF
 from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PORT
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers.service_info.zeroconf import (
@@ -638,6 +638,34 @@ async def test_a_speaker_already_set_up_is_marked_as_such(hass, _custom_integrat
 
     device = [label for label in _scan_option_labels(result) if _GOOD_IDENTITY.serial in label]
     assert device and ("already connected" in device[0] or "bereits verbunden" in device[0])
+
+
+async def test_an_ignored_speaker_is_not_called_connected(hass, _custom_integration):
+    """Ignoring a discovery creates an entry too - but nothing is connected."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id=_GOOD_IDENTITY.serial,
+        source=SOURCE_IGNORE,
+        data={},
+    )
+    entry.add_to_hass(hass)
+
+    result = await _run_scan(hass, [_speaker()], [_GOOD_IDENTITY])
+
+    device = [label for label in _scan_option_labels(result) if _GOOD_IDENTITY.serial in label]
+    assert device
+    assert "already connected" not in device[0]
+    assert "ignored" in device[0]
+
+
+async def test_the_scan_list_is_german_throughout(hass, _custom_integration):
+    hass.config.language = "de"
+
+    result = await _run_scan(hass, [_speaker()], [_GOOD_IDENTITY])
+
+    device = [label for label in _scan_option_labels(result) if _GOOD_IDENTITY.serial in label]
+    assert device and "Seriennummer" in device[0], device
+    assert "Serial" not in device[0]
 
 
 async def test_a_foreign_vendor_is_flagged_in_the_list(hass, _custom_integration):
