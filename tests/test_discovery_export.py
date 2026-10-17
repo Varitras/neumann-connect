@@ -157,13 +157,13 @@ async def test_a_timeout_keeps_what_was_already_collected(monkeypatch):
             self.blocked = asyncio.Event()
             self.reached_second = False
 
-        async def request(self, payload):
+        async def request(self, payload, expect_path=None):
             if "limits" in payload["osc"] and self._path_of(payload) == ("second",):
                 # Recorded before blocking - the base class only notes a path
                 # once it answers, which this call never does.
                 self.reached_second = True
                 await self.blocked.wait()  # never released
-            return await super().request(payload)
+            return await super().request(payload, expect_path)
 
     client = _StallsOnTheSecondLeaf()
 
