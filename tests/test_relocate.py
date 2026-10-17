@@ -27,9 +27,13 @@ from custom_components.neumann_kh.const import (
     CONF_MODEL,
     CONF_SERIAL,
     DOMAIN,
+    FALLBACK_MODEL,
+    PATH_IDENTITY_PRODUCT,
     PATH_IDENTITY_SERIAL,
+    PATH_OUTPUT_LEVEL,
 )
 from custom_components.neumann_kh.discovery import DiscoveredSpeaker
+from custom_components.neumann_kh.ssc_client import SSCDeviceError, SSCTimeoutError
 
 _SERIAL = "SIM0001234"
 _OLD_HOST = "2003:db8:old::1"
@@ -58,18 +62,22 @@ def _entry(hass, serial=_SERIAL, host=_OLD_HOST) -> MockConfigEntry:
     return entry
 
 
-def _own_speaker(answer_for_other_paths=None):
-    """A client whose device carries the entry's serial.
+def _own_speaker(answer_for_other_paths=None, product="KH 120 II"):
+    """A client whose device carries the entry's serial and model.
 
     Setup verifies the serial before the first poll, so a fake that answers
     the same thing for every path would be refused as a different speaker.
     """
+    answers = {PATH_IDENTITY_SERIAL: _SERIAL, PATH_IDENTITY_PRODUCT: product}
+
+    async def _get(path, **_):
+        answer = answers.get(path, answer_for_other_paths)
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
     client = AsyncMock()
-    client.get = AsyncMock(
-        side_effect=lambda path, **_: (
-            _SERIAL if path == PATH_IDENTITY_SERIAL else answer_for_other_paths
-        )
-    )
+    client.get = AsyncMock(side_effect=_get)
     client.close = AsyncMock()
     return client
 
@@ -203,13 +211,13 @@ async def test_a_speaker_that_only_changed_port_is_followed(hass, _custom_integr
 # --- Firmware version -------------------------------------------------------
 
 
-async def _run_setup(hass, entry, version, stored=None):
+async def _run_setup(hass, entry, version, stored=None, product="KH 120 II"):
     """Drive a successful setup with a client reporting `version`."""
     if stored is not None:
         hass.config_entries.async_update_entry(
             entry, data={**entry.data, CONF_FIRMWARE_VERSION: stored}
         )
-    client = _own_speaker(answer_for_other_paths=version)
+    client = _own_speaker(answer_for_other_paths=version, product=product)
     with (
         patch(
             "custom_components.neumann_kh.NeumannKHCoordinator.async_config_entry_first_refresh",
@@ -223,6 +231,7 @@ async def _run_setup(hass, entry, version, stored=None):
     ):
         assert await hass.config_entries.async_setup(entry.entry_id) is True
         await hass.async_block_till_done()
+    return client
 
 
 async def test_a_firmware_update_is_picked_up(hass, _custom_integration):
@@ -239,7 +248,7 @@ async def test_a_firmware_update_is_picked_up(hass, _custom_integration):
 
 
 async def test_an_unchanged_firmware_version_is_not_rewritten(hass, _custom_integration):
-    """Rewriting on every start would reload the entry on every start."""
+    """Every rewrite stores the entry and notifies its listeners - for nothing."""
     entry = _entry(hass)
 
     await _run_setup(hass, entry, version="1_7_3", stored="1_7_3")
@@ -253,29 +262,93 @@ async def test_an_unchanged_firmware_version_is_not_rewritten(hass, _custom_inte
     assert entry.data[CONF_FIRMWARE_VERSION] == "1_7_3"
 
 
+@pytest.mark.parametrize("answered", [" 1_7_3 ", ["1_7_3"], True])
+async def test_an_odd_firmware_answer_does_not_overwrite_the_version(
+    hass, _custom_integration, answered
+):
+    """Padding or a non-text answer must not land in the device info.
+
+    A list or a bool used to be stored as its Python repr, padding as-is.
+    """
+    entry = _entry(hass)
+
+    await _run_setup(hass, entry, version=answered, stored="1_7_3")
+
+    assert entry.data[CONF_FIRMWARE_VERSION] == "1_7_3"
+
+
+async def test_a_model_stored_as_the_fallback_is_corrected_at_setup(hass, _custom_integration):
+    """A product answer missing while adding the entry stored the fallback for good.
+
+    A KH 750 then ran as a monitor forever: no subwoofer entities, the wrong
+    poll paths and EQ containers.
+    """
+    entry = _entry(hass)
+    hass.config_entries.async_update_entry(entry, data={**entry.data, CONF_MODEL: FALLBACK_MODEL})
+
+    client = await _run_setup(hass, entry, version="2_1_2", product="KH 750")
+
+    assert entry.data[CONF_MODEL] == "KH 750"
+    assert entry.runtime_data.model == "KH 750"
+    # The out5 detection runs for subwoofers only, so it has to see the
+    # corrected model, not the fallback.
+    asked = [call.args[0] for call in client.get.call_args_list]
+    assert PATH_OUTPUT_LEVEL in asked
+    assert asked.index(PATH_IDENTITY_PRODUCT) < asked.index(PATH_OUTPUT_LEVEL)
+
+
+@pytest.mark.parametrize(
+    "error", [SSCDeviceError("rejected", code=404), SSCTimeoutError("no answer")]
+)
+async def test_a_failed_product_read_still_refreshes_the_firmware(hass, _custom_integration, error):
+    entry = _entry(hass)
+
+    await _run_setup(hass, entry, version="2_1_2", stored="1_7_3", product=error)
+
+    assert entry.data[CONF_FIRMWARE_VERSION] == "2_1_2"
+    assert entry.data[CONF_MODEL] == "KH 120 II"
+
+
+@pytest.mark.parametrize("answered", [None, "", ["KH 750"]])
+async def test_an_unusable_product_answer_keeps_the_stored_model(
+    hass, _custom_integration, answered
+):
+    entry = _entry(hass)
+
+    await _run_setup(hass, entry, version="2_1_2", product=answered)
+
+    assert entry.data[CONF_MODEL] == "KH 120 II"
+
+
 async def test_silent_candidates_are_asked_concurrently(hass, _custom_integration):
     """One after another this cost a connection timeout per silent candidate.
 
     A segment with a handful of stale announcements then held the repair for
-    minutes - on every failed setup retry.
+    minutes - on every failed setup retry. Counted rather than timed: a wall
+    clock limit failed under load although the queries did overlap.
     """
     import asyncio
-    import time
 
     entry = _entry(hass)
+    running = 0
+    peak = 0
     found = [
         DiscoveredSpeaker(mdns_name=f"s{i}._ssc._tcp.local.", host=f"fe80::{i}%2", port=45)
         for i in range(8)
     ]
 
-    class _SlowClient:
-        """Every candidate takes a while and none of them answers usefully."""
+    class _SilentClient:
+        """Counts overlapping queries; never answers with the entry's serial."""
 
         def __init__(self, *args, **kwargs):  # skipcq: PTC-W0049 - a stand-in, not a design
             pass
 
         async def get(self, path):  # skipcq: PYL-R0201 - a stand-in, not a design
-            await asyncio.sleep(0.2)
+            nonlocal running, peak
+            running += 1
+            peak = max(peak, running)
+            await asyncio.sleep(0)
+            running -= 1
             return "SIM0009999"  # never the entry's serial
 
         async def close(self):  # skipcq: PYL-R0201 - a stand-in, not a design
@@ -283,11 +356,8 @@ async def test_silent_candidates_are_asked_concurrently(hass, _custom_integratio
 
     with (
         patch("custom_components.neumann_kh.async_scan_for_speakers", return_value=found),
-        patch("custom_components.neumann_kh.SSCClient", _SlowClient),
+        patch("custom_components.neumann_kh.SSCClient", _SilentClient),
     ):
-        start = time.monotonic()
         assert await _async_relocate(hass, entry) is False
-        elapsed = time.monotonic() - start
 
-    # Serially this would be 8 x 0.2 s; concurrently it is one round.
-    assert elapsed < 0.8, f"the candidates were queried one after another ({elapsed:.2f}s)"
+    assert peak > 1, "the candidates were queried one after another"

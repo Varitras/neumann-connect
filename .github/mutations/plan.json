@@ -1,5 +1,19 @@
 [
   {
+    "name": "the first press of the factory reset already confirms it",
+    "path": "custom_components/neumann_kh/button.py",
+    "find": "    if armed_at is None:\n        return False",
+    "replace": "    if armed_at is None:\n        return True",
+    "expect": "tests/test_factory_reset.py::test_the_first_press_only_arms_the_reset"
+  },
+  {
+    "name": "a double-click confirms the factory reset",
+    "path": "custom_components/neumann_kh/button.py",
+    "find": "    return _RESTORE_CONFIRM_MIN_GAP_SECONDS <= now - armed_at <= _RESTORE_CONFIRM_WINDOW_SECONDS",
+    "replace": "    return now - armed_at <= _RESTORE_CONFIRM_WINDOW_SECONDS",
+    "expect": "tests/test_factory_reset.py::test_a_double_click_does_not_reset"
+  },
+  {
     "name": "a closed client reconnects again",
     "path": "custom_components/neumann_kh/ssc_client.py",
     "find": "        if self._closed:",
@@ -14,13 +28,6 @@
     "expect": "tests/test_eq_reset.py::test_a_reset_cannot_start_while_another_action_owns_the_device"
   },
   {
-    "name": "a half-written EQ reset skips the refresh",
-    "path": "custom_components/neumann_kh/eq.py",
-    "find": "                await self.coordinator.async_request_refresh()",
-    "replace": "                pass",
-    "expect": "tests/test_eq_reset.py::test_a_half_written_reset_still_refreshes"
-  },
-  {
     "name": "the poll drops values confirmed while it ran",
     "path": "custom_components/neumann_kh/coordinator.py",
     "find": "        for path, value in self._confirmed_during_poll:",
@@ -30,8 +37,8 @@
   {
     "name": "confirmed values are not recorded during a poll",
     "path": "custom_components/neumann_kh/coordinator.py",
-    "find": "            if self._poll_in_flight:",
-    "replace": "            if False:",
+    "find": "        if self._poll_in_flight:",
+    "replace": "        if False:",
     "expect": "tests/test_coordinator.py::test_a_value_confirmed_during_a_poll_is_not_overwritten"
   },
   {
@@ -72,8 +79,8 @@
   {
     "name": "a serial reaches the log unmasked again",
     "path": "custom_components/neumann_kh/config_flow.py",
-    "find": "                    mask_serial(str(identity.serial)),",
-    "replace": "                    str(identity.serial),",
+    "find": "                    mask_serial(identity.serial),",
+    "replace": "                    identity.serial,",
     "expect": "tests/test_log_privacy.py::test_no_log_call_passes_an_unmasked_identifier"
   },
   {
@@ -119,10 +126,10 @@
     "expect": "tests/test_stale_snapshot_overwrites_newer_state.py::test_a_reset_during_a_slow_poll_is_not_undone_by_it"
   },
   {
-    "name": "the restore applies its confirmations late again",
-    "path": "custom_components/neumann_kh/export_actions.py",
-    "find": "    coordinator.async_update_listeners()\n\n    _LOGGER.debug(\n        \"Restore for %s",
-    "replace": "    coordinator.apply_confirmed_values(confirmed_values)\n\n    _LOGGER.debug(\n        \"Restore for %s",
-    "expect": "tests/test_stale_snapshot_overwrites_newer_state.py::test_a_rename_after_the_restore_wrote_the_name_survives_the_batch"
+    "name": "a 400 answer switches the output to out5",
+    "path": "custom_components/neumann_kh/__init__.py",
+    "find": "        return err.code == ERROR_NOT_FOUND",
+    "replace": "        return True",
+    "expect": "tests/test_output_path_detection.py::test_the_output_container_falls_back_to_out_unless_out5_is_conclusive"
   }
 ]

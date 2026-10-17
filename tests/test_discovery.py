@@ -48,7 +48,11 @@ def test_empty_and_malformed_records_are_rejected():
     assert pick_host(["not-an-address"]) is None
 
 
-async def test_resolution_stops_at_a_bound(monkeypatch):
+@pytest.mark.parametrize(
+    ("bound", "value", "expected"),
+    [("_MAX_RESOLVE_SERVICES", 3, 3), ("_MAX_RESOLVE_SECONDS", 0.0, 0)],
+)
+async def test_resolution_stops_at_a_bound(monkeypatch, bound, value, expected):
     """A segment full of stale records must not stall whatever waits on it.
 
     Records resolve one at a time with their own timeout, so an unbounded pass
@@ -59,7 +63,7 @@ async def test_resolution_stops_at_a_bound(monkeypatch):
 
     from custom_components.neumann_kh import discovery
 
-    monkeypatch.setattr(discovery, "_MAX_RESOLVE_SERVICES", 3)
+    monkeypatch.setattr(discovery, bound, value)
     resolved: list[str] = []
 
     class _FakeInfo:
@@ -79,11 +83,13 @@ async def test_resolution_stops_at_a_bound(monkeypatch):
         def __init__(self, *args, **kwargs):
             handlers = kwargs.get("handlers") or args[2]
             for index in range(10):
+                # By keyword, as zeroconf's Signal.fire() calls its handlers:
+                # a renamed handler parameter must fail here, not in the field.
                 handlers[0](
-                    None,
-                    "_ssc._tcp.local.",
-                    f"s{index}._ssc._tcp.local.",
-                    discovery.ServiceStateChange.Added,
+                    zeroconf=None,
+                    service_type="_ssc._tcp.local.",
+                    name=f"s{index}._ssc._tcp.local.",
+                    state_change=discovery.ServiceStateChange.Added,
                 )
 
         async def async_cancel(self):  # skipcq: PYL-R0201 - a stand-in, not a design
@@ -97,5 +103,5 @@ async def test_resolution_stops_at_a_bound(monkeypatch):
     ):
         speakers = await discovery.async_scan_for_speakers(hass, duration=0)
 
-    assert len(resolved) == 3, "the resolution pass was not bounded"
-    assert len(speakers) == 3
+    assert len(resolved) == expected, "the resolution pass was not bounded"
+    assert len(speakers) == expected

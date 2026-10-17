@@ -3,10 +3,11 @@
 frequency/Q/type stay unchanged). Both enabled by default, with
 `entity_category: config` in the configuration section.
 
-A full 1:1 mapping of every EQ parameter per band would be about 800 entities
-on the KH 750 - no longer manageable. Therefore deliberately reduced to the
-container level: one switch writes "enabled" for ALL bands of the container at
-once, instead of each band individually. All container names deliberately
+A full 1:1 mapping of every EQ parameter per band would be 360 entities on
+the KH 750 (6 containers x 10 bands x 6 parameters) - no longer manageable.
+Therefore deliberately reduced to the container level: one switch writes
+"enabled" for ALL bands of the container at once, instead of each band
+individually. All container names deliberately
 begin with "EQ" so they appear grouped together alphabetically in the
 configuration section.
 """
@@ -74,21 +75,7 @@ class NeumannKHEQContainerSwitch(NeumannKHEntity, SwitchEntity):
 
     async def _async_set(self, value: bool) -> None:
         array = [value] * self._container.band_count
-        try:
-            confirmed = await self.coordinator.client.set(self._path, array)
-        except SSCDeviceError as err:
-            raise HomeAssistantError(
-                translation_domain=DOMAIN,
-                translation_key="change_rejected",
-                translation_placeholders={"error": str(err)},
-            ) from err
-        except (SSCConnectionError, SSCTimeoutError) as err:
-            raise HomeAssistantError(
-                translation_domain=DOMAIN,
-                translation_key="device_unreachable",
-                translation_placeholders={"error": str(err)},
-            ) from err
-        await self._apply_confirmed_value(self._path, confirmed)
+        await self._async_write(self._path, array)
 
     async def async_turn_on(self, **kwargs) -> None:
         await self._async_set(True)
@@ -152,7 +139,7 @@ class NeumannKHEQResetButton(NeumannKHEntity, ButtonEntity):
                     translation_key="device_unreachable",
                     translation_placeholders={"error": str(err)},
                 ) from err
-            finally:
-                # gain can have landed while boost was rejected, so the cached
-                # values are stale on the error path too.
-                await self.coordinator.async_request_refresh()
+            await self.coordinator.async_persist()
+        # No refresh afterwards: gain and boost are never polled (only the
+        # container's "enabled" array is), so there is no cached value a
+        # refresh could correct - it would only hold the lock longer.

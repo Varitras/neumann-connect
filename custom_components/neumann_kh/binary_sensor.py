@@ -1,7 +1,8 @@
-"""Binary sensor entities: clip display, warning indicator plus (subwoofer
-only) digital bypass and auto-standby status (read-only).
+"""Binary sensor entities: input/output clip, warning indicator plus
+(subwoofer only) digital bypass and auto-standby status (read-only).
 
-The device delivers clip/warnings as a list (one value per channel).
+Clip and warnings arrive as a list (one value per channel); digital bypass
+and auto standby as a plain bool.
 
 Auto-standby is model-specific: writable as a switch on the KH 120 II
 (see switch.py), read-only on the KH 750 (writing rejected).
@@ -107,7 +108,7 @@ async def async_setup_entry(
 
 
 class NeumannKHBinarySensor(NeumannKHEntity, BinarySensorEntity):
-    """Boolean state derived from a list response of the device."""
+    """Boolean state from a per-channel list or a plain bool of the device."""
 
     entity_description: NeumannKHBinarySensorDescription
 
@@ -131,7 +132,7 @@ class NeumannKHBinarySensor(NeumannKHEntity, BinarySensorEntity):
             if isinstance(value, list):
                 return any(item != _NO_WARNING for item in value)
             return value != _NO_WARNING
-        # Clip (input or output): "Problem" = at least one channel is currently clipping.
+        # A per-channel list (clip): on as soon as one channel is set.
         if isinstance(value, list):
             return any(bool(item) for item in value)
         return bool(value)

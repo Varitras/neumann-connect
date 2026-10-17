@@ -14,7 +14,6 @@ from .const import (
     DEVICE_ACTION_TIMEOUT_SECONDS,
     MODELS_WITH_LOGO_BRIGHTNESS,
     MODELS_WITH_SUBWOOFER_FEATURES,
-    NON_SUBWOOFER_POLL_PATHS,
     PATH_DEVICE_NAME,
     PATH_INPUT_INTERFACE_TYPE,
     PATH_LOGO_BRIGHTNESS,
@@ -32,17 +31,13 @@ from .const import (
     PATH_OUTPUT_LEVEL,
     PATH_OUTPUT_MUTE,
     PATH_OUTPUT_PHASE_INVERSION,
-    PATH_RESTORE,
     PATH_STANDBY_AUTO_TIME,
     PATH_STANDBY_COUNTDOWN,
     PATH_STANDBY_ENABLED,
     PATH_STANDBY_LEVEL,
     PATH_UI_CONTROL_MODE,
-    POLL_PATHS,
-    SLOW_POLL_PATHS,
-    SUBWOOFER_POLL_PATHS,
-    SUBWOOFER_SLOW_POLL_PATHS,
 )
+from .coordinator import poll_paths_for_model
 from .eq_containers import eq_leaf_paths
 from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeoutError
 
@@ -55,10 +50,6 @@ _EXCLUDED_PATHS = {
     PATH_METER_OUTPUT_LEVEL,
     PATH_METER_OUTPUT_CLIP,
     PATH_STANDBY_COUNTDOWN,
-    # A command, not a setting. Restore already refuses to write it, but there
-    # is no reason to carry it in the file either - two independent guards
-    # beat one.
-    PATH_RESTORE,
 }
 
 
@@ -71,19 +62,8 @@ def known_paths_for_model(model: str | None) -> list[tuple[str, ...]]:
     device name and the entire EQ were silently missing - while the README
     promised "all known values".
     """
-    paths = list(POLL_PATHS) + list(SLOW_POLL_PATHS)
-    # Model-dependent extras the coordinator adds the same way - without this
-    # the logo brightness was missing from every export.
-    if model in MODELS_WITH_LOGO_BRIGHTNESS:
-        paths.append(PATH_LOGO_BRIGHTNESS)
-    if model in MODELS_WITH_SUBWOOFER_FEATURES:
-        paths += list(SUBWOOFER_POLL_PATHS) + list(SUBWOOFER_SLOW_POLL_PATHS)
-    else:
-        # Mirrors the coordinator. Without this the phase inversion would drop
-        # out of the monitors' backups the moment it left POLL_PATHS.
-        paths += list(NON_SUBWOOFER_POLL_PATHS)
-    paths += list(eq_leaf_paths(model))
-    return paths
+    fast, slow = poll_paths_for_model(model)
+    return fast + slow + list(eq_leaf_paths(model))
 
 
 # Paths a restore may write, per model. This is an allowlist on purpose: a
@@ -93,7 +73,6 @@ def known_paths_for_model(model: str | None) -> list[tuple[str, ...]]:
 #
 # Deliberately NOT in here:
 # - device/restore        the factory reset command
-# - device/save_settings  commits to flash, a command rather than a setting
 # - device/identification/visual  momentary action; restoring a captured
 #                         "true" would leave the speaker blinking
 _RESTORABLE_COMMON = (
@@ -125,7 +104,9 @@ def restorable_paths_for_model(model: str | None) -> list[tuple[str, ...]]:
     everything else has already landed even if that cuts us off.
     """
     paths = list(_RESTORABLE_COMMON)
-    if model not in MODELS_WITH_SUBWOOFER_FEATURES:
+    if model in MODELS_WITH_SUBWOOFER_FEATURES:
+        paths += list(_RESTORABLE_SUBWOOFER)
+    else:
         # Auto standby is writable on the monitors and read-only on the
         # subwoofer, which is why it is a switch on one and a binary sensor on
         # the other (see switch.py / binary_sensor.py). Writing it there only
@@ -135,8 +116,6 @@ def restorable_paths_for_model(model: str | None) -> list[tuple[str, ...]]:
         paths.append(PATH_OUTPUT_PHASE_INVERSION)
     if model in MODELS_WITH_LOGO_BRIGHTNESS:
         paths.append(PATH_LOGO_BRIGHTNESS)
-    if model in MODELS_WITH_SUBWOOFER_FEATURES:
-        paths += list(_RESTORABLE_SUBWOOFER)
     paths += list(eq_leaf_paths(model))
     paths.append(PATH_UI_CONTROL_MODE)
     return paths
@@ -153,13 +132,24 @@ async def async_build_backup(client: SSCClient, model: str | None) -> dict[str, 
     a partial snapshot is more dangerous than none, because it looks complete
     and would replace the last usable one.
     """
+    paths = [path for path in known_paths_for_model(model) if path not in _EXCLUDED_PATHS]
+    return await async_read_paths(client, paths, BackupTimeoutError)
+
+
+async def async_read_paths(
+    client: SSCClient, paths: list[tuple[str, ...]], timeout_error: type[Exception]
+) -> dict[str, Any]:
+    """Read each path on its own and merge the answers into one tree.
+
+    Shared by the backup and the discovery. A path the device rejects is
+    skipped; a lost connection or the time limit aborts the run, because a
+    half-read snapshot looks complete and would replace the last good one.
+    """
     result: dict[str, Any] = {}
     deadline = asyncio.get_running_loop().time() + DEVICE_ACTION_TIMEOUT_SECONDS
-    for path in known_paths_for_model(model):
-        if path in _EXCLUDED_PATHS:
-            continue
+    for path in paths:
         if asyncio.get_running_loop().time() >= deadline:
-            raise BackupTimeoutError(
+            raise timeout_error(
                 f"reading the values took longer than {DEVICE_ACTION_TIMEOUT_SECONDS:.0f}s"
             )
         try:
@@ -169,12 +159,11 @@ async def async_build_backup(client: SSCClient, model: str | None) -> dict[str, 
         except (SSCConnectionError, SSCTimeoutError):
             raise
         except Exception:
-            # A bug on one path should not abort the backup, but swallowing it
+            # A bug on one path should not abort the run, but swallowing it
             # silently would leave a value missing from the file with nothing
             # to explain it. Same handling as the poll cycle in coordinator.py.
-            _LOGGER.exception("Unexpected error while reading path %s for the backup", path)
+            _LOGGER.exception("Unexpected error while reading path %s", path)
             continue
         if value is not None:
             deep_merge(result, build_nested(path, value))
-
     return result

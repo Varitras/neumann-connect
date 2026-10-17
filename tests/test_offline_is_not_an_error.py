@@ -17,7 +17,7 @@ import logging
 
 from custom_components.neumann_kh import coordinator as coordinator_module
 from custom_components.neumann_kh.coordinator import NeumannKHCoordinator
-from custom_components.neumann_kh.ssc_client import SSCConnectionError
+from custom_components.neumann_kh.ssc_client import SSCConnectionError, SSCDeviceError
 
 
 class UnreachableClient:
@@ -26,7 +26,7 @@ class UnreachableClient:
     def __init__(self) -> None:
         self.priority_waiting = asyncio.Event()
 
-    async def get(self, path: tuple[str, ...], priority: bool = False) -> object:
+    async def get(self, path: tuple[str, ...]) -> object:
         raise SSCConnectionError("device offline (test)")
 
 
@@ -36,9 +36,19 @@ class SlowClient:
     def __init__(self) -> None:
         self.priority_waiting = asyncio.Event()
 
-    async def get(self, path: tuple[str, ...], priority: bool = False) -> object:
+    async def get(self, path: tuple[str, ...]) -> object:
         await asyncio.sleep(0.2)
         return False
+
+
+class RejectingClient:
+    """Answers every request - with an error."""
+
+    def __init__(self) -> None:
+        self.priority_waiting = asyncio.Event()
+
+    async def get(self, path: tuple[str, ...]) -> object:
+        raise SSCDeviceError("rejected (test)", code=400)
 
 
 def _refresh_records(caplog) -> list[logging.LogRecord]:
@@ -70,3 +80,45 @@ async def test_a_stalled_cycle_stays_an_error(hass, caplog, monkeypatch):
     records = _refresh_records(caplog)
     assert len(records) == 1
     assert records[0].levelno == logging.ERROR
+
+
+async def test_a_speaker_that_rejects_every_path_fails_the_cycle_as_an_error(hass, caplog):
+    coordinator = NeumannKHCoordinator(hass, RejectingClient(), "test", model="KH 120 II")
+    coordinator.update_interval = None
+
+    with caplog.at_level(logging.INFO):
+        await coordinator.async_refresh()
+
+    assert not coordinator.last_update_success
+    records = _refresh_records(caplog)
+    assert len(records) == 1
+    assert records[0].levelno == logging.ERROR
+
+
+def test_the_downgraded_line_respects_a_quieter_log_level():
+    """The level check runs before filters, at the original error level.
+
+    A user who set the integration to warning would still have got the info
+    line on every offline transition.
+    """
+    log_filter = coordinator_module._OfflineIsNotAnError()
+
+    def _offline_record():
+        return logging.LogRecord(
+            coordinator_module._LOGGER.name,
+            logging.ERROR,
+            __file__,
+            0,
+            "Error fetching data: %s",
+            (coordinator_module.SpeakerUnreachable("off"),),
+            None,
+        )
+
+    previous = coordinator_module._LOGGER.level
+    try:
+        coordinator_module._LOGGER.setLevel(logging.WARNING)
+        assert log_filter.filter(_offline_record()) is False
+        coordinator_module._LOGGER.setLevel(logging.INFO)
+        assert log_filter.filter(_offline_record()) is True
+    finally:
+        coordinator_module._LOGGER.setLevel(previous)

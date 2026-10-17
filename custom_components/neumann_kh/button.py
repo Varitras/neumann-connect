@@ -3,7 +3,7 @@
 
 'Restore factory defaults' and 'Restore backup' both overwrite device state,
 so both use a two-step confirmation: the first press only arms it, a second
-press within 30s carries it out. Button entities cannot show a modal dialog,
+press inside the window of _confirms() carries it out. Button entities cannot show a modal dialog,
 which is why it works this way.
 
 'Create backup' and 'Run device discovery' store their result permanently
@@ -50,9 +50,19 @@ from .export_actions import (
 )
 from .ssc_client import SSCConnectionError, SSCDeviceError, SSCTimeoutError
 
-# Time window within which a second press of "factory reset" actually
-# triggers the reset. After it elapses, it must be "armed" again.
+# Upper bound of the confirmation window shared by factory reset and restore
+# backup. After it elapses, the button must be armed again.
 _RESTORE_CONFIRM_WINDOW_SECONDS = 30
+# The second click of a double-click lands well inside this; a person who read
+# the warning does not.
+_RESTORE_CONFIRM_MIN_GAP_SECONDS = 2
+
+
+def _confirms(armed_at: float | None, now: float) -> bool:
+    """Whether this press confirms an armed action."""
+    if armed_at is None:
+        return False
+    return _RESTORE_CONFIRM_MIN_GAP_SECONDS <= now - armed_at <= _RESTORE_CONFIRM_WINDOW_SECONDS
 
 
 RESTORE_DESCRIPTION = ButtonEntityDescription(
@@ -118,14 +128,11 @@ class NeumannKHRestoreButton(NeumannKHEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         now = time.monotonic()
-
-        if self._armed_at is not None and (now - self._armed_at) <= _RESTORE_CONFIRM_WINDOW_SECONDS:
-            # Second press within the time window -> actually trigger the reset.
+        if _confirms(self._armed_at, now):
+            # Second press after the minimum gap, within the window -> reset.
             self._armed_at = None
             async_dismiss_notification(self.hass, self._notification_id)
             try:
-                # The most destructive action of the four, and the only one
-                # that never had a guard.
                 async with self.coordinator.claim_device():
                     await self.coordinator.client.set(PATH_RESTORE, RESTORE_FACTORY_DEFAULTS_VALUE)
             except SSCDeviceError as err:
@@ -152,7 +159,8 @@ class NeumannKHRestoreButton(NeumannKHEntity, ButtonEntity):
             await self.coordinator.async_invalidate_and_refresh()
             return
 
-        # First press (or time window elapsed) -> only "arm" and warn.
+        # First press, a press too soon after arming, or the window elapsed:
+        # only arm and warn.
         self._armed_at = now
         async_create_notification(
             self.hass,
@@ -160,13 +168,15 @@ class NeumannKHRestoreButton(NeumannKHEntity, ButtonEntity):
                 self.hass.config.language,
                 (
                     f"⚠️ Werksreset für **{self._entry.title}** ist jetzt bereit. "
-                    f"Drücke den Button innerhalb von {_RESTORE_CONFIRM_WINDOW_SECONDS} Sekunden "
+                    f"Drücke den Button frühestens {_RESTORE_CONFIRM_MIN_GAP_SECONDS} und "
+                    f"spätestens {_RESTORE_CONFIRM_WINDOW_SECONDS} Sekunden danach "
                     f"ERNEUT, um alle Einstellungen unwiderruflich auf Werkszustand "
                     f"zurückzusetzen. Ohne zweiten Druck passiert nichts."
                 ),
                 (
                     f"⚠️ Factory reset for **{self._entry.title}** is now armed. "
-                    f"Press the button AGAIN within {_RESTORE_CONFIRM_WINDOW_SECONDS} seconds "
+                    f"Press the button AGAIN between {_RESTORE_CONFIRM_MIN_GAP_SECONDS} and "
+                    f"{_RESTORE_CONFIRM_WINDOW_SECONDS} seconds from now "
                     f"to irreversibly reset all settings to factory state. "
                     f"Nothing happens without a second press."
                 ),
@@ -227,7 +237,7 @@ class NeumannKHRestoreBackupButton(NeumannKHEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         now = time.monotonic()
-        if self._armed_at is not None and (now - self._armed_at) <= _RESTORE_CONFIRM_WINDOW_SECONDS:
+        if _confirms(self._armed_at, now):
             armed_backup = self._armed_backup
             self._armed_at = None
             self._armed_backup = None
@@ -250,11 +260,12 @@ class NeumannKHRestoreBackupButton(NeumannKHEntity, ButtonEntity):
             localized(
                 self.hass.config.language,
                 f"Backup vom {backup.get('timestamp', '?')} für **{self._entry.title}** "
-                f"zurückspielen? Innerhalb von {_RESTORE_CONFIRM_WINDOW_SECONDS} Sekunden "
-                "erneut drücken. Die aktuellen Geräteeinstellungen werden überschrieben.",
+                f"zurückspielen? Frühestens {_RESTORE_CONFIRM_MIN_GAP_SECONDS} und spätestens "
+                f"{_RESTORE_CONFIRM_WINDOW_SECONDS} Sekunden danach erneut drücken. Die aktuellen Geräteeinstellungen werden überschrieben.",
                 f"Restore the backup from {backup.get('timestamp', '?')} to "
-                f"**{self._entry.title}**? Press again within "
-                f"{_RESTORE_CONFIRM_WINDOW_SECONDS} seconds. The device's current settings "
+                f"**{self._entry.title}**? Press again between "
+                f"{_RESTORE_CONFIRM_MIN_GAP_SECONDS} and {_RESTORE_CONFIRM_WINDOW_SECONDS} seconds "
+                "from now. The device's current settings "
                 "will be overwritten.",
             ),
             title=localized(

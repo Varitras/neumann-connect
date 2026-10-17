@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from ._util import localized
 from .const import MODELS_WITH_SUBWOOFER_FEATURES
 
 
@@ -28,9 +29,7 @@ class EQContainer:
 
     def label_for(self, language: str | None) -> str:
         """Return the display label for the given HA language (de/en, fallback en)."""
-        if language and language.startswith("de"):
-            return self.label_de
-        return self.label_en
+        return localized(language, self.label_de, self.label_en)
 
 
 # Non-subwoofer models (KH 120 II etc.)
@@ -49,8 +48,9 @@ NON_SUBWOOFER_EQ_CONTAINERS: tuple[EQContainer, ...] = (
     ),
 )
 
-# Subwoofer (KH 750): main output + out1/out2, each with crossover (eq1, only
-# out1/out2) plus eq2/eq3. All labels deliberately begin with "EQ" so they
+# Subwoofer (KH 750): eq2 and eq3 on the main output and on out1/out2, ten
+# bands each - measured on the device. There is no eq1 (404), although the
+# command schema lists one. All labels deliberately begin with "EQ" so they
 # appear grouped together alphabetically in the configuration section.
 SUBWOOFER_EQ_CONTAINERS: tuple[EQContainer, ...] = (
     EQContainer(
@@ -60,10 +60,10 @@ SUBWOOFER_EQ_CONTAINERS: tuple[EQContainer, ...] = (
         label_de="EQ2 Subwoofer-Hauptausgang",
     ),
     EQContainer(
-        path=("audio", "out1", "eq1"),
-        band_count=2,
-        label_en="EQ Crossover Output 1",
-        label_de="EQ Crossover Ausgang 1",
+        path=("audio", "out", "eq3"),
+        band_count=10,
+        label_en="EQ3 Subwoofer main output",
+        label_de="EQ3 Subwoofer-Hauptausgang",
     ),
     EQContainer(
         path=("audio", "out1", "eq2"),
@@ -76,12 +76,6 @@ SUBWOOFER_EQ_CONTAINERS: tuple[EQContainer, ...] = (
         band_count=10,
         label_en="EQ3 Output 1",
         label_de="EQ3 Ausgang 1",
-    ),
-    EQContainer(
-        path=("audio", "out2", "eq1"),
-        band_count=2,
-        label_en="EQ Crossover Output 2",
-        label_de="EQ Crossover Ausgang 2",
     ),
     EQContainer(
         path=("audio", "out2", "eq2"),

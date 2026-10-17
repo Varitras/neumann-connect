@@ -17,9 +17,8 @@ import logging
 from typing import Any
 
 from ._util import build_nested, deep_merge, extract
-from .backup_export import known_paths_for_model
-from .const import DEVICE_ACTION_TIMEOUT_SECONDS
-from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeoutError
+from .backup_export import async_read_paths, known_paths_for_model
+from .ssc_client import SSCClient
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -41,32 +40,11 @@ class DiscoveryTimeoutError(Exception):
 async def async_discover_all_values(client: SSCClient, model: str | None = None) -> dict[str, Any]:
     """Run both discovery methods and return a merged result."""
     return {
-        "known_paths": await _async_query_known_paths(client, model),
+        "known_paths": await async_read_paths(
+            client, known_paths_for_model(model), DiscoveryTimeoutError
+        ),
         "schema_limits": await _async_discover_via_schema(client),
     }
-
-
-async def _async_query_known_paths(client: SSCClient, model: str | None) -> dict[str, Any]:
-    """Query all known paths individually (guaranteed part, like coordinator.py)."""
-    result: dict[str, Any] = {}
-    deadline = asyncio.get_running_loop().time() + DEVICE_ACTION_TIMEOUT_SECONDS
-    for path in known_paths_for_model(model):
-        if asyncio.get_running_loop().time() >= deadline:
-            raise DiscoveryTimeoutError(
-                f"reading the known paths took longer than {DEVICE_ACTION_TIMEOUT_SECONDS:.0f}s"
-            )
-        try:
-            value = await client.get(path)
-        except SSCDeviceError:
-            continue
-        except (SSCConnectionError, SSCTimeoutError):
-            raise
-        except Exception:
-            _LOGGER.exception("Unexpected error at discovery path %s, skipping", path)
-            continue
-        if value is not None:
-            deep_merge(result, build_nested(path, value))
-    return result
 
 
 async def _fetch_schema_subtree(client: SSCClient, path: tuple[str, ...]) -> dict[str, Any] | None:

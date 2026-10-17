@@ -30,7 +30,7 @@ class FakeClient:
         self.rejected_paths: set[tuple[str, ...]] = set()
         self.priority_waiting = asyncio.Event()
 
-    async def get(self, path: tuple[str, ...], priority: bool = False) -> Any:
+    async def get(self, path: tuple[str, ...]) -> Any:
         if self.fail_connection:
             raise SSCConnectionError("device offline (test)")
         if path in self.rejected_paths:
@@ -157,6 +157,20 @@ async def test_invalidate_and_refresh_rereads_the_slow_paths(coordinator, fake_c
     assert _value(coordinator, PATH_DEVICE_NAME) == "Factory default"
 
 
+async def test_a_slow_value_unanswered_after_a_reset_is_not_shown_from_before_it(
+    coordinator, fake_client
+):
+    """The re-read above overwrites every path that answers; this one does not."""
+    await coordinator.async_refresh()  # cycle 0: slow paths cached
+    assert _value(coordinator, PATH_DEVICE_NAME) == "Links"
+
+    fake_client.rejected_paths.add(PATH_DEVICE_NAME)
+    await coordinator.async_invalidate_and_refresh()
+    await coordinator.async_refresh()
+
+    assert _value(coordinator, PATH_DEVICE_NAME) is None
+
+
 async def test_a_plain_refresh_still_uses_the_slow_cache(coordinator, fake_client):
     """Guard against the invalidation above turning every cycle into a slow one."""
     await coordinator.async_refresh()  # cycle 0: slow
@@ -215,8 +229,8 @@ async def test_a_value_confirmed_during_a_poll_is_not_overwritten(coordinator, f
     release = asyncio.Event()
     plain_get = fake_client.get
 
-    async def _gated_get(path: tuple[str, ...], priority: bool = False) -> Any:
-        value = await plain_get(path, priority)
+    async def _gated_get(path: tuple[str, ...]) -> Any:
+        value = await plain_get(path)
         if path == PATH_DEVICE_NAME:
             # The poll now holds the OLD name and has not returned yet.
             reached_the_slow_path.set()
@@ -242,3 +256,147 @@ async def test_a_value_confirmed_during_a_poll_is_not_overwritten(coordinator, f
     assert _value(coordinator, PATH_DEVICE_NAME) == "Neuer Name", (
         "the stale value was written back into the slow cache"
     )
+
+
+async def test_a_reread_of_a_slow_path_fetches_it_on_the_next_cycle(coordinator, fake_client):
+    """An unconfirmed write must not leave the old value on screen for 5 minutes."""
+    await coordinator.async_refresh()  # cycle 0: slow included
+    await coordinator.async_refresh()  # cycle 1: fast only from here on
+    fake_client.values[PATH_DEVICE_NAME] = "Renamed"
+
+    coordinator.request_reread(PATH_DEVICE_NAME)
+    await coordinator.async_refresh()
+
+    assert _value(coordinator, PATH_DEVICE_NAME) == "Renamed"
+
+
+async def test_a_reread_requested_during_a_slow_poll_is_not_used_up_by_it(
+    hass, coordinator, fake_client
+):
+    """The poll in flight has already read the old name when the reread comes.
+
+    It used to clear the pending flag on its way out, so the poll asked for
+    ran fast-only and merged the old name back in - for up to five minutes
+    while the device already held the new one.
+    """
+    await coordinator.async_refresh()  # cycle 0: slow, "Links" cached
+    coordinator._slow_poll_pending = True
+    name_read = asyncio.Event()
+    release = asyncio.Event()
+    real_get = fake_client.get
+
+    async def _get(path):
+        value = await real_get(path)
+        if path == PATH_DEVICE_NAME:
+            name_read.set()
+            await release.wait()
+        return value
+
+    fake_client.get = _get
+    old_poll = hass.async_create_task(coordinator.async_refresh())
+    await name_read.wait()
+
+    fake_client.values[PATH_DEVICE_NAME] = "Renamed"
+    coordinator.request_reread(PATH_DEVICE_NAME)
+    release.set()
+    await old_poll
+    await hass.async_block_till_done()
+    await coordinator.async_refresh()
+
+    assert _value(coordinator, PATH_DEVICE_NAME) == "Renamed"
+
+
+async def test_a_reread_does_not_hold_the_caller_for_a_whole_poll(hass, coordinator):
+    """The caller is a failed write or a restore in the middle of its loop.
+
+    Awaiting the refresh made the user wait for a second connect attempt
+    before seeing the error, and ran a full poll - with a publish - inside the
+    restore.
+    """
+    release = asyncio.Event()
+
+    async def _slow_refresh() -> None:
+        await release.wait()
+
+    coordinator.async_request_refresh = _slow_refresh
+
+    coordinator.request_reread(PATH_DEVICE_NAME)
+
+    assert coordinator._slow_poll_pending
+    release.set()
+    await hass.async_block_till_done()
+
+
+class _SavingClient(FakeClient):
+    def __init__(self, reject: bool = False) -> None:
+        super().__init__({})
+        self.saved: list = []
+        self.reject = reject
+
+    async def set(self, path, value):
+        if self.reject:
+            raise SSCDeviceError("save rejected (test)")
+        self.saved.append((path, value))
+        return value
+
+
+async def test_a_kh80_saves_its_settings_after_a_change(hass):
+    """Only the KH 80 forgets changes at power-off unless told to save."""
+    client = _SavingClient()
+    coordinator = NeumannKHCoordinator(hass, client, "test", model="KH 80")
+
+    await coordinator.async_persist()
+
+    assert client.saved == [(("device", "save_settings"), True)]
+
+
+@pytest.mark.parametrize("model", ["KH 120 II", "KH 750", None])
+async def test_other_models_are_not_asked_to_save(hass, model):
+    """They save by themselves, and answer the save path with a 404."""
+    client = _SavingClient()
+    coordinator = NeumannKHCoordinator(hass, client, "test", model=model)
+
+    await coordinator.async_persist()
+
+    assert client.saved == []
+
+
+async def test_a_failed_save_says_the_change_will_not_survive(hass):
+    from homeassistant.exceptions import HomeAssistantError
+
+    coordinator = NeumannKHCoordinator(hass, _SavingClient(reject=True), "test", model="KH 80")
+
+    with pytest.raises(HomeAssistantError) as caught:
+        await coordinator.async_persist()
+    assert caught.value.translation_key == "settings_not_saved"
+
+
+async def test_a_kh80_without_the_save_path_does_not_fail_every_change(hass):
+    """The KH 80 need is reported, not measured. A 404 means there is nothing to save."""
+    client = _SavingClient()
+
+    async def _not_found(path, value):
+        raise SSCDeviceError("address not found", code=404)
+
+    client.set = _not_found
+    coordinator = NeumannKHCoordinator(hass, client, "test", model="KH 80")
+
+    await coordinator.async_persist()
+
+
+async def test_a_save_that_times_out_is_reported_as_not_saved(hass):
+    from homeassistant.exceptions import HomeAssistantError
+
+    from custom_components.neumann_kh.ssc_client import SSCTimeoutError
+
+    client = _SavingClient()
+
+    async def _timeout(path, value):
+        raise SSCTimeoutError("no answer")
+
+    client.set = _timeout
+    coordinator = NeumannKHCoordinator(hass, client, "test", model="KH 80")
+
+    with pytest.raises(HomeAssistantError) as caught:
+        await coordinator.async_persist()
+    assert caught.value.translation_key == "settings_not_saved"

@@ -42,3 +42,19 @@ def test_deep_merge_dict_replaces_scalar():
     target = {"a": 1}
     deep_merge(target, {"a": {"b": 2}})
     assert target == {"a": {"b": 2}}
+
+
+def test_a_merged_subtree_is_a_copy_not_a_shared_reference():
+    """The coordinator merges its slow cache into every published snapshot.
+
+    Shared subtrees let a later write to the published data reach into the
+    cache - and from there into every following poll result.
+    """
+    from custom_components.neumann_kh._util import deep_merge
+
+    target: dict = {}
+    source = {"audio": {"out": {"level": 60.0}}}
+    deep_merge(target, source)
+    target["audio"]["out"]["level"] = 70.0
+
+    assert source["audio"]["out"]["level"] == 60.0

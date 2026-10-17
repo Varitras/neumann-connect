@@ -19,17 +19,20 @@ from datetime import timedelta
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from ._util import build_nested, deep_merge, extract
 from .const import (
     DOMAIN,
+    MODELS_THAT_NEED_A_SAVE,
     MODELS_WITH_LOGO_BRIGHTNESS,
     MODELS_WITH_SUBWOOFER_FEATURES,
     NON_SUBWOOFER_POLL_PATHS,
+    NON_SUBWOOFER_SLOW_POLL_PATHS,
     PATH_LOGO_BRIGHTNESS,
+    PATH_SAVE_SETTINGS,
     POLL_CYCLE_TIMEOUT_SECONDS,
     POLL_PATHS,
     SLOW_POLL_EVERY_N_CYCLES,
@@ -39,9 +42,37 @@ from .const import (
     UPDATE_INTERVAL_SECONDS,
 )
 from .eq_containers import eq_containers_for_model
-from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeoutError
+from .ssc_client import (
+    ERROR_NOT_FOUND,
+    SSCClient,
+    SSCConnectionError,
+    SSCDeviceError,
+    SSCTimeoutError,
+)
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def poll_paths_for_model(model: str | None) -> tuple[list[tuple[str, ...]], list[tuple[str, ...]]]:
+    """The (fast, slow) paths a model is polled for, EQ aside.
+
+    The one answer to "which paths does this model have": the backup reads the
+    same list plus every EQ leaf, so a path added here reaches both.
+    """
+    fast = list(POLL_PATHS)
+    slow = list(SLOW_POLL_PATHS)
+    # Logo brightness only on matching models (not KH 750 DSP).
+    if model in MODELS_WITH_LOGO_BRIGHTNESS:
+        fast.append(PATH_LOGO_BRIGHTNESS)
+    if model in MODELS_WITH_SUBWOOFER_FEATURES:
+        fast.extend(SUBWOOFER_POLL_PATHS)
+        slow.extend(SUBWOOFER_SLOW_POLL_PATHS)
+    else:
+        # Paths the subwoofer answers with a 404 - asking it every cycle only
+        # earns a rejection (see NON_SUBWOOFER_POLL_PATHS).
+        fast.extend(NON_SUBWOOFER_POLL_PATHS)
+        slow.extend(NON_SUBWOOFER_SLOW_POLL_PATHS)
+    return fast, slow
 
 
 class SpeakerUnreachable(UpdateFailed):
@@ -65,10 +96,13 @@ class _OfflineIsNotAnError(logging.Filter):
         is_expected_offline = record.levelno == logging.ERROR and any(
             isinstance(argument, SpeakerUnreachable) for argument in record.args or ()
         )
-        if is_expected_offline:
-            record.levelno = logging.INFO
-            record.levelname = logging.getLevelName(logging.INFO)
-        return True
+        if not is_expected_offline:
+            return True
+        record.levelno = logging.INFO
+        record.levelname = logging.getLevelName(logging.INFO)
+        # The level check ran before this filter, at error level - so a logger
+        # set to warning would otherwise still emit the downgraded line.
+        return _LOGGER.isEnabledFor(logging.INFO)
 
 
 _LOGGER.addFilter(_OfflineIsNotAnError())
@@ -94,9 +128,10 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         self.client = client
         self.model = model
-        # Held for a whole button action (backup, discovery, restore, factory
-        # reset), not for a single request. The client's lock serialises
-        # individual messages, which is not enough: a backup running while a
+        # Held for a whole device action (every button that talks to the
+        # speaker, the EQ reset included), not for a single request. The
+        # client's lock serialises individual messages, which is not enough: a
+        # backup running while a
         # restore writes reads some values from before and some from after,
         # and that mixed snapshot then replaces the last good one.
         #
@@ -105,19 +140,7 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # client's priority mechanism already keeps user actions ahead of it.
         self.action_lock = asyncio.Lock()
         # Fast paths: every cycle. Slow paths: only every N cycles.
-        self._poll_paths = list(POLL_PATHS)
-        self._slow_poll_paths = list(SLOW_POLL_PATHS)
-        # Logo brightness only on matching models (not KH 750 DSP).
-        if model in MODELS_WITH_LOGO_BRIGHTNESS:
-            self._poll_paths.append(PATH_LOGO_BRIGHTNESS)
-        # Paths the subwoofer answers with a 404 - asking it every cycle only
-        # earns a rejection (see NON_SUBWOOFER_POLL_PATHS).
-        if model not in MODELS_WITH_SUBWOOFER_FEATURES:
-            self._poll_paths.extend(NON_SUBWOOFER_POLL_PATHS)
-        # Subwoofer-specific paths only on a detected subwoofer.
-        if model in MODELS_WITH_SUBWOOFER_FEATURES:
-            self._poll_paths.extend(SUBWOOFER_POLL_PATHS)
-            self._slow_poll_paths.extend(SUBWOOFER_SLOW_POLL_PATHS)
+        self._poll_paths, self._slow_poll_paths = poll_paths_for_model(model)
         # EQ "enabled" arrays for the container on/off switches (see eq.py).
         # Change only through user action (which applies the confirmed value
         # immediately) - therefore in the slow poll.
@@ -149,6 +172,9 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # a snapshot of the device as it no longer is; the counter lets it
         # notice that and keep its stale slow values out of the cache.
         self._cache_generation = 0
+        # Bumped by every slow-path reread request, for the same reason: a
+        # poll that read the path before the request must not use it up.
+        self._reread_requests = 0
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Query each path individually; a rejected/faulty single path is skipped."""
@@ -165,6 +191,7 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._confirmed_during_poll = []
         self._poll_in_flight = True
         generation_at_start = self._cache_generation
+        rereads_at_start = self._reread_requests
         try:
             merged = await asyncio.wait_for(
                 self._poll_all_paths(paths), timeout=POLL_CYCLE_TIMEOUT_SECONDS
@@ -201,6 +228,10 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         if include_slow:
             self._refresh_slow_cache(merged)
+            if rereads_at_start != self._reread_requests:
+                # Asked for while this cycle was reading - possibly after it
+                # read that path, so the next cycle has to read it again.
+                self._slow_poll_pending = True
         # Every cycle carries the last known slow values; a slow cycle has
         # just renewed them, a fast cycle merely repeats them.
         deep_merge(merged, self._slow_data)
@@ -222,7 +253,7 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def _poll_all_paths(self, paths: list[tuple[str, ...]]) -> dict[str, Any]:
         merged: dict[str, Any] = {}
-        reachable = False
+        answered = False
         try:
             for path in paths:
                 # Priority path: briefly yield to a waiting user action.
@@ -232,8 +263,8 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 try:
                     value = await self.client.get(path)
                 except SSCDeviceError:
-                    # Path not supported by this device - skip.
-                    reachable = True
+                    # Path not supported by this device - skip. Not counted as
+                    # an answer: a device that rejects everything is a fault.
                     _LOGGER.debug("Path %s is not supported by the device, skipping", path)
                     continue
                 except (SSCConnectionError, SSCTimeoutError):
@@ -246,20 +277,20 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 except Exception:
                     _LOGGER.exception("Unexpected error while querying path %s, skipping", path)
                     continue
-                reachable = True
+                answered = True
                 deep_merge(merged, build_nested(path, value))
         except (SSCConnectionError, SSCTimeoutError) as err:
             raise SpeakerUnreachable(f"Neumann KH unreachable: {err}") from err
 
-        if not reachable:
-            raise UpdateFailed("Neumann KH: none of the queried properties were reachable")
+        if not answered:
+            raise UpdateFailed("Neumann KH: the device answered none of the queried properties")
 
         return merged
 
     def claim_device(self) -> asyncio.Lock:
         """Refuse the caller if another action already owns the device.
 
-        Waiting would be worse than refusing: these actions are long and two
+        Waiting would be worse than refusing: these actions are long and some
         of them rewrite the speaker, so a queued second press would fire
         minutes later on a device the user has stopped watching.
 
@@ -277,21 +308,16 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def apply_confirmed_value(
         self, path: tuple[str, ...], value: Any, *, publish: bool = True
     ) -> None:
-        """Apply a single device-confirmed value directly into the data."""
-        self.apply_confirmed_values([(path, value)], publish=publish)
+        """Apply a device-confirmed value directly into the data.
 
-    def apply_confirmed_values(
-        self, values: list[tuple[tuple[str, ...], Any]], *, publish: bool = True
-    ) -> None:
-        """Apply several device-confirmed values in one update.
-
-        `publish=False` takes the values into the data without notifying the
+        `publish=False` takes the value into the data without notifying the
         entities yet; `async_update_listeners()` does that later. A restore
         applies each confirmation the moment the device gives it and publishes
-        once at the end. Collecting them and applying the batch at the end
-        instead let a rename that reached the device AFTER the restore wrote
-        the name be overwritten by the batch: the order in which the device
-        was written is the order the data must be applied in.
+        once at the end - every publish notifies every entity of the device,
+        so publishing per path produced thousands of state changes for one
+        press. Applying them all at the end instead let a rename that reached
+        the device after the restore wrote the name be overwritten: the order
+        the device was written in is the order the data must be applied in.
 
         If a path is in the slow poll, the _slow_data cache is additionally
         updated. Without that, the next FAST cycle would overwrite the
@@ -300,23 +326,15 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         Only merge slow paths into the cache: conversely, a blanket merge
         would let a stale fast value from the cache overwrite fresh poll
         values.
-
-        Batching matters for the restore, which confirms dozens of values at
-        once: every call copies the whole data tree and notifies every entity
-        of the device, so applying them one by one produced thousands of state
-        changes for a single button press.
         """
-        if not values:
-            return
         new_data: dict[str, Any] = {}
         if self.data:
             deep_merge(new_data, self.data)
-        for path, value in values:
-            deep_merge(new_data, build_nested(path, value))
-            if path in self._slow_path_set:
-                deep_merge(self._slow_data, build_nested(path, value))
-            if self._poll_in_flight:
-                self._confirmed_during_poll.append((path, value))
+        deep_merge(new_data, build_nested(path, value))
+        if path in self._slow_path_set:
+            deep_merge(self._slow_data, build_nested(path, value))
+        if self._poll_in_flight:
+            self._confirmed_during_poll.append((path, value))
         if publish:
             self.async_set_updated_data(new_data)
         else:
@@ -335,6 +353,55 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._slow_poll_pending = True
         self._cache_generation += 1
         await self.async_request_refresh()
+
+    @callback
+    def request_reread(self, path: tuple[str, ...]) -> None:
+        """Make the next poll read `path` again, even if it is a slow path.
+
+        For a write the device did not confirm: no echo, or the line dropped
+        after the request went out. The device may hold the new value, but a
+        plain refresh skips slow paths in nine of ten cycles and merges the
+        cached old value back in.
+
+        Scheduled, not awaited: the caller is a failed write that should
+        report at once, or a restore whose loop must not run a whole poll -
+        and publish it - halfway through.
+        """
+        if path in self._slow_path_set:
+            self._slow_poll_pending = True
+            self._reread_requests += 1
+        self.hass.async_create_task(self.async_request_refresh())
+
+    async def async_persist(self) -> None:
+        """Make the speaker keep what was just written, where it needs telling.
+
+        Called once per settings change: after each accepted entity write
+        except Identify (a momentary action), and once per EQ reset and per
+        restore. Raises when the save fails: the
+        change is on the device now, but would be gone after a power cycle,
+        and the user has to know that.
+        """
+        if self.model not in MODELS_THAT_NEED_A_SAVE:
+            return
+        try:
+            await self.client.set(PATH_SAVE_SETTINGS, True)
+        except SSCDeviceError as err:
+            if err.code == ERROR_NOT_FOUND:
+                # The KH 80 need is reported, not measured: a firmware without
+                # the path has nothing to save, and must not fail every change.
+                _LOGGER.debug("%s has no save command - nothing to save", self.name)
+                return
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="settings_not_saved",
+                translation_placeholders={"error": str(err)},
+            ) from err
+        except (SSCConnectionError, SSCTimeoutError) as err:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="settings_not_saved",
+                translation_placeholders={"error": str(err)},
+            ) from err
 
     def value(self, path: tuple[str, ...]) -> Any:
         """Convenient access to a value from the last polled data."""

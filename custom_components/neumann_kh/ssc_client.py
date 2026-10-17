@@ -14,10 +14,12 @@ import asyncio
 import contextlib
 import json
 import logging
+import os
+import socket
 from typing import Any
 
 from ._util import build_nested, deep_merge, extract
-from .const import DEFAULT_QUERY_SETTLE
+from .const import DEFAULT_QUERY_SETTLE, DEFAULT_TIMEOUT
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -38,6 +40,21 @@ def mask_host(host: str) -> str:
     if len(identifier) <= 2:
         return host
     return f"{prefix}{delimiter}xx{identifier[-2:]}{separator}{scope}"
+
+
+def _os_reason(err: OSError) -> str:
+    """The reason of an OS error, without the text the OS wrapped around it.
+
+    asyncio puts "Connect call failed ('<address>', ...)" into strerror itself,
+    and every caller hands str() of our error to the log or to a UI message.
+    The errno's standard text carries the reason and nothing else - except for
+    name lookups, whose negative codes it does not know (their text is clean).
+    """
+    if isinstance(err, socket.gaierror):
+        return err.strerror or type(err).__name__
+    if err.errno is None:
+        return type(err).__name__
+    return os.strerror(err.errno)
 
 
 # Terminator per the SSC specification: CR+LF or LF alone are allowed.
@@ -103,8 +120,22 @@ class SSCTimeoutError(Exception):
     """Raised when no response arrives within the timeout window."""
 
 
+ERROR_NOT_FOUND = 404  # osc/error code for a path the device does not have
+
+
 class SSCDeviceError(Exception):
     """Device rejects the request (OSC error response, e.g. error 400/404/405)."""
+
+    def __init__(self, message: str, code: int | None = None) -> None:
+        super().__init__(message)
+        self.code = code
+
+
+def _error_code(osc_error: Any) -> int | None:
+    """The numeric code of an osc/error answer, e.g. 404 in [404, {"desc": ...}]."""
+    if not isinstance(osc_error, list) or not osc_error or type(osc_error[0]) is not int:
+        return None
+    return osc_error[0]
 
 
 class SSCClient:
@@ -115,7 +146,7 @@ class SSCClient:
         host: str,
         port: int,
         interface: str | None = None,
-        timeout: float = 3.0,
+        timeout: float = DEFAULT_TIMEOUT,
         settle_time: float = DEFAULT_QUERY_SETTLE,
     ) -> None:
         self._host = host
@@ -133,6 +164,8 @@ class SSCClient:
         # Signals the poll loop that a user action is waiting on the lock
         # (see request(priority=True)) - poll then releases the lock.
         self._priority_waiting = asyncio.Event()
+        # Logical path -> path on this device (see use_path_aliases).
+        self._path_aliases: dict[tuple[str, ...], tuple[str, ...]] = {}
 
     @property
     def priority_waiting(self) -> asyncio.Event:
@@ -177,7 +210,7 @@ class SSCClient:
             # must keep catching TimeoutError BEFORE OSError - swapping those
             # two turns every settle-window timeout into a connection error.
             raise SSCConnectionError(
-                f"Connection to {mask_host(self._connect_host)}:{self._port} failed: {err}"
+                f"Connection to {mask_host(self._connect_host)}:{self._port} failed: {_os_reason(err)}"
             ) from err
 
     def _drop_connection(self) -> None:
@@ -204,7 +237,15 @@ class SSCClient:
             # explicit check instead of `assert`, since assert statements can be
             # optimized away depending on Python startup options (-O).
             raise SSCConnectionError(f"No active connection to {mask_host(self._host)}")
-        message = json.dumps(payload).encode("utf-8") + b"\r\n"
+        try:
+            # json.dumps writes NaN/Infinity by default, which is not JSON. The
+            # number entity refuses them first; this catches every other
+            # writer, a restore of a hand-edited backup included.
+            message = json.dumps(payload, allow_nan=False).encode("utf-8") + b"\r\n"
+        except ValueError as err:
+            raise SSCDeviceError(
+                f"Refused to send a non-finite number to {mask_host(self._host)}"
+            ) from err
         try:
             self._writer.write(message)
             await self._writer.drain()
@@ -213,7 +254,9 @@ class SSCClient:
             # connecting and writing. Surface it as a connection error so the
             # caller drops the socket instead of waiting for a reply that can
             # never arrive.
-            raise SSCConnectionError(f"Writing to {mask_host(self._host)} failed: {err}") from err
+            raise SSCConnectionError(
+                f"Writing to {mask_host(self._host)} failed: {_os_reason(err)}"
+            ) from err
 
     async def _discard_stale_lines(self) -> None:
         """Drop anything the previous answer left on the socket.
@@ -247,15 +290,16 @@ class SSCClient:
                 # Nothing more waiting - the normal case by far.
                 return
             except asyncio.IncompleteReadError:
-                # The peer closed while we were draining. Sending the request
-                # over this socket would only fail, so reconnect first.
+                # The peer closed while we were draining. Drop the socket: this
+                # request then fails, and the next one connects again
+                # (accepted risk A5 - one lost request, no wrong value).
                 self._drop_connection()
                 return
             except (asyncio.LimitOverrunError, OSError):
                 # Broken or flooded connection - let the actual request fail.
                 self._drop_connection()
                 return
-            _LOGGER.debug("Discarded a stale line from %s: %s", self._host, leftover[:200])
+            _LOGGER.debug("Discarded a stale %d-byte line from %s", len(leftover), self._host)
 
         # Still talking after the bound: whatever is on this socket cannot be
         # told apart from the next answer any more, so start over.
@@ -350,7 +394,7 @@ class SSCClient:
                 # place, and the coordinator would log a traceback for every
                 # remaining path of the cycle instead of failing it once.
                 raise SSCConnectionError(
-                    f"Reading from {mask_host(self._host)} failed: {err}"
+                    f"Reading from {mask_host(self._host)} failed: {_os_reason(err)}"
                 ) from err
 
             if len(raw_line) > _MAX_LINE_BYTES:
@@ -365,11 +409,15 @@ class SSCClient:
                 # json.loads decodes the bytes itself, so a line that is not
                 # valid UTF-8 raises before it ever gets to the JSON parser.
                 # Both mean the same thing here: unusable line, keep reading.
-                _LOGGER.debug("Ignored invalid SSC response from %s: %s", self._host, line)
+                _LOGGER.debug(
+                    "Ignored an invalid %d-byte SSC response from %s", len(line), self._host
+                )
                 continue
             if not isinstance(parsed, dict):
                 # Valid JSON, but not an address tree - nothing to merge.
-                _LOGGER.debug("Ignored non-object SSC response from %s: %s", self._host, line)
+                _LOGGER.debug(
+                    "Ignored a non-object %d-byte SSC response from %s", len(line), self._host
+                )
                 continue
 
             received = True
@@ -449,19 +497,33 @@ class SSCClient:
                     if isinstance(part, dict) and "desc" in part:
                         description = part["desc"]
             raise SSCDeviceError(
-                f"Device {mask_host(self._host)} rejected the request: {description or osc_error}"
+                f"Device {mask_host(self._host)} rejected the request: {description or osc_error}",
+                code=_error_code(osc_error),
             )
 
         return merged
 
-    async def get(self, path: tuple[str, ...], priority: bool = False) -> Any:
-        """Queries a single value (get = request with JSON null)."""
-        response = await self.request(build_nested(path, None), priority=priority, expect_path=path)
-        return extract(response, path)
+    def use_path_aliases(self, aliases: dict[tuple[str, ...], tuple[str, ...]]) -> None:
+        """Send these logical paths to a different path on this device.
 
-    async def set(self, path: tuple[str, ...], value: Any, priority: bool = True) -> Any:
-        """Sets a value and returns the value confirmed by the device."""
+        Everything above the client keeps the logical path (entities, cache,
+        backups, discovery export); only request() - the osc/schema walk - is raw.
+        """
+        self._path_aliases = dict(aliases)
+
+    async def get(self, path: tuple[str, ...]) -> Any:
+        """Queries a single value (get = request with JSON null)."""
+        device_path = self._path_aliases.get(path, path)
+        response = await self.request(build_nested(device_path, None), expect_path=device_path)
+        return extract(response, device_path)
+
+    async def set(self, path: tuple[str, ...], value: Any) -> Any:
+        """Sets a value and returns the value confirmed by the device.
+
+        Every write comes from a user action, so it always jumps the poll.
+        """
+        device_path = self._path_aliases.get(path, path)
         response = await self.request(
-            build_nested(path, value), priority=priority, expect_path=path
+            build_nested(device_path, value), priority=True, expect_path=device_path
         )
-        return extract(response, path)
+        return extract(response, device_path)

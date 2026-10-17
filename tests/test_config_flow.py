@@ -16,7 +16,7 @@ import pytest
 
 pytest.importorskip("homeassistant")
 
-from homeassistant.config_entries import SOURCE_ZEROCONF
+from homeassistant.config_entries import SOURCE_IGNORE, SOURCE_ZEROCONF
 from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PORT
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers.service_info.zeroconf import (
@@ -386,6 +386,30 @@ async def test_zeroconf_does_not_contact_a_speaker_that_has_not_moved(hass, _cus
     assert not connect.called, "an unchanged announcement cost a network round trip"
 
 
+async def test_a_padded_serial_in_the_announcement_still_finds_the_entry(hass, _custom_integration):
+    """TXT values arrive as sent; whitespace must not make a known speaker new.
+
+    Offered as new, confirming it would create a second entry polling the
+    same device.
+    """
+    entry = _entry(hass)
+    hass.config_entries.async_update_entry(
+        entry, data={**entry.data, CONF_HOST: _PICKED_HOST, CONF_INTERFACE: ""}
+    )
+
+    with patch("custom_components.neumann_kh.config_flow._async_test_connection") as connect:
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN,
+            context={"source": SOURCE_ZEROCONF},
+            data=_zeroconf_info(serial=f" {_EXISTING_SERIAL} "),
+        )
+        await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "already_configured"
+    assert not connect.called
+
+
 async def test_zeroconf_anchors_on_the_serial_the_device_reports(hass, _custom_integration):
     """A record can be stale or wrong; the device is the authority.
 
@@ -439,8 +463,8 @@ async def test_zeroconf_of_a_device_without_a_serial_is_not_set_up(hass, _custom
     """Keeping the announced serial would make mDNS the device's identity.
 
     The record is unauthenticated, so a forged one could occupy a serial the
-    real speaker needs later. The manual and reconfigure paths refuse a device
-    that reports none, and this one has to as well.
+    real speaker needs later. Manual setup and the scan accept such a device -
+    there the user picked it on purpose; a broadcast alone does not vouch.
     """
     identity = DeviceIdentity(product="KH 120 II", serial=None, vendor="Georg Neumann GmbH")
 
@@ -638,6 +662,34 @@ async def test_a_speaker_already_set_up_is_marked_as_such(hass, _custom_integrat
 
     device = [label for label in _scan_option_labels(result) if _GOOD_IDENTITY.serial in label]
     assert device and ("already connected" in device[0] or "bereits verbunden" in device[0])
+
+
+async def test_an_ignored_speaker_is_not_called_connected(hass, _custom_integration):
+    """Ignoring a discovery creates an entry too - but nothing is connected."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id=_GOOD_IDENTITY.serial,
+        source=SOURCE_IGNORE,
+        data={},
+    )
+    entry.add_to_hass(hass)
+
+    result = await _run_scan(hass, [_speaker()], [_GOOD_IDENTITY])
+
+    device = [label for label in _scan_option_labels(result) if _GOOD_IDENTITY.serial in label]
+    assert device
+    assert "already connected" not in device[0]
+    assert "ignored" in device[0]
+
+
+async def test_the_scan_list_is_german_throughout(hass, _custom_integration):
+    hass.config.language = "de"
+
+    result = await _run_scan(hass, [_speaker()], [_GOOD_IDENTITY])
+
+    device = [label for label in _scan_option_labels(result) if _GOOD_IDENTITY.serial in label]
+    assert device and "Seriennummer" in device[0], device
+    assert "Serial" not in device[0]
 
 
 async def test_a_foreign_vendor_is_flagged_in_the_list(hass, _custom_integration):

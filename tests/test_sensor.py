@@ -15,6 +15,8 @@ import pytest
 
 pytest.importorskip("homeassistant")
 
+from homeassistant.const import EntityCategory
+
 from custom_components.neumann_kh.sensor import (
     COMMON_SENSOR_DESCRIPTIONS,
     NON_SUBWOOFER_SENSOR_DESCRIPTIONS,
@@ -118,3 +120,36 @@ def test_every_state_key_passes_the_hassfest_rule():
 def test_an_assigned_loudspeaker_passes_through_unchanged():
     """The device reports model names here; the set is open, so nothing maps."""
     assert _sensor("out1_loudspeaker", "KH 120 II").native_value == "KH 120 II"
+
+
+# 10**400 is valid JSON but too large for a float: float() raises OverflowError.
+@pytest.mark.parametrize(
+    "value",
+    [float("nan"), float("inf"), "-inf", "nan", pytest.param(10**400, id="too-large-for-a-float")],
+)
+def test_a_non_finite_device_value_shows_as_unknown(value):
+    """Home Assistant refuses a non-finite state for a sensor with a unit.
+
+    The first time that is the initial state, the entity is never added; later
+    every update raises in the listener and the sensor freezes.
+    """
+    assert _sensor("device_temperature", value).native_value is None
+
+
+def test_a_non_finite_channel_does_not_win_the_loudest_channel():
+    assert _sensor("input_level_meter", [float("inf"), 10**400, -40.0]).native_value == -40.0
+
+
+def test_the_temperature_is_not_stored_with_float_noise():
+    """310 K is 36.85 degC, not 36.850000000000023."""
+    assert _sensor("device_temperature", 310).native_value == 36.85
+
+
+@pytest.mark.parametrize("key", ["input_gain", "subwoofer_input_gain", "subwoofer_low_cut"])
+def test_a_front_panel_setting_is_a_diagnostic_sensor(key):
+    """Read-only settings belong with the diagnostics, as the README says.
+
+    Only the live meters are primary sensors; a fixed gain listed among them
+    looks like a measurement.
+    """
+    assert _description(key).entity_category is EntityCategory.DIAGNOSTIC

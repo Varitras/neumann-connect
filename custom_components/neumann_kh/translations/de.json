@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Neumann KH Lautsprecher hinzufügen",
+        "title": "Neumann-KH-Lautsprecher hinzufügen",
         "menu_options": {
           "scan": "Automatisch im Netzwerk suchen",
           "manual": "Manuell eingeben (IP-Adresse)"
@@ -12,9 +12,9 @@
         "title": "Manuelle Einrichtung",
         "description": "Verbindungsdaten des Lautsprechers (SSC-Protokoll, Port 45).",
         "data": {
-          "name": "Name (z. B. \"KH 120 II Links\")",
+          "name": "Name (z. B. „KH 120 II Links“)",
           "host": "IP-Adresse (IPv6, z. B. Link-Local fe80::...)",
-          "interface": "Netzwerk-Interface (aus Liste wählen, oder eigenen Wert eintippen, falls nicht gelistet – nur bei Link-Local nötig)",
+          "interface": "Netzwerk-Interface (aus der Liste wählen oder eigenen Wert eintippen, falls nicht gelistet – nur bei Link-Local-Adressen nötig)",
           "port": "Port"
         }
       },
@@ -30,38 +30,38 @@
         "description": "Neue Verbindungsdaten für {device}. Name, Entitäten und Verlauf bleiben erhalten.",
         "data": {
           "host": "IP-Adresse (IPv6, z. B. Link-Local fe80::...)",
-          "interface": "Netzwerk-Schnittstelle (aus der Liste wählen oder eigenen Wert eintippen, falls nicht gelistet — nur bei Link-Local-Adressen nötig)",
+          "interface": "Netzwerk-Interface (aus der Liste wählen oder eigenen Wert eintippen, falls nicht gelistet – nur bei Link-Local-Adressen nötig)",
           "port": "Port"
         }
       },
       "unsupported": {
         "title": "Gerät eines anderen Herstellers",
-        "description": "Dieses Gerät meldet sich als \"{product}\" von \"{vendor}\" und ist kein Neumann-Lautsprecher. Es spricht SSC, die Integration kann es also steuern – alles Modellspezifische (Subwoofer-Entitäten, EQ-Aufbau, Werksreset) ist aber geraten und passt womöglich nicht. Zum Hinzufügen trotzdem bestätigen."
+        "description": "Dieses Gerät meldet sich als „{product}“ von „{vendor}“ und ist kein Neumann-Lautsprecher. Es spricht SSC, die Integration kann es also steuern – alles Modellspezifische (Subwoofer-Entitäten, EQ-Aufbau, Werksreset) ist aber geraten und passt womöglich nicht. Bestätige, um es trotzdem hinzuzufügen."
       },
       "scan_confirm": {
         "title": "Lautsprecher benennen",
         "description": "Gerät: {device}. Vorausgefüllt, falls dieses Gerät schon einmal einen Namen hatte.",
         "data": {
-          "name": "Name (z. B. \"KH 120 II Links\")"
+          "name": "Name (z. B. „KH 120 II Links“)"
         }
       },
       "zeroconf_confirm": {
         "title": "Lautsprecher im Netzwerk gefunden",
-        "description": "Gerät: {device}. Vorbelegt, falls dieses Gerät schon einmal einen Namen hatte.",
+        "description": "Gerät: {device}. Vorausgefüllt, falls dieses Gerät schon einmal einen Namen hatte.",
         "data": {
           "name": "Name (z. B. „KH 120 II Links“)"
         }
       }
     },
     "error": {
-      "cannot_connect": "Verbindung zum Lautsprecher fehlgeschlagen. IP-Adresse und Interface prüfen.",
-      "timeout": "Zeitüberschreitung - keine Antwort vom Lautsprecher erhalten.",
+      "cannot_connect": "Verbindung zum Lautsprecher fehlgeschlagen. Prüfe IP-Adresse und Interface.",
+      "timeout": "Zeitüberschreitung – keine Antwort vom Lautsprecher erhalten.",
       "interface_required_for_link_local": "Bei einer fe80::-Adresse muss das Netzwerk-Interface angegeben werden.",
       "invalid_ipv6": "Keine gültige IPv6-Adresse. Neumann-KH-Lautsprecher unterstützen nur IPv6 (z. B. fe80::...), kein IPv4.",
-      "no_devices_found": "Keine SSC-Lautsprecher im Netzwerk gefunden. Erneut absenden für einen neuen Versuch, oder zurückgehen und 'Manuell eingeben' wählen.",
-      "discovery_expired": "Die Geräteliste ist abgelaufen, bitte Suche erneut starten.",
-      "name_required": "Bitte einen Namen für das Gerät eingeben.",
-      "scan_failed": "Die Netzwerksuche ist unerwartet fehlgeschlagen. Erneut versuchen oder manuell einrichten.",
+      "no_devices_found": "Keine SSC-Lautsprecher im Netzwerk gefunden. Sende das Formular erneut ab, um noch einmal zu suchen, oder geh zurück und wähle „Manuell eingeben (IP-Adresse)“.",
+      "discovery_expired": "Die Geräteliste ist abgelaufen, starte die Suche bitte erneut.",
+      "name_required": "Gib bitte einen Namen für das Gerät ein.",
+      "scan_failed": "Die Netzwerksuche ist unerwartet fehlgeschlagen. Versuch es erneut oder richte den Lautsprecher manuell ein.",
       "unknown": "Unerwarteter Fehler."
     },
     "abort": {
@@ -71,8 +71,9 @@
       "no_serial": "Das Gerät hat sich ohne Seriennummer gemeldet und lässt sich nicht zuordnen.",
       "no_ipv6": "Das Gerät hat keine IPv6-Adresse gemeldet. Neumann-KH-Lautsprecher unterstützen nur IPv6.",
       "cannot_connect": "Das gefundene Gerät hat nicht auf SSC-Anfragen geantwortet.",
-      "discovery_expired": "Das Suchergebnis ist abgelaufen, bitte erneut suchen.",
-      "unknown": "Unerwarteter Fehler - die Einrichtung wurde abgebrochen."
+      "discovery_expired": "Das Suchergebnis ist abgelaufen, bitte suche erneut.",
+      "unknown": "Unerwarteter Fehler – die Einrichtung wurde abgebrochen.",
+      "already_in_progress": "Dieser Lautsprecher wird bereits eingerichtet."
     }
   },
   "entity": {
@@ -127,10 +128,10 @@
         "name": "Auto-Standby"
       },
       "out1_mute": {
-        "name": "Ausgang 1 Stumm"
+        "name": "Ausgang 1 Stummschaltung"
       },
       "out2_mute": {
-        "name": "Ausgang 2 Stumm"
+        "name": "Ausgang 2 Stummschaltung"
       },
       "eq_enabled": {
         "name": "{container} aktiv"
@@ -204,7 +205,7 @@
         "name": "Subwoofer-Eingangsverstärkung"
       },
       "subwoofer_low_cut": {
-        "name": "Subwoofer Low-Cut"
+        "name": "Subwoofer-Low-Cut"
       },
       "subwoofer_output_level": {
         "name": "Subwoofer-Ausgangspegel"
@@ -213,7 +214,7 @@
         "name": "Subwoofer-Phase"
       },
       "subwoofer_phase_inversion": {
-        "name": "Subwoofer-Phaseninversion"
+        "name": "Subwoofer-Phasenumkehr"
       }
     },
     "binary_sensor": {
@@ -260,8 +261,14 @@
     "device_unreachable": {
       "message": "Der Lautsprecher ist nicht erreichbar: {error}"
     },
+    "invalid_number": {
+      "message": "Der Wert {value} ist keine Zahl, die der Lautsprecher speichern kann."
+    },
     "change_rejected": {
       "message": "Der Lautsprecher hat diese Änderung abgelehnt (evtl. von diesem Modell/dieser Firmware nicht unterstützt): {error}"
+    },
+    "settings_not_saved": {
+      "message": "Die Änderung ist am Lautsprecher angekommen, ließ sich dort aber nicht speichern – sie geht beim Ausschalten verloren. ({error})"
     },
     "selection_rejected": {
       "message": "Der Lautsprecher hat diese Auswahl abgelehnt (evtl. von diesem Modell/dieser Firmware nicht unterstützt): {error}"
@@ -278,11 +285,14 @@
     "backup_failed": {
       "message": "Backup fehlgeschlagen: {error}"
     },
+    "backup_store_failed": {
+      "message": "Die Backup-Datei wurde nach {path} geschrieben, aber die Kopie für „Backup zurückspielen“ ließ sich nicht speichern – dort steht weiterhin das vorherige Backup. ({error})"
+    },
     "discovery_failed": {
       "message": "Discovery fehlgeschlagen: {error}"
     },
     "restore_no_backup": {
-      "message": "Für diesen Lautsprecher ist noch kein Backup gespeichert. Erst „Backup erstellen“ drücken."
+      "message": "Für diesen Lautsprecher ist noch kein Backup gespeichert. Drücke zuerst „Backup erstellen“."
     },
     "restore_model_mismatch": {
       "message": "Dieses Backup stammt von einer {backup}, das Gerät ist aber eine {device}. Es wurde nichts geschrieben."
@@ -291,28 +301,28 @@
       "message": "Das gespeicherte Backup gehört zu einem anderen Lautsprecher. Es wurde nichts geschrieben."
     },
     "restore_interrupted": {
-      "message": "Die Verbindung brach ab, nachdem bereits {written} Werte geschrieben waren; der Lautsprecher ist nur teilweise zurückgespielt. Erneut drücken, sobald er wieder erreichbar ist. ({error})"
+      "message": "Die Verbindung brach ab, nachdem bereits {written} Werte geschrieben waren; der Lautsprecher ist nur teilweise zurückgespielt. Sobald er wieder erreichbar ist, drücke den Button erneut zweimal – einmal zum Scharfschalten, einmal zum Bestätigen. ({error})"
     },
     "backup_empty": {
-      "message": "Der Lautsprecher hat auf keine Abfrage geantwortet, es gibt also nichts zu sichern. Das vorherige Backup bleibt erhalten."
+      "message": "Der Lautsprecher hat keinen der Werte geliefert, die ein Zurückspielen schreiben könnte – es wurde nichts gesichert. Das vorherige Backup bleibt erhalten."
     },
     "restore_nothing_to_write": {
-      "message": "Das gespeicherte Backup enthält keinen Wert, der auf diesem Lautsprecher wiederhergestellt werden kann. Bitte zuerst ein neues Backup erstellen."
+      "message": "Das gespeicherte Backup enthält keinen Wert, der auf diesem Lautsprecher wiederhergestellt werden kann. Erstelle bitte zuerst ein neues Backup."
     },
     "discovery_empty": {
       "message": "Der Lautsprecher hat auf keine Abfrage geantwortet, es gibt also nichts aufzuzeichnen. Die vorherige Discovery bleibt erhalten."
     },
     "backup_timed_out": {
-      "message": "Der Lautsprecher hat nicht alle Abfragen innerhalb von {seconds} Sekunden beantwortet. Es wurde nichts gespeichert - das vorherige Backup bleibt erhalten."
+      "message": "Der Lautsprecher hat nicht alle Abfragen innerhalb von {seconds} Sekunden beantwortet. Es wurde nichts gespeichert – das vorherige Backup bleibt erhalten."
     },
     "discovery_timed_out": {
-      "message": "Der Lautsprecher hat nicht alle Abfragen innerhalb von {seconds} Sekunden beantwortet. Es wurde nichts aufgezeichnet - die vorherige Discovery bleibt erhalten."
+      "message": "Der Lautsprecher hat nicht alle Abfragen innerhalb von {seconds} Sekunden beantwortet. Es wurde nichts aufgezeichnet – die vorherige Discovery bleibt erhalten."
     },
     "restore_timed_out": {
-      "message": "Das Zurückspielen wurde nach {seconds} Sekunden abgebrochen; bis dahin waren {written} Werte geschrieben. Der Lautsprecher ist nur teilweise zurückgespielt. Ein neuer Versuch braucht wieder zwei Drücke - einen zum Scharfschalten, einen zum Bestätigen - und beginnt beim ersten Wert, nicht an der Abbruchstelle."
+      "message": "Das Zurückspielen wurde nach {seconds} Sekunden abgebrochen; bis dahin waren {written} Werte geschrieben. Der Lautsprecher ist nur teilweise zurückgespielt. Ein neuer Versuch braucht wieder zwei Drücke – einen zum Scharfschalten, einen zum Bestätigen – und beginnt beim ersten Wert, nicht an der Abbruchstelle."
     },
     "device_action_in_progress": {
-      "message": "Auf diesem Lautsprecher läuft bereits eine andere Aktion (Backup, Discovery, Zurückspielen oder Werksreset). Warte, bis sie fertig ist, und drücke dann erneut."
+      "message": "Auf diesem Lautsprecher läuft bereits eine andere Aktion (Backup, Discovery, Zurückspielen, Werksreset oder EQ-Reset). Warte, bis sie fertig ist, und drücke dann erneut."
     },
     "restore_nothing_written": {
       "message": "Der Lautsprecher hat keinen einzigen Wert aus dem Backup angenommen ({skipped} übersprungen), es wurde also nichts geändert. Prüfe, ob das Backup zu diesem Modell und dieser Firmware gehört."

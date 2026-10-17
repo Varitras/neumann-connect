@@ -8,9 +8,13 @@ uncovered before this file existed.
 
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 
 pytest.importorskip("homeassistant")
+
+from homeassistant.helpers.storage import Store
 
 from custom_components.neumann_kh import storage
 
@@ -85,3 +89,33 @@ async def test_the_stores_do_not_share_a_key(hass):
 
     assert await storage.async_get_backup(hass, "SIM0001234") is None
     assert await storage.async_get_remembered_name(hass, "SIM0001234") == "Left"
+
+
+async def test_two_speakers_saving_at_once_both_keep_their_backup(hass, monkeypatch):
+    """Load and save each yield on a real Store, so two saves interleave.
+
+    phcc's storage mock never yields, which is why this patches in a yield:
+    without one, the test passes even with the lock removed.
+    """
+    original_load = Store.async_load
+    original_save = Store.async_save
+
+    async def _yielding_load(self):
+        result = await original_load(self)
+        await asyncio.sleep(0)
+        return result
+
+    async def _yielding_save(self, data):
+        await asyncio.sleep(0)
+        return await original_save(self, data)
+
+    monkeypatch.setattr(Store, "async_load", _yielding_load)
+    monkeypatch.setattr(Store, "async_save", _yielding_save)
+
+    await asyncio.gather(
+        storage.async_save_backup(hass, "SIM0000001", {"speaker": 1}),
+        storage.async_save_backup(hass, "SIM0000002", {"speaker": 2}),
+    )
+
+    assert await storage.async_get_backup(hass, "SIM0000001") == {"speaker": 1}
+    assert await storage.async_get_backup(hass, "SIM0000002") == {"speaker": 2}

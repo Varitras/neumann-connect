@@ -15,12 +15,10 @@ from dataclasses import dataclass
 from homeassistant.components.switch import SwitchEntity, SwitchEntityDescription
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
     CONF_MODEL,
-    DOMAIN,
     MODELS_WITH_SUBWOOFER_FEATURES,
     PATH_IDENTIFY,
     PATH_OUT1_MUTE,
@@ -32,7 +30,6 @@ from .const import (
 from .coordinator import NeumannKHConfigEntry, NeumannKHCoordinator
 from .entity import NeumannKHEntity
 from .eq import build_eq_switches
-from .ssc_client import SSCConnectionError, SSCDeviceError, SSCTimeoutError
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -134,21 +131,7 @@ class NeumannKHSwitch(NeumannKHEntity, SwitchEntity):
 
     async def _async_set(self, value: bool) -> None:
         """Sets the value; turns a device rejection into a clear HA error message."""
-        try:
-            confirmed = await self.coordinator.client.set(self.entity_description.ssc_path, value)
-        except SSCDeviceError as err:
-            raise HomeAssistantError(
-                translation_domain=DOMAIN,
-                translation_key="change_rejected",
-                translation_placeholders={"error": str(err)},
-            ) from err
-        except (SSCConnectionError, SSCTimeoutError) as err:
-            raise HomeAssistantError(
-                translation_domain=DOMAIN,
-                translation_key="device_unreachable",
-                translation_placeholders={"error": str(err)},
-            ) from err
-        await self._apply_confirmed_value(self.entity_description.ssc_path, confirmed)
+        await self._async_write(self.entity_description.ssc_path, value)
 
     async def async_turn_on(self, **kwargs) -> None:
         await self._async_set(True)

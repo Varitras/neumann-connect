@@ -1,7 +1,7 @@
 """Select entities: fixed value choices (string enums).
 
-"Control mode" (NETWORK/LOCAL) always stays disabled: switching to LOCAL cuts
-off network control until it is manually reset on the device.
+"Control mode" (NETWORK/LOCAL) is disabled by default and should stay so:
+switching to LOCAL could cut off network control to the device (not tested).
 """
 
 from __future__ import annotations
@@ -11,19 +11,16 @@ from dataclasses import dataclass
 from homeassistant.components.select import SelectEntity, SelectEntityDescription
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
     CONTROL_MODE_OPTIONS,
-    DOMAIN,
     INPUT_INTERFACE_OPTIONS,
     PATH_INPUT_INTERFACE_TYPE,
     PATH_UI_CONTROL_MODE,
 )
 from .coordinator import NeumannKHConfigEntry, NeumannKHCoordinator
 from .entity import NeumannKHEntity
-from .ssc_client import SSCConnectionError, SSCDeviceError, SSCTimeoutError
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -33,7 +30,7 @@ class NeumannKHSelectDescription(SelectEntityDescription):
     ssc_path: tuple[str, ...] = ()
 
 
-# Always created, deliberately always disabled (safety exception).
+# Always created, disabled by default (safety exception).
 CONTROL_MODE_DESCRIPTION = NeumannKHSelectDescription(
     key="control_mode",
     translation_key="control_mode",
@@ -97,18 +94,6 @@ class NeumannKHSelect(NeumannKHEntity, SelectEntity):
         return str(value)
 
     async def async_select_option(self, option: str) -> None:
-        try:
-            confirmed = await self.coordinator.client.set(self.entity_description.ssc_path, option)
-        except SSCDeviceError as err:
-            raise HomeAssistantError(
-                translation_domain=DOMAIN,
-                translation_key="selection_rejected",
-                translation_placeholders={"error": str(err)},
-            ) from err
-        except (SSCConnectionError, SSCTimeoutError) as err:
-            raise HomeAssistantError(
-                translation_domain=DOMAIN,
-                translation_key="device_unreachable",
-                translation_placeholders={"error": str(err)},
-            ) from err
-        await self._apply_confirmed_value(self.entity_description.ssc_path, confirmed)
+        await self._async_write(
+            self.entity_description.ssc_path, option, rejected_key="selection_rejected"
+        )

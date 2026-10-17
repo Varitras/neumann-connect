@@ -30,7 +30,8 @@ GUARD_FILES = {
     "test_ci_parity.py": "CI runs the same check script a developer runs",
     "test_mutation_harness.py": "the mutation run fails loudly instead of reporting a breakage it never applied",
     "test_sensor_states.py": "the not_assigned mapping and its translations stay in step",
-    "test_log_privacy.py": "no log call hands out a serial number in full",
+    "test_log_privacy.py": "no log call or raised message hands out a serial or address in full",
+    "test_translations.py": "strings.json, en.json and de.json stay in step",
     "test_guards.py": "the guards stay package-wide and stay present",
 }
 
@@ -118,3 +119,13 @@ def test_no_guard_pins_itself_to_a_single_source_file():
         + ". Use PACKAGE.glob('*.py') - a pinned scan goes blind on the next "
         "move and the suite stays green."
     )
+
+
+def test_every_guard_is_documented():
+    """tests/README.md lists the guards for whoever adds the next one.
+
+    Its table had fallen two guards behind with nothing to notice.
+    """
+    readme = (TESTS / "README.md").read_text(encoding="utf-8")
+    undocumented = [name for name in GUARD_FILES if f"`{name}`" not in readme]
+    assert not undocumented, f"guard(s) missing from tests/README.md: {undocumented}"

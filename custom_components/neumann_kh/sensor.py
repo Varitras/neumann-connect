@@ -21,6 +21,7 @@ from homeassistant.const import EntityCategory, UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from ._util import finite_float
 from .const import (
     CONF_MODEL,
     MODELS_WITH_SUBWOOFER_FEATURES,
@@ -53,6 +54,8 @@ from .coordinator import NeumannKHConfigEntry, NeumannKHCoordinator
 from .entity import NeumannKHEntity
 
 _LOGGER = logging.getLogger(__name__)
+
+_KELVIN_OFFSET = 273.15
 
 # The devices answer the literal string "UNKNOWN" in two different meanings,
 # and only one of them is "nothing is connected".
@@ -127,6 +130,7 @@ NON_SUBWOOFER_SENSOR_DESCRIPTIONS: tuple[NeumannKHSensorDescription, ...] = (
         key="input_gain",
         translation_key="input_gain",
         icon="mdi:tune-vertical",
+        entity_category=EntityCategory.DIAGNOSTIC,
         native_unit_of_measurement="dB",
         state_class=SensorStateClass.MEASUREMENT,
         ssc_path=PATH_INPUT_GAIN,
@@ -259,6 +263,7 @@ SUBWOOFER_SENSOR_DESCRIPTIONS: tuple[NeumannKHSensorDescription, ...] = (
         key="subwoofer_input_gain",
         translation_key="subwoofer_input_gain",
         icon="mdi:tune-vertical",
+        entity_category=EntityCategory.DIAGNOSTIC,
         native_unit_of_measurement="dB",
         state_class=SensorStateClass.MEASUREMENT,
         ssc_path=PATH_UI_SUB_INPUT_GAIN,
@@ -267,6 +272,7 @@ SUBWOOFER_SENSOR_DESCRIPTIONS: tuple[NeumannKHSensorDescription, ...] = (
         key="subwoofer_low_cut",
         translation_key="subwoofer_low_cut",
         icon="mdi:sine-wave",
+        entity_category=EntityCategory.DIAGNOSTIC,
         native_unit_of_measurement="dB",
         state_class=SensorStateClass.MEASUREMENT,
         ssc_path=PATH_UI_SUB_LOW_CUT,
@@ -359,21 +365,27 @@ class NeumannKHSensor(NeumannKHEntity, SensorEntity):
 
         # Live levels return a LIST (one value per channel) - show the loudest channel.
         if isinstance(value, list):
-            numeric_items = [v for v in value if isinstance(v, (int, float))]
+            numeric_items = [
+                number
+                for item in value
+                if isinstance(item, (int, float)) and (number := finite_float(item)) is not None
+            ]
             if not numeric_items:
                 return None
             value = max(numeric_items)
 
-        # Defensive conversion: non-numeric value -> "unknown" instead of an exception.
-        try:
-            numeric_value = float(value)
-        except (ValueError, TypeError):
+        # Home Assistant refuses a non-finite state for a sensor with a unit;
+        # the entity would freeze or never be added.
+        numeric_value = finite_float(value)
+        if numeric_value is None:
             _LOGGER.debug(
-                "Non-numeric value for %s: %r - showing 'unknown'",
+                "Unusable value for %s: %r - showing 'unknown'",
                 self.entity_description.key,
                 value,
             )
             return None
         if self.entity_description.kelvin_to_celsius:
-            numeric_value -= 273.15
+            # The device reports whole Kelvin; rounding drops the float noise
+            # of the subtraction (310 K is 36.85, not 36.850000000000023).
+            numeric_value = round(numeric_value - _KELVIN_OFFSET, 2)
         return numeric_value

@@ -651,9 +651,41 @@ async def test_a_reset_while_reading_becomes_a_connection_error(socket_enabled):
         await _shutdown(raw_server, handled)
 
 
-async def test_a_slow_endless_talker_is_ended_by_the_time_limit(
-    socket_enabled, monkeypatch, caplog
-):
+class _EndlessTalker:
+    """Reader and writer of a device that answers every request forever.
+
+    Every line is ready before it is asked for, so the settle window can never
+    run out - on a real socket a scheduler hiccup under load let it run out
+    anyway, and the read ended through the settle path instead.
+    """
+
+    def __init__(self) -> None:
+        self.talking = False
+        self.closed = False
+
+    async def readuntil(self, separator):
+        if not self.talking:
+            await asyncio.Event().wait()  # nothing stale for the drain
+        await asyncio.sleep(0)
+        return json.dumps({"other": {"value": 1}}).encode() + b"\r\n"
+
+    def write(self, data) -> None:
+        self.talking = True
+
+    async def drain(self) -> None:
+        return None
+
+    def is_closing(self) -> bool:
+        return self.closed
+
+    def close(self) -> None:
+        self.closed = True
+
+    async def wait_closed(self) -> None:
+        return None
+
+
+async def test_a_slow_endless_talker_is_ended_by_the_time_limit(monkeypatch, caplog):
     """The only bound that catches a device talking slowly but forever.
 
     The line and byte caps need volume; a device that answers just often
@@ -665,36 +697,19 @@ async def test_a_slow_endless_talker_is_ended_by_the_time_limit(
     read then ended through the settle timeout instead: bounded in time, but
     with the connection kept and nothing logged.
     """
-    monkeypatch.setattr(ssc_client, "_MAX_READ_SECONDS", 0.5)
+    monkeypatch.setattr(ssc_client, "_MAX_READ_SECONDS", 0.05)
+    # The caps are lifted so that only the time limit is left to fire.
+    monkeypatch.setattr(ssc_client, "_MAX_RESPONSE_LINES", 10**9)
+    monkeypatch.setattr(ssc_client, "_MAX_RESPONSE_BYTES", 10**12)
 
-    # A generous settle window on purpose. What is under test is "lines keep
-    # arriving inside the window"; the shared 0.05 s left so little margin that
-    # a scheduler hiccup during the full suite ended the read through the
-    # settle path instead - green on its own, red under load.
-    settle = 0.3
-
-    async def _handle(reader, writer):
-        await reader.readline()
-        # Far inside the settle window, so the read never ends on its own, and
-        # far too slow to reach the line or byte cap within the limit.
-        while True:
-            writer.write(json.dumps({"other": {"value": 1}}).encode() + b"\r\n")
-            await writer.drain()
-            await asyncio.sleep(0.01)
-
-    raw_server, handled = await _serve(_handle)
-    port = raw_server.sockets[0].getsockname()[1]
-    client = SSCClient(host="127.0.0.1", port=port, timeout=5.0, settle_time=settle)
-    try:
-        with caplog.at_level(logging.WARNING):
+    talker = _EndlessTalker()
+    client = SSCClient(host="127.0.0.1", port=45, timeout=5.0, settle_time=0.3)
+    client._reader = client._writer = talker
+    with caplog.at_level(logging.WARNING):
+        async with asyncio.timeout(5):
             assert await client.get(("device", "name")) is None
-        assert "kept sending for" in caplog.text, (
-            f"the read ended through another path: {caplog.text}"
-        )
-        assert client._writer is None, "the connection was kept despite the limit"
-    finally:
-        await client.close()
-        await _shutdown(raw_server, handled)
+    assert "kept sending for" in caplog.text, f"the read ended through another path: {caplog.text}"
+    assert talker.closed, "the connection was kept despite the limit"
 
 
 async def test_a_closed_client_does_not_reconnect(monkeypatch):
@@ -723,3 +738,151 @@ async def test_a_closed_client_does_not_reconnect(monkeypatch):
         await client.get(("device", "identity", "serial"))
 
     assert not attempts, "a closed client opened a new connection"
+
+
+# An invented link-local address; the tests only need its shape.
+_LINK_LOCAL = "fe80::0a1b:2cff:fe3d:4e5f"
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        OSError(113, f"Connect call failed ('{_LINK_LOCAL}%2', 45, 0, 2)"),
+        OSError(f"Multiple exceptions: [Errno 111] Connect call failed ('{_LINK_LOCAL}', 45)"),
+    ],
+    ids=["single-address", "multiple-exceptions"],
+)
+async def test_a_failed_link_local_connect_does_not_name_the_address(monkeypatch, error):
+    async def _refuse(*args, **kwargs):
+        raise error
+
+    monkeypatch.setattr(ssc_client.asyncio, "open_connection", _refuse)
+    client = SSCClient(host=_LINK_LOCAL, port=45, interface="2", timeout=_TIMEOUT)
+    with pytest.raises(SSCConnectionError) as caught:
+        await client.get(("device", "name"))
+    assert "0a1b" not in str(caught.value)
+    assert "4e5f" not in str(caught.value)
+
+
+async def test_a_failed_write_does_not_name_the_address(server, monkeypatch):
+    server.responder = lambda req: [{"device": {"name": "x"}}]
+    client = _client(server.port)
+    try:
+        await client.get(("device", "name"))
+
+        def _broken_pipe(data):
+            raise BrokenPipeError(32, f"Broken pipe to '{_LINK_LOCAL}'")
+
+        monkeypatch.setattr(client._writer, "write", _broken_pipe)
+        with pytest.raises(SSCConnectionError) as caught:
+            await client.get(("device", "name"))
+        assert "0a1b" not in str(caught.value)
+    finally:
+        await client.close()
+
+
+@pytest.mark.parametrize(
+    ("host", "masked"),
+    [
+        (f"{_LINK_LOCAL}%eth0", "fe80::xx5f%eth0"),
+        (_LINK_LOCAL, "fe80::xx5f"),
+        ("2001:db8::1234", "2001:db8::xx34"),
+    ],
+)
+def test_a_masked_host_keeps_only_the_prefix_and_two_characters(host, masked):
+    assert ssc_client.mask_host(host) == masked
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf")])
+async def test_a_non_finite_number_never_reaches_the_device(server, value):
+    """json.dumps writes NaN and Infinity by default - neither is JSON."""
+    client = _client(server.port)
+    try:
+        with pytest.raises(SSCDeviceError):
+            await client.set(("audio", "out", "level"), value)
+        assert not server.request_received.is_set()
+    finally:
+        await client.close()
+
+
+async def test_a_failed_name_lookup_keeps_its_reason(monkeypatch):
+    """A mistyped interface ends in getaddrinfo, whose errno is negative.
+
+    os.strerror() has no text for those and said "Unknown error -2".
+    """
+    import socket
+
+    async def _no_such_interface(*args, **kwargs):
+        raise socket.gaierror(-2, "Name or service not known")
+
+    monkeypatch.setattr(ssc_client.asyncio, "open_connection", _no_such_interface)
+    client = SSCClient(host=_LINK_LOCAL, port=45, interface="nosuchif", timeout=_TIMEOUT)
+    with pytest.raises(SSCConnectionError) as caught:
+        await client.get(("device", "name"))
+    assert "Name or service not known" in str(caught.value)
+
+
+async def test_a_device_error_reports_its_code(server):
+    server.responder = lambda req: [{"osc": {"error": [404, {"desc": "address not found"}]}}]
+    client = _client(server.port)
+    try:
+        with pytest.raises(SSCDeviceError) as caught:
+            await client.get(("audio", "out", "level"))
+        assert caught.value.code == 404
+    finally:
+        await client.close()
+
+
+async def test_a_device_error_without_a_numeric_code_has_no_code(server):
+    server.responder = lambda req: [{"osc": {"error": "broken"}}]
+    client = _client(server.port)
+    try:
+        with pytest.raises(SSCDeviceError) as caught:
+            await client.get(("audio", "out", "level"))
+        assert caught.value.code is None
+    finally:
+        await client.close()
+
+
+def _recording(received: list, answer):
+    def _respond(request):
+        received.append(request)
+        return [answer(request)]
+
+    return _respond
+
+
+async def test_an_aliased_get_asks_the_device_path(server):
+    received: list = []
+    server.responder = _recording(received, lambda req: {"audio": {"out5": {"level": 87.0}}})
+    client = _client(server.port)
+    try:
+        client.use_path_aliases({("audio", "out", "level"): ("audio", "out5", "level")})
+        assert await client.get(("audio", "out", "level")) == 87.0
+        assert received == [{"audio": {"out5": {"level": None}}}]
+    finally:
+        await client.close()
+
+
+async def test_an_aliased_set_writes_the_device_path(server):
+    received: list = []
+    server.responder = _recording(received, lambda req: req)
+    client = _client(server.port)
+    try:
+        client.use_path_aliases({("audio", "out", "mute"): ("audio", "out5", "mute")})
+        assert await client.set(("audio", "out", "mute"), True) is True
+        assert received == [{"audio": {"out5": {"mute": True}}}]
+    finally:
+        await client.close()
+
+
+async def test_an_unaliased_path_is_sent_unchanged(server):
+    received: list = []
+    server.responder = _recording(received, lambda req: {"audio": {"out": {"delay": 0}}})
+    client = _client(server.port)
+    try:
+        client.use_path_aliases({("audio", "out", "level"): ("audio", "out5", "level")})
+        await client.get(("audio", "out", "delay"))
+        assert received == [{"audio": {"out": {"delay": None}}}]
+    finally:
+        await client.close()

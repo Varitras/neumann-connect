@@ -68,15 +68,51 @@ def test_the_workflow_does_not_invoke_the_tools_itself():
     )
 
 
+# Each gate as it is actually invoked. Matching a bare tool name was blind: the
+# header comment names pytest-homeassistant-custom-component, and `ruff format`
+# kept "ruff" present after `ruff check` was gone.
+GATES = {
+    "ruff check": r"-m ruff check\b",
+    "ruff format --check": r"-m ruff format --check\b",
+    # Anchored at the line end: anything after -m "" (-k, --deselect) narrows it.
+    "pytest full run": r'-m pytest tests/ -q -m ""\s*$',
+    "mutation run": r'^\s*"\$PYTHON" \.github/scripts/mutate\.py ',
+}
+
+
+def _missing_gates(script: str) -> list[str]:
+    commands = "\n".join(line for line in script.splitlines() if not line.lstrip().startswith("#"))
+    return [
+        name for name, pattern in GATES.items() if not re.search(pattern, commands, re.MULTILINE)
+    ]
+
+
 def test_the_check_script_still_invokes_every_tool_it_owns():
     """The other direction: a gate quietly dropped from the script."""
-    script = CHECK_SCRIPT.read_text(encoding="utf-8")
-    missing = [tool for tool in OWNED_BY_THE_SCRIPT if tool not in script]
+    missing = _missing_gates(CHECK_SCRIPT.read_text(encoding="utf-8"))
 
     assert not missing, (
-        f"check.sh no longer mentions {missing}. If a gate is genuinely gone, "
-        "drop it from OWNED_BY_THE_SCRIPT in the same commit."
+        f"check.sh no longer runs {missing}. If a gate is genuinely gone, "
+        "drop it from GATES in the same commit."
     )
+
+
+def test_the_gate_scan_ignores_comments_and_near_misses():
+    """Proof-of-red: the shapes the old substring check let through."""
+    script = CHECK_SCRIPT.read_text(encoding="utf-8")
+    without_pytest = "\n".join(line for line in script.splitlines() if "-m pytest" not in line)
+    without_ruff_check = script.replace("-m ruff check", "-m ruff --version")
+    narrowed = script.replace('-m ""', '-m "not e2e"')
+    deselected = script.replace('-m ""', '-m "" -k "not e2e"')
+    only_echoed = script.replace(
+        '"$PYTHON" .github/scripts/mutate.py', "echo .github/scripts/mutate.py"
+    )
+
+    assert _missing_gates(without_pytest) == ["pytest full run"]
+    assert _missing_gates(without_ruff_check) == ["ruff check"]
+    assert _missing_gates(narrowed) == ["pytest full run"]
+    assert _missing_gates(deselected) == ["pytest full run"]
+    assert _missing_gates(only_echoed) == ["mutation run"]
 
 
 def test_the_scripts_are_committed_executable():
@@ -171,3 +207,24 @@ def test_the_check_script_refuses_to_run_outside_the_repository(tmp_path):
 
     assert finished.returncode != 0, "the check script reported success outside the repository"
     assert not calls.exists(), f"gates ran outside the repository: {calls.read_text()!r}"
+
+
+def test_the_minimum_version_is_the_same_everywhere():
+    """hacs.json, the minimum-version CI job and both READMEs state one version.
+
+    A one-sided bump makes the CI job prove a different version than the one
+    users are told - the class of mistake behind 1.18.0, which shipped an
+    import that only existed from a later release.
+    """
+    import json
+
+    minimum = json.loads((REPO / "hacs.json").read_text(encoding="utf-8"))["homeassistant"]
+    workflow = (REPO / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    pinned = re.findall(r"homeassistant==([0-9.]+)", workflow)
+    assert pinned == [minimum], f"ci.yml pins {pinned}, hacs.json says {minimum}"
+
+    major_minor = ".".join(minimum.split(".")[:2])
+    for readme in ("README.md", "README.de.md"):
+        text = (REPO / readme).read_text(encoding="utf-8")
+        stated = re.search(rf"Home Assistant {re.escape(major_minor)}(?![0-9])", text)
+        assert stated, f"{readme} does not state {major_minor}"

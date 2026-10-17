@@ -24,19 +24,13 @@ from .backup_export import (
 from .const import CONF_MODEL, CONF_SERIAL, DEVICE_ACTION_TIMEOUT_SECONDS, DOMAIN
 from .discovery_export import DiscoveryTimeoutError, async_discover_all_values
 from .export_file import async_write_export
+from .identity import mask_serial
 from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeoutError
 
 _LOGGER = logging.getLogger(__name__)
 
 KIND_BACKUP = "backup"
 KIND_DISCOVERY = "discovery"
-
-
-def mask_serial(serial: str) -> str:
-    """Mask a serial number, leaving only the last 3 characters visible."""
-    if len(serial) <= 3:
-        return serial
-    return "x" * (len(serial) - 3) + serial[-3:]
 
 
 def _notify(hass: HomeAssistant, entry: ConfigEntry, kind: str, title: str, body: str) -> None:
@@ -130,14 +124,13 @@ async def async_run_backup(hass: HomeAssistant, entry: ConfigEntry, client: SSCC
     try:
         await storage.async_save_backup(hass, serial, record)
     except Exception as err:
-        # The file is already on disk at this point. Say so in a
-        # readable way instead of letting a raw store error out - the
-        # export is usable, only the restore button will still offer
+        # The file is already on disk at this point, and the message says
+        # so: the export is usable, only the restore button still offers
         # the previous snapshot.
         raise HomeAssistantError(
             translation_domain=DOMAIN,
-            translation_key="backup_failed",
-            translation_placeholders={"error": str(err)},
+            translation_key="backup_store_failed",
+            translation_placeholders={"path": path, "error": str(err)},
         ) from err
     _notify_written(hass, entry, KIND_BACKUP, path)
     return path
@@ -235,7 +228,9 @@ async def async_check_restorable(hass: HomeAssistant, entry: ConfigEntry) -> dic
         )
 
     backup_serial = backup.get("serial")
-    if backup_serial and backup_serial != mask_serial(serial):
+    # Masked on both sides: backups before 1.15 stored the serial in full, and
+    # masking an already masked serial leaves it unchanged.
+    if backup_serial and mask_serial(backup_serial) != mask_serial(serial):
         raise HomeAssistantError(
             translation_domain=DOMAIN,
             translation_key="restore_serial_mismatch",
@@ -261,7 +256,7 @@ async def async_run_restore(
     hass: HomeAssistant,
     entry: ConfigEntry,
     coordinator: Any,
-    backup: dict[str, Any] | None = None,
+    backup: dict[str, Any],
 ) -> tuple[int, int, int]:
     """Write a stored backup back to the device.
 
@@ -278,15 +273,12 @@ async def async_run_restore(
     be updated afterwards: nothing else notices that the values changed, so
     the UI would keep showing the pre-restore state until the next poll.
     """
-    if backup is None:
-        backup = await async_check_restorable(hass, entry)
     client = coordinator.client
     values = backup["values"]
 
     written = 0
     adjusted = 0
     skipped = 0
-    confirmed_values: list[tuple[tuple[str, ...], Any]] = []
     # Checked between paths, never around the whole loop: cancelling inside a
     # set() would drop the values already confirmed and leave the user with a
     # bare abort instead of "wrote 12 of 23" on a half-written speaker.
@@ -300,7 +292,7 @@ async def async_run_restore(
         would also drop the entity states that match what is on the device,
         and a bare error would not say how much was already written.
         """
-        if confirmed_values:
+        if written + adjusted:
             coordinator.async_update_listeners()
         return HomeAssistantError(
             translation_domain=DOMAIN,
@@ -324,21 +316,22 @@ async def async_run_restore(
             # Not writable on this model or firmware.
             skipped += 1
         except (SSCConnectionError, SSCTimeoutError) as err:
+            # The request may have landed before the line dropped.
+            coordinator.request_reread(path)
             raise _stop("restore_interrupted", error=str(err)) from err
         else:
             if confirmed is None:
                 # The device answered, but not for this path (the settle window
                 # can end after an unrelated line). Nothing was confirmed:
                 # counting it as adjusted would misreport it, and handing None
-                # to the coordinator would drop the entity to unknown - and for
-                # a slow-polled path that sticks in the cache until the next
-                # slow cycle, up to five minutes.
+                # to the coordinator would drop the entity to unknown. It may
+                # still hold the new value, so the path is read back.
                 skipped += 1
+                coordinator.request_reread(path)
                 continue
             # Applied now, published later: the device has this value from
             # this moment on, and a write that lands after it must win.
             coordinator.apply_confirmed_value(path, confirmed, publish=False)
-            confirmed_values.append((path, confirmed))
             if confirmed != value:
                 # The device clamped or normalised the value. Reporting it as
                 # restored would be a lie.
@@ -349,7 +342,7 @@ async def async_run_restore(
     # One notification for the whole restore instead of one per path: each
     # publish notifies every entity of the device, so per-path publishing
     # produced thousands of state changes for a single press.
-    if not confirmed_values:
+    if not written + adjusted:
         # Every path was refused or went unconfirmed. Announcing a successful
         # restore of nothing is worse than an error: the user walks away
         # believing the speaker was rewritten.
@@ -360,6 +353,8 @@ async def async_run_restore(
         )
 
     coordinator.async_update_listeners()
+    # Once for the whole restore, not once per value.
+    await coordinator.async_persist()
 
     _LOGGER.debug(
         "Restore for %s: %d written, %d adjusted, %d skipped",

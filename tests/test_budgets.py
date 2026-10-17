@@ -32,7 +32,10 @@ LINE_BUDGETS = {
     # Four flows (manual, zeroconf, scan, reconfigure) plus their shared
     # identity handling. Splitting was considered and rejected: the flows
     # share the candidate/identity helpers, and HA discovers the class here.
-    "config_flow.py": 776,
+    "config_flow.py": 752,
+    # Raised from 500 for the KH 750 out5 support (device error code, path
+    # aliases); the alternative was splitting the read loop out of its owner.
+    "ssc_client.py": 530,
 }
 
 # SonarSource's default. Everything above needs a written entry.
@@ -44,12 +47,11 @@ COMPLEXITY_BUDGETS = {
     "ssc_client.py::SSCClient._read_lines_until_settled": 35,
     # Writes, counts and reports per path, with a deadline between paths and
     # two ways out that both have to keep what already landed.
-    "export_actions.py::async_run_restore": 20,
+    "export_actions.py::async_run_restore": 19,
     # Walks an unknown schema one level at a time against two budgets.
     "discovery_export.py::_async_discover_via_schema": 18,
     # Matches an announcement against known entries, unknown devices and
     # devices that answer with a different serial than announced.
-    "config_flow.py::NeumannKHConfigFlow.async_step_zeroconf": 17,
 }
 
 

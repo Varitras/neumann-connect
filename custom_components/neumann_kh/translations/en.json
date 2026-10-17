@@ -14,7 +14,7 @@
         "data": {
           "name": "Name (e.g. \"KH 120 II Left\")",
           "host": "IP address (IPv6, e.g. link-local fe80::...)",
-          "interface": "Network interface (select from list, or type a custom value if not shown — only needed for link-local addresses)",
+          "interface": "Network interface (select from list, or type a custom value if not shown – only needed for link-local addresses)",
           "port": "Port"
         }
       },
@@ -30,7 +30,7 @@
         "description": "New connection details for {device}. The name, entities and history are kept.",
         "data": {
           "host": "IP address (IPv6, e.g. link-local fe80::...)",
-          "interface": "Network interface (select from list, or type a custom value if not shown — only needed for link-local addresses)",
+          "interface": "Network interface (select from list, or type a custom value if not shown – only needed for link-local addresses)",
           "port": "Port"
         }
       },
@@ -55,7 +55,7 @@
     },
     "error": {
       "cannot_connect": "Failed to connect to the speaker. Check IP address and interface.",
-      "timeout": "Timeout - no response received from the speaker.",
+      "timeout": "Timeout – no response received from the speaker.",
       "interface_required_for_link_local": "A fe80:: address requires the network interface to be set.",
       "invalid_ipv6": "Not a valid IPv6 address. Neumann KH speakers only support IPv6 (e.g. fe80::...), not IPv4.",
       "no_devices_found": "No SSC speakers found on the network. Submit again to retry, or go back and choose manual setup.",
@@ -72,7 +72,8 @@
       "no_ipv6": "The device announced no IPv6 address. Neumann KH speakers only support IPv6.",
       "cannot_connect": "The discovered device did not respond to SSC requests.",
       "discovery_expired": "The discovery result has expired, please search again.",
-      "unknown": "Unexpected error - the setup was cancelled."
+      "unknown": "Unexpected error – the setup was cancelled.",
+      "already_in_progress": "This speaker is already being set up."
     }
   },
   "entity": {
@@ -260,8 +261,14 @@
     "device_unreachable": {
       "message": "The speaker is unreachable: {error}"
     },
+    "invalid_number": {
+      "message": "The value {value} is not a number the speaker can store."
+    },
     "change_rejected": {
       "message": "The speaker rejected this change (possibly not supported by this model/firmware): {error}"
+    },
+    "settings_not_saved": {
+      "message": "The change reached the speaker but could not be saved there; it will be lost when the speaker is switched off. ({error})"
     },
     "selection_rejected": {
       "message": "The speaker rejected this selection (possibly not supported by this model/firmware): {error}"
@@ -278,6 +285,9 @@
     "backup_failed": {
       "message": "Backup failed: {error}"
     },
+    "backup_store_failed": {
+      "message": "The backup file was written to {path}, but the copy the restore button uses could not be saved – it still offers the previous backup. ({error})"
+    },
     "discovery_failed": {
       "message": "Discovery failed: {error}"
     },
@@ -291,10 +301,10 @@
       "message": "The stored backup belongs to a different speaker. Nothing was written."
     },
     "restore_interrupted": {
-      "message": "The connection dropped after {written} values had already been written; the speaker is only partly restored. Press again once it is reachable. ({error})"
+      "message": "The connection dropped after {written} values had already been written; the speaker is only partly restored. Once it is reachable, press the button twice again – once to arm, once to confirm. ({error})"
     },
     "backup_empty": {
-      "message": "The speaker answered none of the queries, so there is nothing to back up. The previous backup was kept."
+      "message": "The speaker answered none of the values a restore could write, so nothing was backed up. The previous backup was kept."
     },
     "restore_nothing_to_write": {
       "message": "The stored backup holds no value this speaker can be restored from. Create a new backup first."
@@ -303,16 +313,16 @@
       "message": "The speaker answered none of the queries, so there is nothing to record. The previous discovery was kept."
     },
     "backup_timed_out": {
-      "message": "The speaker did not answer all queries within {seconds} seconds. Nothing was saved - the previous backup was kept."
+      "message": "The speaker did not answer all queries within {seconds} seconds. Nothing was saved – the previous backup was kept."
     },
     "discovery_timed_out": {
-      "message": "The speaker did not answer all queries within {seconds} seconds. Nothing was recorded - the previous discovery was kept."
+      "message": "The speaker did not answer all queries within {seconds} seconds. Nothing was recorded – the previous discovery was kept."
     },
     "restore_timed_out": {
-      "message": "The restore was stopped after {seconds} seconds; {written} values had been written by then. The speaker is only partly restored. Starting over needs two presses again - one to arm, one to confirm - and it begins at the first value rather than where it stopped."
+      "message": "The restore was stopped after {seconds} seconds; {written} values had been written by then. The speaker is only partly restored. Starting over needs two presses again – one to arm, one to confirm – and it begins at the first value rather than where it stopped."
     },
     "device_action_in_progress": {
-      "message": "Another action is still running on this speaker (backup, discovery, restore or factory reset). Wait for it to finish, then press again."
+      "message": "Another action is still running on this speaker (backup, discovery, restore, factory reset or EQ reset). Wait for it to finish, then press again."
     },
     "restore_nothing_written": {
       "message": "The speaker accepted none of the values in the backup ({skipped} skipped), so nothing was changed. Check that the backup belongs to this model and firmware."

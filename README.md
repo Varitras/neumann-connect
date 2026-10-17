@@ -2,7 +2,7 @@
 
 **English** | [Deutsch](./README.de.md)
 
-Controls Neumann KH DSP loudspeakers (KH 80, KH 120 II, KH 150, KH 750 DSP)
+Controls Neumann KH DSP loudspeakers (KH 80 DSP, KH 120 II, KH 150, KH 750 DSP)
 via the Sennheiser Sound Control Protocol (SSC), TCP port 45. No additional
 pip package needs to be installed – a lean, self-contained asyncio client is
 included for the SSC protocol itself, and device discovery uses Home
@@ -14,7 +14,7 @@ Change history: see [CHANGELOG.md](./CHANGELOG.md).
 
 Custom icon/logo in `custom_components/neumann_kh/brand/` (an independent
 design, not a copy of the official Neumann company logo). The icon itself
-needs **2026.3 or newer** - only from that version on do custom integrations
+needs **2026.3 or newer** – only from that version on do custom integrations
 read their brand images directly from their own `brand/` folder (see the
 [HA Developer Blog](https://developers.home-assistant.io/blog/2026/02/24/brands-proxy-api/)).
 Everything else works from 2025.2; older versions simply show a generic icon.
@@ -42,12 +42,14 @@ validation performed by me against my own installation (KH 120 II, KH 750 DSP).
 manufacturer, no testing of my own): KH 80 DSP, KH 150, and their AES67
 variants (KH 120 II AES67, KH 150 AES67). Value ranges (delay, logo
 brightness, etc.) are taken from the KH 120 II and may differ slightly on
-these models.
+these models. The KH 80 DSP only keeps changes across a power cycle when told
+to save them, so the integration sends a save command to it after every change
+(not tested on hardware).
 
 **Cannot be supported** (no DSP/network capability, purely analog): KH 310,
 KH 420 and other classic analog KH monitors. These cannot be addressed via
-SSC – a setup attempt will simply fail with "connection failed", which is not
-a bug in this integration.
+SSC – the automatic search will not list them and a manual setup cannot
+connect, which is not a bug in this integration.
 
 **Completely untested, possibly compatible:** The newer DSP subwoofers
 KH 805 II, KH 810 II, KH 870 II (introduced 2024/2025, described by the
@@ -62,8 +64,8 @@ feel free to get in touch.
 This integration is not in the HACS default list, so add the repository once
 by hand:
 
-1. **HACS → Integrations → ⋮ → Custom repositories**
-2. Repository `https://github.com/Varitras/neumann-connect`, category
+1. **HACS → ⋮ (top right) → Custom repositories**
+2. Repository `https://github.com/Varitras/neumann-connect`, type
    **Integration**, then **Add**
 3. Find **Neumann Connect** in HACS and download it
 4. Restart Home Assistant
@@ -81,9 +83,9 @@ enabled for the repository in HACS.
 
 1. **Settings → Devices & Services → Add Integration → "Neumann KH (SSC)"**.
 2. You will get a menu with two options:
-   - **"Search the network automatically"** – active mDNS scan (see below),
+   - **"Search network automatically"** – active mDNS scan (see below),
      results shown as a selection list. The recommended default route.
-   - **"Enter manually"** – IP address, interface dropdown, port (fallback in
+   - **"Enter manually (IP address)"** – name, IP address, interface dropdown, port (fallback in
      case the automatic search does not find a device).
 3. Create a separate entry for **each** loudspeaker (e.g. "KH 120 II Left",
    "KH 120 II Right", "KH 750 DSP Sub 1", "KH 750 DSP Sub 2").
@@ -107,6 +109,12 @@ just like AirPlay devices, for example. The integration uses Home Assistant's
 already-running Zeroconf instance to actively search for a few seconds and
 shows the devices it finds (model, IP address, serial number) for selection.
 
+Home Assistant also passes the speakers' own announcements on. A speaker that
+is not set up yet appears under **Settings → Devices & Services** as a
+discovered device and only needs a name. For one that is already set up, a
+changed address is taken over once the speaker has confirmed its serial
+number.
+
 **Advantage with IPv6 link-local:** The discovered address already includes
 the scope ID automatically (e.g. `fe80::...%3`) – for automatically
 discovered devices you do **not** need to specify the network interface
@@ -120,13 +128,13 @@ link-local address is derived from the MAC and stays valid for as long as
 the speaker sits on the same network segment.
 
 **If nothing is found:** simply submit the form again without a selection to
-repeat the search – or go back to the menu and choose "Enter manually". mDNS
+repeat the search – or go back to the menu and choose "Enter manually (IP address)". mDNS
 only works reliably if HA is in the same network segment as the loudspeakers
 in terms of multicast (with Docker, for example, `network_mode: host` is
 required) – the same prerequisite that applies to the link-local connection
 anyway.
 
-## Determining the IPv6 link-local address & interface (only for "Enter manually")
+## Determining the IPv6 link-local address & interface (only for "Enter manually (IP address)")
 
 By default the loudspeakers are only reachable via their IPv6 link-local
 address (`fe80::...`). This address strictly requires a **scope ID** (network
@@ -144,12 +152,8 @@ network segment):
 
 ```bash
 # Using khtool itself (can be used independently of this integration):
-python3 ./khtool.py -i eth0 --scan -q
-```
-
-The output shows one line per device, like:
-```
-IPv6 address: fe80::2a36:38ff:fe12:3456
+python3 ./khtool.py --scan        # finds the speakers, saves khtool.json and exits
+python3 ./khtool.py -i eth0 -q    # queries them; the output names each IPv6 address
 ```
 
 **Determining interface names on the HA host** (only if you do want or need to
@@ -189,37 +193,37 @@ are therefore deliberately implemented as `sensor`/`binary_sensor` instead of
 because a write attempt would fail there anyway.
 
 **Enabled by default:** most entities are. The exceptions are marked
-"default: disabled" in the tables below - deliberately not repeated here,
+"default: disabled" in the tables below – deliberately not repeated here,
 because a second list is one that drifts out of step with the first.
 
 | Entity | Type | Range | SSC path |
 |---|---|---|---|
 | Output level | `number` | 0–120 dB | `audio/out/level` |
-| Delay | `number` | 0–5760 samples @48kHz (KH 750 DSP: 0–1000) | `audio/out/delay` |
+| Delay | `number` | 0–5760 samples at 48 kHz (KH 750 DSP: 0–1000) | `audio/out/delay` |
 | Logo brightness* | `number` | 0–125 % | `ui/logo/brightness` |
 | Auto standby time | `number` | 1–240 min | `device/standby/auto_standby_time` |
-| Standby threshold | `number` | −80 to −55 dBu | `device/standby/level` |
+| Standby threshold level | `number` | −80 to −55 dBu | `device/standby/level` |
 | Mute | `switch` | – | `audio/out/mute` |
-| Identify device (on/off) | `switch` | – | `device/identification/visual` |
-| Phase inversion (non-subwoofer only) | `switch` | – | `audio/out/phaseinversion` |
+| Identify | `switch` | – | `device/identification/visual` |
+| Phase invert (non-subwoofer only) | `switch` | – | `audio/out/phaseinversion` |
 | Auto standby (non-subwoofer only; `binary_sensor` on the KH 750 DSP instead) | `switch` | – | `device/standby/enabled` |
 | Input interface (writable, confirmed on KH 120 II and KH 750 DSP) | `select` | ANALOG ONLY/DIGITAL ONLY/DIGITAL DISCARDS ANALOG | `audio/in/interface` |
-| Control mode (default: **always** disabled, see warning below) | `select` | NETWORK/LOCAL | `ui/control_mode` |
+| Control mode (default: disabled, see "Known limitations") | `select` | NETWORK/LOCAL | `ui/control_mode` |
 | Device name (default: disabled) | `text` | max. 52 characters | `device/name` |
 | Input level (live) | `sensor` | dB | `m/in/level` |
-| Standby countdown (default: disabled) | `sensor` | min | `device/standby/countdown` |
+| Standby countdown (default: disabled, diagnostic) | `sensor` | min | `device/standby/countdown` |
 | Hardware version, current input (diagnostic) | `sensor` | text | `device/identity/hw_version`, `audio/in/current_input` |
-| Input gain, input select, bass, mid, treble, output level SPL (non-subwoofer only; confirmed by testing not to be writable, diagnostic) | `sensor` | dB or text | `ui/input_gain`, `ui/input_select`, `ui/bass_gain`, `ui/mid_gain`, `ui/treble_gain`, `ui/output_level` |
+| Input gain, input select, bass gain, mid gain, treble gain, output level (SPL) (non-subwoofer only; confirmed by testing not to be writable, diagnostic) | `sensor` | dB or text | `ui/input_gain`, `ui/input_select`, `ui/bass_gain`, `ui/mid_gain`, `ui/treble_gain`, `ui/output_level` |
 | Input clipping | `binary_sensor` | – | `m/in/clip` |
 | Warning (diagnostic) | `binary_sensor` | – | `warnings` |
 | Restore factory defaults (default: disabled, two-step confirmation) | `button` | – | `device/restore` |
 | Create backup (all known values except live measurements) | `button` | – | – |
-| Restore backup (writes the stored backup back, disabled by default) | `button` | – | – |
+| Restore backup (writes the stored backup back, disabled by default, two-step confirmation) | `button` | – | – |
 | Run device discovery (diagnostic) | `button` | – | – |
 
-\* **Only** on the KH 80 / KH 150 / KH 120 II – according to the khtool
+\* **Only** on the KH 80 DSP / KH 150 / KH 120 II – according to the khtool
 documentation not available on the KH 750 DSP. The integration detects the
-model automatically during setup and hides these entities for the KH 750 DSP.
+model automatically during setup and hides this entity for the KH 750 DSP.
 
 ### Additional entities only on a detected subwoofer (KH 750 DSP)
 
@@ -234,14 +238,14 @@ spellings).
 | Output 1/2 level (default: disabled) | `number` | 0–120 dB | `audio/out1/level`, `audio/out2/level` |
 | Output 1/2 delay (default: disabled) | `number` | 0–1000 samples | `audio/out1/delay`, `audio/out2/delay` |
 | Output 1/2 mute (default: disabled) | `switch` | – | `audio/out1/mute`, `audio/out2/mute` |
-| Device temperature (default: enabled; the device reports Kelvin) | `sensor` | °C | `device/temperature` |
+| Device temperature (default: enabled, diagnostic; the device reports Kelvin) | `sensor` | °C | `device/temperature` |
 | Output level (live) (default: disabled) | `sensor` | dB | `m/out/level` |
 | Output label (main output, diagnostic) | `sensor` | text | `audio/out/label` |
-| Output 1/2 label, output 1/2 loudspeaker (default: disabled, diagnostic, read-only) | `sensor` | text ("Not assigned" instead of "UNKNOWN") | `audio/out1/label`, `audio/out1/loudspeaker`, `audio/out2/label`, `audio/out2/loudspeaker` |
+| Output 1/2 label, output 1/2 loudspeaker (default: disabled, diagnostic, read-only) | `sensor` | text (loudspeaker: "Not assigned" instead of "UNKNOWN") | `audio/out1/label`, `audio/out1/loudspeaker`, `audio/out2/label`, `audio/out2/loudspeaker` |
 | Subwoofer input gain, low cut, output level, phase, phase inversion, bass management, channel B input mode (confirmed by testing not to be writable, diagnostic) | `sensor` | dB or text | `ui/subwoofer_input_gain`, `ui/subwoofer_low_cut`, `ui/subwoofer_output_level`, `ui/subwoofer_phase`, `ui/subwoofer_phase_inversion`, `ui/bass_management`, `ui/channel_b_input_mode` |
 | Output clipping (default: disabled) | `binary_sensor` | – | `m/out/clip` |
 | Digital bypass (diagnostic) | `binary_sensor` | – | `audio/digital_bypass` |
-| Auto standby status (read-only – confirmed by hardware testing not to be writable on the KH 750 DSP, see "Known limitations") | `binary_sensor` | – | `device/standby/enabled` |
+| Auto standby (read-only – confirmed by hardware testing not to be writable on the KH 750 DSP, see "Known limitations") | `binary_sensor` | – | `device/standby/enabled` |
 
 Entities that are disabled by default can be enabled manually under
 **Settings → Devices & Services → [device] → Entities**.
@@ -250,8 +254,8 @@ Entities that are disabled by default can be enabled manually under
 
 A loudspeaker is polled every 30 seconds. Not everything is fetched on every
 cycle: rarely changing values (identity, rear-panel switches, device name) are
-only queried on every tenth cycle, so every 5 minutes. Values are fetched
-**each value individually** (one leaf path per SSC message), not as a combined
+only queried on every tenth cycle, so every 5 minutes. Each value is fetched
+**individually** (one leaf path per SSC message), not as a combined
 message and not as a container query. The reason (confirmed by two hardware
 tests): the firmware rejects both a combined message containing several leaves
 (as soon as one of them is unknown) and a container query such as
@@ -259,26 +263,30 @@ tests): the firmware rejects both a combined message containing several leaves
 reliably. If the device rejects a single value,
 only that one is skipped – the remaining values are still updated.
 
-**Standby behaviour (important, not a bug):** when a loudspeaker (especially
-the KH 750 DSP) goes into standby, it apparently also shuts down its network
-stack and stops responding to SSC requests. All entities then correctly become
+**Standby behaviour (important, not a bug):** when a loudspeaker goes into
+standby, it also shuts down its network stack and stops responding to SSC
+requests (observed on both the KH 120 II and the KH 750 DSP). All entities then correctly become
 **"unavailable"** – this is the behaviour recommended by Home Assistant
 (`CoordinatorEntity` automatically marks entities as unavailable as soon as a
 poll cycle fails) and is not a bug in the integration. As soon as the device
 wakes from standby, Home Assistant picks it up again on its own. How quickly
-depends on which of two mechanisms is running.
+it returns depends on which of two mechanisms is running.
 
 If the speaker was already unavailable when Home Assistant started, the config
 entry never finished setting up and Home Assistant retries it with a widening
-gap: 5s, 10s, 20s, 40s, 80s, 160s, 320s, then every 10 minutes for as long as
-it takes. It never gives up.
+gap: 5 s, 10 s, 20 s, 40 s, 80 s, and from then on every 80 s. Since Home
+Assistant 2026.6 the gap keeps doubling instead (160 s, 320 s) until it
+reaches 10 minutes. It never gives up. Home Assistant notes each retry in
+the log itself.
 
 If the entry was up and running when the speaker went to sleep, the poll cycle
 simply keeps going at its normal 30 second interval and picks the speaker up
-on the first cycle that succeeds.
+on the first cycle that succeeds. The log gets one info line when the
+speaker drops out and one when it is back – no errors.
 
-Either way this is Home Assistant's own behaviour, not something this
-integration decides.
+The retry timing is Home Assistant's own. In addition, after every failed
+setup the integration searches the network for the speaker by its serial
+number and stores the new address if it has moved.
 
 ## Known limitations
 
@@ -294,31 +302,41 @@ integration decides.
   waiting on the socket are discarded before the next request; only one that
   lands in between is affected. Both test devices answer with exactly one
   line, so this concerns other firmware rather than the hardware in use.
-- Control mode (`ui/control_mode`) always remains disabled: switching to
-  `LOCAL` could cut network control off from the device.
+- Control mode (`ui/control_mode`) is disabled by default and should stay
+  that way: switching to `LOCAL` could cut network control off from the device.
+- Restore backup has the same two-step safety confirmation as the factory
+  reset below: the first press only arms it, a second press between 2 s and 30 s
+  later writes the backup.
 - Factory reset (`device/restore`) has a two-step safety confirmation: the
-  first press only arms it, a second press within 30s triggers it.
+  first press only arms it, a second press between 2 s and 30 s later
+  triggers it.
   Alternatively via a physical switch sequence on the device itself:
   - **KH 80 DSP:** while booting (logo still red), move the SETTINGS switch
-    up/down repeatedly until the logo briefly flickers pink.
-  - **KH 750 DSP:** while booting (power LED steady red), move the
-    AUTO STANDBY/STANDBY switch up/down repeatedly.
+    up and down repeatedly until a few seconds after the logo turns white.
+  - **KH 750 DSP:** while booting (power light solid red), move the
+    AUTO STANDBY switch up and down repeatedly. The power light flashes red
+    while the defaults are applied, then turns green.
   - **KH 120 II / KH 150:** while booting (logo flashing), move the CONTROL
-    switch up/down repeatedly until the logo briefly flashes red/pink quickly.
+    switch up and down repeatedly until the logo turns solid white for a few
+    seconds. It then flashes red quickly before turning white again.
 
   (Source: [Neumann KH Monitor Troubleshooting](https://help.neumann.com/hc/en-us/articles/39978248897049-KH-Monitor-Troubleshooting))
 - The following KH 750 values are confirmed by testing not to be writable and
   are therefore read-only: bass management, channel B input mode, subwoofer
   input gain/low cut/output level/phase/phase inversion.
 - The following KH 120 II values are likewise confirmed by testing not to be
-  writable: input gain, input select, mid, treble, output level (SPL).
+  writable: input gain, input select, bass, mid, treble, output level (SPL).
 - `audio/out/dimm` and `device/save_settings` are answered with a 404 by both
   test models, so neither path exists on them. The dimm entity and the "save
   settings" button were removed rather than left showing "unknown" and
-  failing on every press.
+  failing on every press. The save command is only sent to the KH 80 DSP;
+  KH 120 II and KH 750 DSP were measured not to need it.
 - "Identify" is a switch, not an auto-stop button: the flashing only stops by
   itself after several minutes.
 - Device temperature (KH 750 DSP): reported in Kelvin, converted to °C.
+- On KH 750 firmware 1.2.x the output level and mute use a different path,
+  which the integration detects at setup. This variant has not been tested on
+  hardware.
 
 ## Name memory, backup & device discovery
 
@@ -337,8 +355,10 @@ serial number:
 - **`.storage/neumann_kh_discovery`**: the result of the `Run device discovery`
   button (diagnostic) – combines our known paths with a best-effort attempt via
   `osc/schema` + `osc/limits` (optional SSC methods; not every firmware supports
-  them – if this part fails, it is simply left empty). The serial number is
-  redacted in this export (only the last 3 characters remain visible).
+  them – if this part fails, it is simply left empty). It is also written as
+  a JSON file to `<config>/neumann_kh/`; the notification shows its path. The
+  serial number is redacted in this export (only the last 3 characters remain
+  visible).
 
 Backup and discovery only ever run manually via their respective buttons –
 there is no automatic triggering in the background.
@@ -349,21 +369,22 @@ entry to restart the network search directly from the list.
 ## EQ (parametric equalizer)
 
 A complete 1:1 mapping of all EQ parameters (type/frequency/gain/boost/Q/
-enabled per band) would come to roughly 800 entities on the KH 750 DSP – no
-longer manageable. Deliberately reduced to container level instead:
+enabled per band) would come to 360 entities on the KH 750 DSP (6 containers
+× 10 bands × 6 parameters) – no longer manageable. Deliberately reduced to
+container level instead:
 
 - **One on/off switch per EQ container** (`switch`, category "Configuration",
   enabled by default): switches **all bands of that container together**
   (writes the same value into the entire `enabled` array). Shows "on" as soon
   as at least one band is active.
-- **One "Reset to neutral" button per EQ container** (`button`, category
+- **One "{container}: reset to flat" button per EQ container** (`button`, category
   "Configuration", enabled by default): sets gain **and** boost of all bands in
   that container to 0 dB. Frequency/Q/type/enabled remain unchanged – a true
   factory reset is not possible, as there are no documented default frequencies
   per band.
 
 All container names deliberately start with "EQ" (e.g. "EQ2 Main output",
-"EQ Crossover Output 1") so that they appear grouped together alphabetically in
+"EQ3 Output 1") so that they appear grouped together alphabetically in
 the configuration section.
 
 **Containers covered:**
@@ -373,9 +394,9 @@ the configuration section.
 | KH 120 II (non-subwoofer) | `audio/out/eq2` | 10 |
 | KH 120 II (non-subwoofer) | `audio/out/eq3` | 20 |
 | KH 750 DSP (main output) | `audio/out/eq2` | 10 |
-| KH 750 DSP (out1/out2 each) | `eq1` (crossover) | 2 |
+| KH 750 DSP (main output) | `audio/out/eq3` | 10 |
 | KH 750 DSP (out1/out2 each) | `eq2` | 10 |
 | KH 750 DSP (out1/out2 each) | `eq3` | 10 |
 
 That adds up to **4 entities** (KH 120 II: 2 containers × switch+button) or
-**14 entities** (KH 750 DSP: 7 containers × switch+button).
+**12 entities** (KH 750 DSP: 6 containers × switch+button).

@@ -10,8 +10,8 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 ### Fixed
 - A stored address that now belongs to a different speaker is refused at
   setup. Relocate, reconfigure and discovery already compared the serial the
-  device answers with the one the entry stores; the regular setup - the path
-  every restart takes - never did, so the entry kept running under its old
+  device answers with the one the entry stores; the regular setup – the path
+  every restart takes – never did, so the entry kept running under its old
   identity and a restore or a confirmed factory reset could have hit the
   wrong device. The check runs before the first poll, and a mismatch starts
   the same search a failed setup does. Entries created before serials were
@@ -35,8 +35,8 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 - A speaker that does not answer is logged at info level instead of error.
   Home Assistant's own guidance asks for info here, and a monitor switched
   off overnight is an ordinary state, not a fault. The entities still go
-  unavailable, and a genuine failure - a poll cycle over its time limit, a
-  device that answers but rejects everything - is still an error
+  unavailable, and a genuine failure – a poll cycle over its time limit, a
+  device that answers but rejects everything – is still an error
 - Addresses are masked in log output above debug level
   (`fe80::0a1b:2cff:fe3d:4e5f` becomes `fe80::xx5f`). A link-local address
   is derived from the MAC, and logs are the routine attachment to a bug
@@ -99,16 +99,16 @@ them could never hold a value or carry out their action.
 
 - A value you just changed is no longer overwritten by a poll that was already
   running. The speaker had the new setting while the entity snapped back to the
-  old one - on rarely polled values for up to five minutes
+  old one – on rarely polled values for up to five minutes
 - Reloading or removing a device no longer leaves a running backup, discovery
   or restore writing to it. The action now ends instead of reopening the
   connection that was just closed
 - A factory reset whose reply is lost now drops the cached values. The reset
   reboots the speaker, so a missing answer was read as "nothing happened" and
   every entity kept showing the settings from before
-- The "Reset EQ" button waits for another action to finish instead of running
-  alongside it, and refreshes the values even when only part of the reset was
-  written
+- The EQ reset buttons ("…: reset to flat") refuse to start while another
+  action is running instead of running alongside it, and refresh the values
+  even when only part of the reset was written
 - A device discovery whose file reached the disk is no longer reported as
   failed. Only the internal copy had failed, and nothing reads it back
 
@@ -121,7 +121,7 @@ them could never hold a value or carry out their action.
 
 ### Changed
 - The READMEs describe installation. Only the manual copy was documented; the
-  HACS route - add the repository as a custom repository - was missing, although
+  HACS route – add the repository as a custom repository – was missing, although
   the repository ships `hacs.json` and validates against HACS on every push
 - Serial numbers are masked in the log. Exported files have masked them since
   1.17; two lines on the discovery path still printed them in full

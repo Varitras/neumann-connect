@@ -1,8 +1,10 @@
 """Active mDNS/Zeroconf device search for Neumann KH (SSC) speakers.
 
 SSC devices announce themselves via DNS-SD under "_ssc._tcp.local.". Uses
-Home Assistant's running Zeroconf instance for a time-limited active scan
-(scan button in the config flow, no background discovery).
+Home Assistant's running Zeroconf instance for a time-limited active scan.
+Two callers: the scan step of the config flow, and the address follow-up
+after every failed setup (__init__._async_relocate). Passive discovery is
+Home Assistant's own zeroconf flow, which only borrows pick_host() from here.
 """
 
 from __future__ import annotations
@@ -122,7 +124,7 @@ async def async_scan_for_speakers(
         try:
             resolved = await info.async_request(aiozc.zeroconf, _RESOLVE_TIMEOUT_MS)
         except Exception:
-            _LOGGER.debug("Could not resolve mDNS service %s", mdns_name, exc_info=True)
+            _LOGGER.debug("Could not resolve announced SSC service %d", index, exc_info=True)
             continue
 
         if not resolved or info.port is None:
@@ -130,7 +132,7 @@ async def async_scan_for_speakers(
 
         host = pick_host(info.parsed_scoped_addresses())
         if host is None:
-            _LOGGER.debug("mDNS service %s announced no IPv6 address", mdns_name)
+            _LOGGER.debug("Announced SSC service %d has no IPv6 address", index)
             continue
 
         speakers.append(DiscoveredSpeaker(mdns_name=mdns_name, host=host, port=info.port))

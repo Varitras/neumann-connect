@@ -97,6 +97,15 @@ PATH_OUTPUT_LEVEL = ("audio", "out", "level")
 # entity could never hold a value and the restore could never write it.
 PATH_OUTPUT_DELAY = ("audio", "out", "delay")
 PATH_OUTPUT_MUTE = ("audio", "out", "mute")
+# KH 750 firmware 1.2.x keeps level and mute in "out5" (reported for 1.2.4;
+# 2_1_2 uses "out", measured). The setup asks which one the device has and
+# falls back to "out" for anything unclear; delay stays in "out" either way.
+PATH_OUTPUT_LEVEL_OUT5 = ("audio", "out5", "level")
+PATH_OUTPUT_MUTE_OUT5 = ("audio", "out5", "mute")
+OUT5_OUTPUT_ALIASES = {
+    PATH_OUTPUT_LEVEL: PATH_OUTPUT_LEVEL_OUT5,
+    PATH_OUTPUT_MUTE: PATH_OUTPUT_MUTE_OUT5,
+}
 PATH_OUTPUT_LABEL = ("audio", "out", "label")  # KH 750 only
 PATH_OUTPUT_PHASE_INVERSION = ("audio", "out", "phaseinversion")  # see NON_SUBWOOFER_POLL_PATHS
 
@@ -119,8 +128,8 @@ PATH_STANDBY_COUNTDOWN = ("device", "standby", "countdown")  # read-only
 # blinking does not reliably stop quickly on its own.
 PATH_IDENTIFY = ("device", "identification", "visual")
 
-# Tone controls (non-subwoofer models only). String enums with fixed steps
-# -> `select`, not `number`. Only bass gain is writable.
+# Tone controls (non-subwoofer models only): string values with fixed steps,
+# confirmed read-only on real hardware -> sensors, not selects.
 PATH_UI_BASS_GAIN = ("ui", "bass_gain")  # read-only (KH 120 II)
 PATH_UI_MID_GAIN = ("ui", "mid_gain")  # read-only
 PATH_UI_TREBLE_GAIN = ("ui", "treble_gain")  # read-only
@@ -147,6 +156,11 @@ DEVICE_NAME_MAX_LENGTH = 52
 # Restore factory defaults. Implemented with a two-step confirmation
 # (see button.py) - destructive action on real hardware.
 PATH_RESTORE = ("device", "restore")
+# The KH 80 keeps changes across a power cycle only after an explicit save
+# (reported, not measured here). KH 120 II and KH 750 save by themselves and
+# answer this path with a 404 (measured); other models are unmeasured.
+PATH_SAVE_SETTINGS = ("device", "save_settings")
+MODELS_THAT_NEED_A_SAVE = ("KH 80", "KH 80 DSP")
 RESTORE_FACTORY_DEFAULTS_VALUE = "FACTORY_DEFAULTS"
 
 # --- Subwoofer-specific (KH 750 only) --------------------------------------
@@ -210,14 +224,7 @@ POLL_PATHS = (
 # immediately themselves anyway - the slow poll is only the safeguard that
 # a value changed externally (via MA1) eventually gets picked up.
 SLOW_POLL_PATHS = (
-    PATH_INPUT_GAIN,
-    PATH_UI_OUTPUT_LEVEL,
-    PATH_UI_BASS_GAIN,
-    PATH_UI_MID_GAIN,
-    PATH_UI_TREBLE_GAIN,
-    PATH_INPUT_SELECT,
     PATH_DEVICE_NAME,
-    PATH_RESTORE,
     PATH_IDENTITY_HW_VERSION,
     PATH_INPUT_CURRENT,
     PATH_INPUT_INTERFACE_TYPE,
@@ -235,6 +242,18 @@ SLOW_POLL_EVERY_N_CYCLES = 10
 # cycle and the restore allowlist were not - so the subwoofer collected one
 # rejected request per cycle and one pointless failure per restore.
 NON_SUBWOOFER_POLL_PATHS = (PATH_OUTPUT_PHASE_INVERSION,)
+
+# Front-panel settings of the monitors. The KH 750 does not have them (absent
+# from its command schema, rejected by the simulator), so asking it only
+# earned six rejections per slow cycle.
+NON_SUBWOOFER_SLOW_POLL_PATHS = (
+    PATH_INPUT_GAIN,
+    PATH_UI_OUTPUT_LEVEL,
+    PATH_UI_BASS_GAIN,
+    PATH_UI_MID_GAIN,
+    PATH_UI_TREBLE_GAIN,
+    PATH_INPUT_SELECT,
+)
 
 SUBWOOFER_POLL_PATHS = (
     PATH_METER_OUTPUT_LEVEL,
