@@ -329,7 +329,10 @@ async def test_a_failing_store_is_reported_readably(monkeypatch):
     with pytest.raises(HomeAssistantError) as err:
         await export_actions.async_run_backup(hass, entry, client)
 
-    assert err.value.translation_key == "backup_failed"
+    # Not the generic "backup failed": the file is there and usable, only the
+    # restore button still offers the previous snapshot.
+    assert err.value.translation_key == "backup_store_failed"
+    assert err.value.translation_placeholders["path"]
 
 
 async def test_a_discovery_that_read_nothing_does_not_replace_the_last_one(monkeypatch):
