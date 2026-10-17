@@ -242,3 +242,15 @@ async def test_a_value_confirmed_during_a_poll_is_not_overwritten(coordinator, f
     assert _value(coordinator, PATH_DEVICE_NAME) == "Neuer Name", (
         "the stale value was written back into the slow cache"
     )
+
+
+async def test_a_reread_of_a_slow_path_fetches_it_on_the_next_cycle(coordinator, fake_client):
+    """An unconfirmed write must not leave the old value on screen for 5 minutes."""
+    await coordinator.async_refresh()  # cycle 0: slow included
+    await coordinator.async_refresh()  # cycle 1: fast only from here on
+    fake_client.values[PATH_DEVICE_NAME] = "Renamed"
+
+    await coordinator.async_request_reread(PATH_DEVICE_NAME)
+    await coordinator.async_refresh()
+
+    assert _value(coordinator, PATH_DEVICE_NAME) == "Renamed"

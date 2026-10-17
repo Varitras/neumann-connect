@@ -776,3 +776,15 @@ async def test_a_failed_write_does_not_name_the_address(server, monkeypatch):
 )
 def test_a_masked_host_keeps_only_the_prefix_and_two_characters(host, masked):
     assert ssc_client.mask_host(host) == masked
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf")])
+async def test_a_non_finite_number_never_reaches_the_device(server, value):
+    """json.dumps writes NaN and Infinity by default - neither is JSON."""
+    client = _client(server.port)
+    try:
+        with pytest.raises(SSCDeviceError):
+            await client.set(("audio", "out", "level"), value)
+        assert not server.request_received.is_set()
+    finally:
+        await client.close()
