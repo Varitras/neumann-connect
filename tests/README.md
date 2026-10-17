@@ -51,11 +51,14 @@ the thing it prevents actually happened here.
 | Guard | Holds |
 |---|---|
 | `test_budgets.py` | No module grows past its ceiling, no function past its complexity ratchet |
+| `test_ci_parity.py` | CI runs the same check script a developer runs, against the advertised minimum version |
 | `test_comment_narration.py` | No comment merely restates the code it sits on |
 | `test_constant_owners.py` | No constant is defined in two modules |
 | `test_device_writes.py` | Every button press claims the device before writing |
-| `test_log_privacy.py` | No log call hands out a serial number in full |
+| `test_log_privacy.py` | No log call or raised message hands out a serial or an address in full |
 | `test_mutation_harness.py` | The mutation run fails loudly instead of reporting a breakage it never applied |
+| `test_sensor_states.py` | The not_assigned mapping and its translations stay in step |
+| `test_translations.py` | strings.json, en.json and de.json carry the same keys |
 | `test_guards.py` | Every guard is listed, scans a real directory, and is not pinned to one file |
 
 ## When a budget turns red
@@ -91,6 +94,6 @@ SonarSource's default.
    same reason - `test_every_guard_scans_a_real_directory` catches both.
 2. **Prove the guard can fail.** Feed the detector the exact shape it exists to
    catch - ideally the verbatim line from the incident, as
-   `test_the_scan_catches_the_line_it_was_written_for` does.
+   `test_the_scan_finds_what_it_is_looking_for` in `test_log_privacy.py` does.
 3. **List it in `GUARD_FILES`.** A guard nobody lists is a guard nobody knows
    to keep.
