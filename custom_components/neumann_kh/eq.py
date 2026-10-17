@@ -14,6 +14,8 @@ configuration section.
 
 from __future__ import annotations
 
+from typing import Any
+
 from homeassistant.components.button import ButtonEntity, ButtonEntityDescription
 from homeassistant.components.switch import SwitchEntity, SwitchEntityDescription
 from homeassistant.config_entries import ConfigEntry
@@ -60,11 +62,10 @@ class NeumannKHEQContainerSwitch(NeumannKHEntity, SwitchEntity):
             entity_category=EntityCategory.CONFIG,
         )
         self._attr_unique_id = f"{self._unique_id_base}_{path_key}_enabled"
+        self._attr_translation_placeholders = {
+            "container": container.label_for(coordinator.hass.config.language)
+        }
         self._path = container.path + ("enabled",)
-
-    @property
-    def translation_placeholders(self) -> dict[str, str]:
-        return {"container": self._container.label_for(self.hass.config.language)}
 
     @property
     def is_on(self) -> bool | None:
@@ -77,10 +78,10 @@ class NeumannKHEQContainerSwitch(NeumannKHEntity, SwitchEntity):
         array = [value] * self._container.band_count
         await self._async_write(self._path, array)
 
-    async def async_turn_on(self, **kwargs) -> None:
+    async def async_turn_on(self, **kwargs: Any) -> None:
         await self._async_set(True)
 
-    async def async_turn_off(self, **kwargs) -> None:
+    async def async_turn_off(self, **kwargs: Any) -> None:
         await self._async_set(False)
 
 
@@ -113,10 +114,9 @@ class NeumannKHEQResetButton(NeumannKHEntity, ButtonEntity):
             entity_category=EntityCategory.CONFIG,
         )
         self._attr_unique_id = f"{self._unique_id_base}_{path_key}_reset"
-
-    @property
-    def translation_placeholders(self) -> dict[str, str]:
-        return {"container": self._container.label_for(self.hass.config.language)}
+        self._attr_translation_placeholders = {
+            "container": container.label_for(coordinator.hass.config.language)
+        }
 
     async def async_press(self) -> None:
         zero = [0.0] * self._container.band_count

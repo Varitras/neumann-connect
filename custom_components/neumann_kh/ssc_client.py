@@ -246,7 +246,7 @@ class SSCClient:
                 self._writer = None
                 self._reader = None
 
-    async def _send_raw(self, payload: dict) -> None:
+    async def _send_raw(self, payload: dict[str, Any]) -> None:
         if self._writer is None:
             # Should be ruled out by _ensure_connected() before every call -
             # explicit check instead of `assert`, since assert statements can be
@@ -457,10 +457,10 @@ class SSCClient:
 
     async def request(
         self,
-        payload: dict,
+        payload: dict[str, Any],
         priority: bool = False,
         expect_path: tuple[str, ...] | None = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Sends an SSC message and returns the merged result dict.
 
         priority=True marks a user action: if a poll cycle is currently
@@ -481,7 +481,9 @@ class SSCClient:
             if priority:
                 self._priority_waiting.clear()
 
-    async def _locked_request(self, payload: dict, expect_path: tuple[str, ...] | None) -> dict:
+    async def _locked_request(
+        self, payload: dict[str, Any], expect_path: tuple[str, ...] | None
+    ) -> dict[str, Any]:
         """Send one message and read its answer. Caller holds the lock."""
         try:
             # Connecting and draining are inside the try on purpose: both

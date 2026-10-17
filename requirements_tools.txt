@@ -8,7 +8,8 @@
 # dependency changes, pytest only warns "Unknown config option: timeout" and
 # the safety net is silently gone.
 pytest-timeout
-# Pinned, and CI installs this file, so local runs and CI lint with the same
-# release. Unpinned, the two could differ - which is how a Ruff upgrade turned
-# the build red once already.
+# Pinned, and CI installs this file, so local runs and CI lint and type-check
+# with the same releases. Unpinned, the two could differ - which is how a Ruff
+# upgrade turned the build red once already.
 ruff==0.16.9
+mypy==2.4.0

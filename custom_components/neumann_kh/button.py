@@ -18,6 +18,7 @@ fetching it.
 from __future__ import annotations
 
 import time
+from typing import Any
 
 from homeassistant.components.button import ButtonEntity, ButtonEntityDescription
 from homeassistant.components.persistent_notification import (
@@ -232,13 +233,13 @@ class NeumannKHRestoreBackupButton(NeumannKHEntity, ButtonEntity):
         super().__init__(coordinator, entry)
         self._attr_unique_id = f"{self._unique_id_base}_restore_backup"
         self._armed_at: float | None = None
-        self._armed_backup: dict | None = None
+        self._armed_backup: dict[str, Any] | None = None
         self._notification_id = f"{self._unique_id_base}_restore_backup_confirm"
 
     async def async_press(self) -> None:
         now = time.monotonic()
-        if _confirms(self._armed_at, now):
-            armed_backup = self._armed_backup
+        armed_backup = self._armed_backup
+        if armed_backup is not None and _confirms(self._armed_at, now):
             self._armed_at = None
             self._armed_backup = None
             async_dismiss_notification(self.hass, self._notification_id)

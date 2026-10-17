@@ -20,6 +20,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory, UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.typing import StateType
 
 from ._util import finite_float
 from .const import (
@@ -337,7 +338,7 @@ class NeumannKHSensor(NeumannKHEntity, SensorEntity):
         self._attr_unique_id = f"{self._unique_id_base}_{description.key}"
 
     @property
-    def native_value(self):
+    def native_value(self) -> StateType:
         value = self.coordinator.value(self.entity_description.ssc_path)
         if value is None:
             return None
@@ -361,7 +362,7 @@ class NeumannKHSensor(NeumannKHEntity, SensorEntity):
                 if self.entity_description.key in _UNASSIGNED_KEYS:
                     return _UNASSIGNED_STATE
                 return None
-            return value
+            return str(value)
 
         # Live levels return a LIST (one value per channel) - show the loudest channel.
         if isinstance(value, list):

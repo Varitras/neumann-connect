@@ -23,10 +23,12 @@ import ipaddress
 import logging
 from typing import Any, NamedTuple
 
-import voluptuous as vol
+# probatio, not voluptuous: Home Assistant types form schemas as
+# probatio.Schema, and `voluptuous` is only its runtime alias there.
+import probatio as vol
 from homeassistant import config_entries
 from homeassistant.components import network
-from homeassistant.config_entries import ConfigFlowResult
+from homeassistant.config_entries import ConfigEntry, ConfigFlowResult
 from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PORT
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import selector
@@ -98,7 +100,7 @@ async def _async_get_interface_options(hass: HomeAssistant) -> list[selector.Sel
     return options
 
 
-def _connection_fields(interface_options: list[selector.SelectOptionDict]) -> dict:
+def _connection_fields(interface_options: list[selector.SelectOptionDict]) -> dict[Any, Any]:
     """Address, interface and port - shared by manual setup and reconfigure."""
     return {
         vol.Required(CONF_HOST): str,
@@ -345,9 +347,9 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return await self._show_manual_form(user_input, "name_required")
 
         checked = await _async_check_connection(user_input)
-        if checked.error:
-            return await self._show_manual_form(user_input, checked.error)
         identity = checked.identity
+        if checked.error or identity is None:
+            return await self._show_manual_form(user_input, checked.error)
 
         await self.async_set_unique_id(str(identity.serial or f"{checked.host}_{checked.port}"))
         self._abort_if_unique_id_configured()
@@ -382,7 +384,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     # --- Reconfigure: change address/interface/port of an existing entry -----
 
     async def _show_reconfigure_form(
-        self, entry, user_input: dict[str, Any] | None, error: str | None = None
+        self, entry: ConfigEntry, user_input: dict[str, Any] | None, error: str | None = None
     ) -> ConfigFlowResult:
         """Show the reconfigure form, pre-filled from the attempt or the entry."""
         interface_options = await _async_get_interface_options(self.hass)
@@ -419,9 +421,9 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return await self._show_reconfigure_form(entry, None)
 
         checked = await _async_check_connection(user_input)
-        if checked.error:
-            return await self._show_reconfigure_form(entry, user_input, checked.error)
         identity = checked.identity
+        if checked.error or identity is None:
+            return await self._show_reconfigure_form(entry, user_input, checked.error)
 
         # Guard against pointing an entry at a different speaker: that would
         # silently attach one device's history to another. Entries created

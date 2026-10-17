@@ -30,11 +30,13 @@ LINE_BUDGETS = {
     # Four flows (manual, zeroconf, scan, reconfigure) plus their shared
     # identity handling. Splitting was considered and rejected: the flows
     # share the candidate/identity helpers, and HA discovers the class here.
-    "config_flow.py": 752,
+    # Raised to 754 for the probatio import the mypy gate needs.
+    "config_flow.py": 754,
     # Raised from 500 for the KH 750 out5 support (device error code, path
     # aliases); the alternative was splitting the read loop out of its owner.
     # Raised to 540 for reading the nested osc/error format real speakers send.
-    "ssc_client.py": 540,
+    # Raised to 542 for the type arguments the mypy gate requires.
+    "ssc_client.py": 542,
 }
 
 # SonarSource's default. Everything above needs a written entry.

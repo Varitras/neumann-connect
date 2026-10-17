@@ -22,7 +22,7 @@ def finite_float(value: Any) -> float | None:
     return number
 
 
-def build_nested(path: tuple[str, ...], value: Any) -> dict:
+def build_nested(path: tuple[str, ...], value: Any) -> dict[str, Any]:
     """Build a nested JSON object from a path tuple and a value.
 
     Example: build_nested(("audio", "out", "mute"), True)
@@ -37,7 +37,7 @@ def build_nested(path: tuple[str, ...], value: Any) -> dict:
     return root
 
 
-def deep_merge(target: dict, source: dict) -> None:
+def deep_merge(target: dict[str, Any], source: dict[str, Any]) -> None:
     """Merge two nested dicts (in-place); source wins on conflicts.
 
     Nested dicts are copied, never shared: the coordinator merges its slow
@@ -53,7 +53,7 @@ def deep_merge(target: dict, source: dict) -> None:
             target[key] = value
 
 
-def extract(data: dict, path: tuple[str, ...]) -> Any:
+def extract(data: dict[str, Any], path: tuple[str, ...]) -> Any:
     """Read a value from a nested dict using a path tuple."""
     node: Any = data
     for part in path:

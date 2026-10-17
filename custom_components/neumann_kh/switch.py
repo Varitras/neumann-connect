@@ -11,6 +11,7 @@ KH 120 II, but not on the KH 750 (see binary_sensor.py).
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from homeassistant.components.switch import SwitchEntity, SwitchEntityDescription
 from homeassistant.config_entries import ConfigEntry
@@ -102,7 +103,9 @@ async def async_setup_entry(
     else:
         descriptions.extend(SUBWOOFER_SWITCH_DESCRIPTIONS)
 
-    entities = [NeumannKHSwitch(coordinator, entry, description) for description in descriptions]
+    entities: list[SwitchEntity] = [
+        NeumannKHSwitch(coordinator, entry, description) for description in descriptions
+    ]
     entities += build_eq_switches(coordinator, entry, entry.data.get(CONF_MODEL))
     async_add_entities(entities)
 
@@ -133,8 +136,8 @@ class NeumannKHSwitch(NeumannKHEntity, SwitchEntity):
         """Sets the value; turns a device rejection into a clear HA error message."""
         await self._async_write(self.entity_description.ssc_path, value)
 
-    async def async_turn_on(self, **kwargs) -> None:
+    async def async_turn_on(self, **kwargs: Any) -> None:
         await self._async_set(True)
 
-    async def async_turn_off(self, **kwargs) -> None:
+    async def async_turn_off(self, **kwargs: Any) -> None:
         await self._async_set(False)

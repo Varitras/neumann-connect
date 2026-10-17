@@ -13,6 +13,7 @@ import asyncio
 import ipaddress
 import logging
 from dataclasses import dataclass
+from typing import Any
 
 from homeassistant.components import zeroconf as ha_zeroconf
 from homeassistant.core import HomeAssistant
@@ -91,7 +92,9 @@ async def async_scan_for_speakers(
     aiozc = await ha_zeroconf.async_get_async_instance(hass)
     found_names: set[str] = set()
 
-    def _on_change(zeroconf, service_type, name, state_change) -> None:  # skipcq: PYL-W0613
+    def _on_change(  # skipcq: PYL-W0613
+        zeroconf: Any, service_type: str, name: str, state_change: ServiceStateChange
+    ) -> None:
         # These four names are a contract, not a style choice: zeroconf's
         # Signal.fire() passes them as keyword arguments (h(**kwargs)), so any
         # rename raises TypeError rather than merely reading oddly - that was

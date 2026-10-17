@@ -69,6 +69,8 @@ class _Client:
 class _Coordinator:
     def __init__(self, client: _Client, value=None) -> None:
         self.client = client
+        # The EQ entities read the language for their names when built.
+        self.hass = SimpleNamespace(config=SimpleNamespace(language="en"))
         self.data = {}
         self.confirmed: list[tuple[tuple[str, ...], object]] = []
         self.reread: list[tuple[str, ...]] = []

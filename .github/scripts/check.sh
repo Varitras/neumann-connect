@@ -30,6 +30,12 @@ step "ruff format --check"
 step "pytest (full run, e2e included)"
 "$PYTHON" -m pytest tests/ -q -m ""
 
+# Passes on Home Assistant 2026.10 and newer only: older releases type form
+# schemas as voluptuous, the code imports probatio. Lowering the minimum in
+# hacs.json below 2026.10 breaks this gate in the minimum-version job.
+step "mypy"
+"$PYTHON" -m mypy
+
 step "compile every module"
 "$PYTHON" -m compileall -q "$PACKAGE"
 
