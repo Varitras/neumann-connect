@@ -15,8 +15,10 @@ Change history: see [CHANGELOG.md](./CHANGELOG.md).
 Custom icon/logo in `custom_components/neumann_kh/brand/` (an independent
 design, not a copy of the official Neumann company logo).
 
-Based on the SSC address paths documented in the
-[khtool project](https://github.com/schwinn/khtool).
+The SSC address paths were first taken from the
+[khtool project](https://github.com/schwinn/khtool); the paths the integration
+uses and how they behave have since been checked on KH 120 II and KH 750 DSP
+speakers (KH 80 DSP and KH 150 untested).
 
 ## Disclaimer
 
@@ -217,8 +219,8 @@ because a second list is one that drifts out of step with the first.
 | Restore backup (writes the stored backup back, disabled by default, two-step confirmation) | `button` | – | – |
 | Run device discovery (diagnostic) | `button` | – | – |
 
-\* **Only** on the KH 80 DSP / KH 150 / KH 120 II – according to the khtool
-documentation not available on the KH 750 DSP. The integration detects the
+\* **Only** on the KH 80 DSP / KH 150 / KH 120 II – the KH 750 DSP does not
+offer this setting (checked on firmware 2_1_2). The integration detects the
 model automatically during setup and hides this entity for the KH 750 DSP.
 
 ### Additional entities only on a detected subwoofer (KH 750 DSP)

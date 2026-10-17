@@ -15,8 +15,10 @@ Home Assistants eingebaute Zeroconf-Komponente.
 Eigenes Icon/Logo unter `custom_components/neumann_kh/brand/` (eigenständiges
 Design, keine Kopie des offiziellen Neumann-Firmenlogos).
 
-Basiert auf den SSC-Adresspfaden, die im
-[khtool-Projekt](https://github.com/schwinn/khtool) dokumentiert sind.
+Die SSC-Adresspfade stammen ursprünglich aus dem
+[khtool-Projekt](https://github.com/schwinn/khtool); die von der Integration
+genutzten Pfade und ihr Verhalten sind inzwischen an KH 120 II und KH 750 DSP
+geprüft (KH 80 DSP und KH 150 ungetestet).
 
 ## Disclaimer
 
@@ -224,9 +226,10 @@ ersten auseinanderläuft.
 | Backup zurückspielen (schreibt das gespeicherte Backup zurück, standardmäßig deaktiviert, Zwei-Schritt-Bestätigung) | `button` | – | – |
 | Geräte-Discovery ausführen (Diagnose) | `button` | – | – |
 
-\* **Nur** bei KH 80 DSP / KH 150 / KH 120 II – laut khtool-Dokumentation nicht bei
-KH 750 DSP verfügbar. Die Integration erkennt das Modell automatisch beim
-Einrichten und blendet diese Entity für die KH 750 DSP aus.
+\* **Nur** bei KH 80 DSP / KH 150 / KH 120 II – die KH 750 DSP bietet diese
+Einstellung nicht (geprüft mit Firmware 2_1_2). Die Integration erkennt das
+Modell automatisch beim Einrichten und blendet diese Entity für die KH 750 DSP
+aus.
 
 ### Zusätzliche Entities nur bei erkanntem Subwoofer (KH 750 DSP)
 
