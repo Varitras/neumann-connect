@@ -17,7 +17,7 @@ import logging
 
 from custom_components.neumann_kh import coordinator as coordinator_module
 from custom_components.neumann_kh.coordinator import NeumannKHCoordinator
-from custom_components.neumann_kh.ssc_client import SSCConnectionError
+from custom_components.neumann_kh.ssc_client import SSCConnectionError, SSCDeviceError
 
 
 class UnreachableClient:
@@ -41,6 +41,16 @@ class SlowClient:
         return False
 
 
+class RejectingClient:
+    """Answers every request - with an error."""
+
+    def __init__(self) -> None:
+        self.priority_waiting = asyncio.Event()
+
+    async def get(self, path: tuple[str, ...]) -> object:
+        raise SSCDeviceError("rejected (test)", code=400)
+
+
 def _refresh_records(caplog) -> list[logging.LogRecord]:
     return [record for record in caplog.records if record.msg.startswith("Error fetching")]
 
@@ -61,6 +71,19 @@ async def test_a_switched_off_speaker_is_logged_as_info(hass, caplog):
 async def test_a_stalled_cycle_stays_an_error(hass, caplog, monkeypatch):
     monkeypatch.setattr(coordinator_module, "POLL_CYCLE_TIMEOUT_SECONDS", 0.01)
     coordinator = NeumannKHCoordinator(hass, SlowClient(), "test", model="KH 120 II")
+    coordinator.update_interval = None
+
+    with caplog.at_level(logging.INFO):
+        await coordinator.async_refresh()
+
+    assert not coordinator.last_update_success
+    records = _refresh_records(caplog)
+    assert len(records) == 1
+    assert records[0].levelno == logging.ERROR
+
+
+async def test_a_speaker_that_rejects_every_path_fails_the_cycle_as_an_error(hass, caplog):
+    coordinator = NeumannKHCoordinator(hass, RejectingClient(), "test", model="KH 120 II")
     coordinator.update_interval = None
 
     with caplog.at_level(logging.INFO):

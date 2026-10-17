@@ -245,7 +245,7 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def _poll_all_paths(self, paths: list[tuple[str, ...]]) -> dict[str, Any]:
         merged: dict[str, Any] = {}
-        reachable = False
+        answered = False
         try:
             for path in paths:
                 # Priority path: briefly yield to a waiting user action.
@@ -255,8 +255,8 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 try:
                     value = await self.client.get(path)
                 except SSCDeviceError:
-                    # Path not supported by this device - skip.
-                    reachable = True
+                    # Path not supported by this device - skip. Not counted as
+                    # an answer: a device that rejects everything is a fault.
                     _LOGGER.debug("Path %s is not supported by the device, skipping", path)
                     continue
                 except (SSCConnectionError, SSCTimeoutError):
@@ -269,13 +269,13 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 except Exception:
                     _LOGGER.exception("Unexpected error while querying path %s, skipping", path)
                     continue
-                reachable = True
+                answered = True
                 deep_merge(merged, build_nested(path, value))
         except (SSCConnectionError, SSCTimeoutError) as err:
             raise SpeakerUnreachable(f"Neumann KH unreachable: {err}") from err
 
-        if not reachable:
-            raise UpdateFailed("Neumann KH: none of the queried properties were reachable")
+        if not answered:
+            raise UpdateFailed("Neumann KH: the device answered none of the queried properties")
 
         return merged
 
