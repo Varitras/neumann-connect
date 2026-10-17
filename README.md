@@ -9,6 +9,8 @@ included for the SSC protocol itself, and device discovery uses Home
 Assistant's built-in Zeroconf component.
 
 Change history: see [CHANGELOG.md](./CHANGELOG.md).
+Protocol and device details (SSC, measured speaker behaviour): see the
+[wiki](https://github.com/Varitras/neumann-connect/wiki).
 
 **Requires Home Assistant 2026.10 or newer.**
 

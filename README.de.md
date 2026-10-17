@@ -9,6 +9,8 @@ ist ein schlanker eigener asyncio-Client enthalten, die Geräte-Suche nutzt
 Home Assistants eingebaute Zeroconf-Komponente.
 
 Änderungshistorie: siehe [CHANGELOG.de.md](./CHANGELOG.de.md).
+Protokoll- und Gerätedetails (SSC, gemessenes Lautsprecher-Verhalten): siehe
+[Wiki](https://github.com/Varitras/neumann-connect/wiki) (auf Englisch).
 
 **Benötigt Home Assistant 2026.10 oder neuer.**
 
