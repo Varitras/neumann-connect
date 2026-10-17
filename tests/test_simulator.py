@@ -40,7 +40,7 @@ _TIMEOUT = 2.0
 class SimulatorServer:
     """Runs an SSCSimulator on a loopback port for the duration of a test."""
 
-    def __init__(self, model: str, enable_schema: bool = False) -> None:
+    def __init__(self, model: str, enable_schema: bool = True) -> None:
         self.simulator = SSCSimulator(model, enable_schema=enable_schema)
         self.server: asyncio.Server | None = None
         self.port: int = 0
@@ -128,41 +128,39 @@ async def test_container_query_is_rejected(kh120):
         await client.close()
 
 
-async def test_schema_discovery_is_rejected(kh120):
-    """osc/schema is optional and rejected unless explicitly enabled."""
-    client = _client(kh120.port)
+async def test_firmware_without_introspection_can_be_simulated(socket_enabled):
+    """osc/schema is optional; --disable-schema stands in for firmware without it."""
+    srv = SimulatorServer(MODEL_KH_120_II, enable_schema=False)
+    await srv.start()
+    client = _client(srv.port)
     try:
         with pytest.raises(SSCDeviceError):
             await client.request({"osc": {"schema": None}})
     finally:
         await client.close()
+        await srv.stop()
 
 
-async def test_schema_discovery_works_when_enabled(socket_enabled):
-    """With --enable-schema the optional osc methods actually answer.
+async def test_the_schema_walk_covers_the_whole_tree_at_the_real_settle_time(socket_enabled):
+    """Both tested firmwares answer osc/schema and osc/limits.
 
-    This is the only way to exercise the best-effort schema branch in
-    discovery_export.py: real firmware rejects osc/schema, so without the
-    simulator that code path is never executed anywhere.
+    At the client's default settle time on purpose: a walk that waits it out
+    after every reply ran into its 30 s limit on a real KH 750, and the
+    shortened settle time this test used to set hid exactly that.
     """
-    srv = SimulatorServer(MODEL_KH_120_II, enable_schema=True)
+    srv = SimulatorServer(MODEL_KH_120_II)
     await srv.start()
-    # The walk issues one request per node; the default settle time would add
-    # seconds to the fast suite for no extra coverage.
-    client = SSCClient(host="127.0.0.1", port=srv.port, timeout=_TIMEOUT, settle_time=0.005)
+    client = SSCClient(host="127.0.0.1", port=srv.port, timeout=_TIMEOUT)
     try:
-        schema = await client.request({"osc": {"schema": None}})
-        level = schema["osc"]["schema"]
-        # Containers are announced as {}, leaves as null.
-        assert level["audio"] == {}
-        assert level["warnings"] is None
-
         result = await async_discover_all_values(client)
         limits = result["schema_limits"]
-        assert limits, "the schema walk produced nothing"
-        # Writability must mirror the verified hardware behaviour.
-        assert limits["audio"]["out"]["level"]["writeable"] is True
-        assert limits["ui"]["input_gain"]["writeable"] is False
+        # Every leaf of the device state came back with its description.
+        for path in _leaf_paths(srv.simulator.state):
+            node = limits
+            for key in path:
+                node = node[key]
+            assert node[0]["type"] in ("Number", "String", "Boolean"), path
+        assert limits["ui"]["input_gain"][0]["writeable"] is False
     finally:
         await client.close()
         await srv.stop()
@@ -239,3 +237,11 @@ def test_the_out5_variant_moves_only_level_and_mute():
     assert simulator.handle({"device": {"identity": {"version": None}}}) == {
         "device": {"identity": {"version": "1_2_4"}}
     }
+
+
+def _leaf_paths(tree, prefix=()):
+    for key, value in tree.items():
+        if isinstance(value, dict):
+            yield from _leaf_paths(value, prefix + (key,))
+        else:
+            yield prefix + (key,)

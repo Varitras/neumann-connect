@@ -15,7 +15,8 @@ healthy while it is broken against real hardware:
   type a 406, both at the leaf
 * a bundle answers every leaf it can - gets and sets alike - and lists the
   rest as errors; a missing leaf's 404 then sits at its parent
-* "osc/schema" and "osc/limits" are rejected unless --enable-schema is given
+* "osc/schema" and "osc/limits" are answered in the recorded form (both tested
+  firmwares support them); --disable-schema mimics firmware that does not
 
 Usage:
     python tools/ssc_simulator.py --model "KH 120 II"
@@ -46,12 +47,14 @@ _ERR_BAD_REQUEST = 400
 _ERR_NOT_FOUND = 404
 _ERR_NOT_ALLOWED = 405
 _ERR_NOT_ACCEPTABLE = 406
+_ERR_PARAMETER_NOT_FOUND = 454
 
 _ERR_DESCRIPTIONS = {
     _ERR_BAD_REQUEST: "message not understood",
     _ERR_NOT_FOUND: "address not found",
     _ERR_NOT_ALLOWED: "method not allowed",
     _ERR_NOT_ACCEPTABLE: "not acceptable",
+    _ERR_PARAMETER_NOT_FOUND: "parameter address not found",
 }
 
 # EQ containers per model: (path prefix, band count), as measured on the
@@ -341,17 +344,67 @@ def _build_nested(path: tuple[str, ...], value: Any) -> dict[str, Any]:
     return result
 
 
+# The osc container as the devices describe it (osc/schema walk recorded on a
+# KH 120 II); its methods answer osc/limits with an empty description.
+_OSC_TREE: dict[str, Any] = {
+    "state": {
+        "auth": {"access": None},
+        "prettyprint": None,
+        "subscribe": None,
+        "subscribe_reserve": None,
+    },
+    "feature": {"timetag": None, "baseaddr": None, "subscription": None, "pattern": None},
+    "limits": None,
+    "schema": None,
+    "version": None,
+    "xid": None,
+    "ping": None,
+    "error": None,
+}
+
+
 def _limits_type(value: Any) -> str:
-    """Map a stored value to the type name osc/limits reports."""
-    if isinstance(value, bool):
-        return "boolean"
-    if isinstance(value, int):
-        return "integer"
-    if isinstance(value, float):
-        return "number"
+    """The type name osc/limits reports, as the devices spell it."""
     if isinstance(value, list):
-        return "array"
-    return "string"
+        value = value[0] if value else None
+    if isinstance(value, bool):
+        return "Boolean"
+    if isinstance(value, (int, float)):
+        return "Number"
+    return "String"
+
+
+def _lookup(tree: dict[str, Any], path: tuple[str, ...]) -> tuple[bool, Any]:
+    """Look a path up in a tree. Returns (found, value)."""
+    node: Any = tree
+    for key in path:
+        if not isinstance(node, dict) or key not in node:
+            return False, None
+        node = node[key]
+    return True, node
+
+
+def _osc_error(method: str, code: int) -> dict[str, Any]:
+    """A refused introspection request: the error sits at osc/<method>, as recorded."""
+    return {"osc": {"error": [_error_entry(("osc", method), code)]}}
+
+
+def _introspection_path(value: Any, method: str) -> tuple[tuple[str, ...] | None, Any]:
+    """The single address an osc/schema or osc/limits request asks about.
+
+    Returns (path, None) or (None, error reply). Recorded: the argument has to
+    be a list holding an address tree that ends in null - [null] or [{}] is a
+    454, a tree ending in {} a 406.
+    """
+    if not isinstance(value, list) or not value or not isinstance(value[0], dict) or not value[0]:
+        return None, _osc_error(method, _ERR_PARAMETER_NOT_FOUND)
+    leaves = _collect_leaves(value[0])
+    if len(leaves) != 1:
+        return None, _error(_ERR_BAD_REQUEST)
+    path, end = leaves[0]
+    if end is not None:
+        return None, _osc_error(method, _ERR_NOT_ACCEPTABLE)
+    return path, None
 
 
 def _error(code: int) -> dict[str, Any]:
@@ -390,7 +443,7 @@ class SSCSimulator:
     """Holds the state of one simulated speaker and answers SSC requests."""
 
     def __init__(
-        self, model: str, enable_schema: bool = False, output_on_out5: bool = False
+        self, model: str, enable_schema: bool = True, output_on_out5: bool = False
     ) -> None:
         self.model = model
         self.enable_schema = enable_schema
@@ -401,12 +454,7 @@ class SSCSimulator:
 
     def _resolve(self, path: tuple[str, ...]) -> tuple[bool, Any]:
         """Look a path up in the state. Returns (found, value)."""
-        node: Any = self.state
-        for key in path:
-            if not isinstance(node, dict) or key not in node:
-                return False, None
-            node = node[key]
-        return True, node
+        return _lookup(self.state, path)
 
     def _first_missing(self, path: tuple[str, ...]) -> tuple[str, ...]:
         """The path down to the first node that does not exist."""
@@ -452,47 +500,46 @@ class SSCSimulator:
         """
         return {key: {} if isinstance(value, dict) else None for key, value in node.items()}
 
+    def _address_tree(self) -> dict[str, Any]:
+        """Everything osc/schema describes: the device state plus the osc container."""
+        return {**self.state, "osc": _OSC_TREE}
+
     def _osc_schema(self, value: Any) -> dict[str, Any]:
         if value is None:
-            return {"osc": {"schema": self._schema_level(self.state)}}
-
-        entries = value if isinstance(value, list) else [value]
-        for entry in entries:
-            if not isinstance(entry, dict):
-                continue
-            leaves = _collect_leaves(entry)
-            if len(leaves) != 1:
-                return _error(_ERR_BAD_REQUEST)
-            path, _ = leaves[0]
-            found, node = self._resolve(path)
-            if not found:
-                return _error(_ERR_NOT_FOUND)
-            if not isinstance(node, dict):
-                # A leaf has no sub-tree of its own.
-                return {"osc": {"schema": [_build_nested(path, None)]}}
-            return {"osc": {"schema": [_build_nested(path, self._schema_level(node))]}}
-        return _error(_ERR_BAD_REQUEST)
+            return {"osc": {"schema": [self._schema_level(self._address_tree())]}}
+        path, refusal = _introspection_path(value, "schema")
+        if refusal is not None:
+            return refusal
+        found, node = _lookup(self._address_tree(), path)
+        if not found:
+            # Never recorded for an unknown address; the code of the malformed
+            # requests is the closest measured answer.
+            return _osc_error("schema", _ERR_PARAMETER_NOT_FOUND)
+        if not isinstance(node, dict):
+            # A leaf has no sub-tree of its own.
+            return {"osc": {"schema": [_build_nested(path, None)]}}
+        return {"osc": {"schema": [_build_nested(path, self._schema_level(node))]}}
 
     def _osc_limits(self, value: Any) -> dict[str, Any]:
-        entries = value if isinstance(value, list) else [value]
-        for entry in entries:
-            if not isinstance(entry, dict):
-                continue
-            leaves = _collect_leaves(entry)
-            if len(leaves) != 1:
-                return _error(_ERR_BAD_REQUEST)
-            path, _ = leaves[0]
-            found, node = self._resolve(path)
-            if not found or isinstance(node, dict):
-                return _error(_ERR_NOT_FOUND)
-            limits = {"type": _limits_type(node), "writeable": path not in self.read_only}
-            return {"osc": {"limits": [_build_nested(path, limits)]}}
-        return _error(_ERR_BAD_REQUEST)
+        path, refusal = _introspection_path(value, "limits")
+        if refusal is not None:
+            return refusal
+        found, node = _lookup(self._address_tree(), path)
+        if not found or isinstance(node, dict):
+            return _osc_error("limits", _ERR_PARAMETER_NOT_FOUND)
+        description: dict[str, Any] = {}
+        if path[0] != "osc":
+            description["type"] = _limits_type(node)
+            if isinstance(node, list):
+                description["count"] = len(node)
+            if path in self.read_only:
+                description["writeable"] = False
+        return {"osc": {"limits": [_build_nested(path, [description])]}}
 
     def handle(self, request: dict[str, Any]) -> dict[str, Any]:
         """Answer a single decoded SSC request."""
-        # osc/schema and osc/limits are optional per the specification and are
-        # rejected by the tested firmware, so they are off unless enabled.
+        # osc/schema and osc/limits are optional per the specification; both
+        # tested firmwares answer them. Without them, the reply is unrecorded.
         if "osc" in request:
             if not self.enable_schema:
                 return _error(_ERR_BAD_REQUEST)
@@ -585,9 +632,9 @@ def main() -> None:
     parser.add_argument("--host", default="::1", help="bind address (default: IPv6 loopback)")
     parser.add_argument("--port", type=int, default=8045)
     parser.add_argument(
-        "--enable-schema",
+        "--disable-schema",
         action="store_true",
-        help="answer osc/schema and osc/limits instead of rejecting them",
+        help="reject osc/schema and osc/limits, like firmware without them",
     )
     parser.add_argument(
         "--output-on-out5",
@@ -603,7 +650,9 @@ def main() -> None:
     )
 
     try:
-        asyncio.run(run(args.model, args.host, args.port, args.enable_schema, args.output_on_out5))
+        asyncio.run(
+            run(args.model, args.host, args.port, not args.disable_schema, args.output_on_out5)
+        )
     except KeyboardInterrupt:
         _LOGGER.info("Shutting down")
 
