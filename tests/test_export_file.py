@@ -29,6 +29,11 @@ def _hass(config_dir):
     )
 
 
+def _read(path):
+    with open(path, encoding="utf-8") as file:
+        return json.load(file)
+
+
 async def test_a_device_supplied_name_stays_inside_the_export_folder(tmp_path):
     path = await async_write_export(_hass(tmp_path), "backup", "../../escape", {"a": 1})
 
@@ -43,8 +48,7 @@ async def test_colliding_masked_serials_get_separate_files(tmp_path):
     second = await async_write_export(hass, "backup", "***123", {"speaker": 2}, "entry_b")
 
     assert first != second
-    with open(first, encoding="utf-8") as file:
-        assert json.load(file) == {"speaker": 1}
+    assert _read(first) == {"speaker": 1}
 
 
 async def test_a_failed_write_keeps_the_previous_export_and_no_temp_file(tmp_path, monkeypatch):
@@ -58,6 +62,5 @@ async def test_a_failed_write_keeps_the_previous_export_and_no_temp_file(tmp_pat
     with pytest.raises(OSError):
         await async_write_export(hass, "backup", "SIM", {"version": "new"})
 
-    with open(path, encoding="utf-8") as file:
-        assert json.load(file) == {"version": "old"}
+    assert _read(path) == {"version": "old"}
     assert os.listdir(os.path.dirname(path)) == [os.path.basename(path)]
