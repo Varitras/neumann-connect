@@ -171,3 +171,23 @@ def test_the_check_script_refuses_to_run_outside_the_repository(tmp_path):
 
     assert finished.returncode != 0, "the check script reported success outside the repository"
     assert not calls.exists(), f"gates ran outside the repository: {calls.read_text()!r}"
+
+
+def test_the_minimum_version_is_the_same_everywhere():
+    """hacs.json, the minimum-version CI job and both READMEs state one version.
+
+    A one-sided bump makes the CI job prove a different version than the one
+    users are told - the class of mistake behind 1.18.0, which shipped an
+    import that only existed from a later release.
+    """
+    import json
+
+    minimum = json.loads((REPO / "hacs.json").read_text(encoding="utf-8"))["homeassistant"]
+    workflow = (REPO / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    pinned = re.findall(r"homeassistant==([0-9.]+)", workflow)
+    assert pinned == [minimum], f"ci.yml pins {pinned}, hacs.json says {minimum}"
+
+    major_minor = ".".join(minimum.split(".")[:2])
+    for readme in ("README.md", "README.de.md"):
+        text = (REPO / readme).read_text(encoding="utf-8")
+        assert f"Home Assistant {major_minor}" in text, f"{readme} does not state {major_minor}"
