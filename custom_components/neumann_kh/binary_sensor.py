@@ -14,10 +14,10 @@ from dataclasses import dataclass
 from typing import Any
 
 from homeassistant.components.binary_sensor import (
-    BinarySensorDeviceClass,
     BinarySensorEntity,
     BinarySensorEntityDescription,
 )
+from homeassistant.components.binary_sensor.const import BinarySensorDeviceClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
@@ -131,7 +131,7 @@ class NeumannKHBinarySensor(NeumannKHEntity, BinarySensorEntity):
             # "Problem" = any warning other than the normal state NO_WARNING.
             if isinstance(value, list):
                 return any(item != _NO_WARNING for item in value)
-            return value != _NO_WARNING
+            return bool(value != _NO_WARNING)
         # A per-channel list (clip): on as soon as one channel is set.
         if isinstance(value, list):
             return any(bool(item) for item in value)

@@ -102,7 +102,7 @@ PATH_OUTPUT_MUTE = ("audio", "out", "mute")
 # falls back to "out" for anything unclear; delay stays in "out" either way.
 PATH_OUTPUT_LEVEL_OUT5 = ("audio", "out5", "level")
 PATH_OUTPUT_MUTE_OUT5 = ("audio", "out5", "mute")
-OUT5_OUTPUT_ALIASES = {
+OUT5_OUTPUT_ALIASES: dict[tuple[str, ...], tuple[str, ...]] = {
     PATH_OUTPUT_LEVEL: PATH_OUTPUT_LEVEL_OUT5,
     PATH_OUTPUT_MUTE: PATH_OUTPUT_MUTE_OUT5,
 }

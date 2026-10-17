@@ -28,7 +28,7 @@ _STORAGE_VERSION = 1
 _SAVE_LOCK = asyncio.Lock()
 
 
-def _get_store(hass: HomeAssistant, kind: str) -> Store:
+def _get_store(hass: HomeAssistant, kind: str) -> Store[dict[str, Any]]:
     return Store(hass, _STORAGE_VERSION, f"{DOMAIN}_{kind}")
 
 

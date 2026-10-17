@@ -95,7 +95,12 @@ def _broken_by(entry: dict) -> str:
         text=True,
         check=False,
     )
-    return finished.stdout.strip() if finished.returncode else ""
+    if finished.returncode == 0:
+        return ""
+    if finished.returncode == 1 and finished.stdout.strip():
+        return finished.stdout.strip()
+    # Anything else means ruff did not check the file at all.
+    raise RuntimeError(f"ruff did not run ({finished.returncode}): {finished.stderr.strip()}")
 
 
 def test_every_mutation_is_valid_code():
@@ -105,6 +110,19 @@ def test_every_mutation_is_valid_code():
         f"mutation(s) that do not run at all: {broken}. Their test fails on the "
         "error, not on the breakage, and the run would count them as caught."
     )
+
+
+def test_a_check_without_a_working_ruff_fails_instead_of_passing(monkeypatch):
+    """No ruff means no check - and an empty report used to read as "valid".
+
+    On an environment without ruff every mutation counted as valid code, so
+    the guard above was green while it checked nothing.
+    """
+    monkeypatch.setattr(sys, "executable", "/bin/false")
+    entry = {"path": "custom_components/neumann_kh/const.py", "find": "DOMAIN", "replace": "DOMAIN"}
+
+    with pytest.raises(RuntimeError, match="ruff"):
+        _broken_by(entry)
 
 
 def test_a_mutation_calling_a_name_that_is_gone_is_reported():

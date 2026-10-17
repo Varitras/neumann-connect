@@ -229,6 +229,19 @@ async def test_no_update_listener_is_registered(hass, socket_enabled):
         assert not entry.update_listeners
 
 
+async def test_eq_entities_are_named_after_their_container(hass, socket_enabled):
+    """The container label fills the {container} placeholder of both EQ names."""
+    async with _simulator(MODEL_KH_120_II) as port:
+        entry = await _setup_entry(hass, MODEL_KH_120_II, port, "SIM0001234")
+        names = {
+            hass.states.get(entity.entity_id).name
+            for entity in er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id)
+            if hass.states.get(entity.entity_id) is not None
+        }
+        assert "Simulated KH 120 II EQ2 Main output enabled" in names
+        assert "Simulated KH 120 II EQ2 Main output: reset to flat" in names
+
+
 async def test_backup_button_writes_a_file_outside_www(hass, socket_enabled, tmp_path):
     """The user path: press the button, get a file in the non-public folder."""
     hass.config.config_dir = str(tmp_path)

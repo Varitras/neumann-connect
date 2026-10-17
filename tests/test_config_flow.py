@@ -107,15 +107,23 @@ def _entry(hass) -> MockConfigEntry:
 
 
 async def _run_reconfigure(hass, entry, identity, host="fe80::2", interface="eth1"):
-    with patch(
-        "custom_components.neumann_kh.config_flow._async_test_connection",
-        return_value=identity,
+    with (
+        patch(
+            "custom_components.neumann_kh.config_flow._async_test_connection",
+            return_value=identity,
+        ),
+        # A successful reconfigure reloads the entry, and a real setup dials the
+        # speaker. Left running, that reload raced the test's end: on a slow file
+        # system the test won, on a fast one the socket guard failed it.
+        patch("custom_components.neumann_kh.async_setup_entry", return_value=True),
     ):
         result = await entry.start_reconfigure_flow(hass)
-        return await hass.config_entries.flow.async_configure(
+        result = await hass.config_entries.flow.async_configure(
             result["flow_id"],
             {CONF_HOST: host, CONF_INTERFACE: interface, CONF_PORT: 45},
         )
+        await hass.async_block_till_done()
+        return result
 
 
 async def test_reconfigure_updates_the_entry_in_place(hass, _custom_integration):

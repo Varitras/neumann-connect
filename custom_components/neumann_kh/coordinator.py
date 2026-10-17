@@ -267,7 +267,7 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     # an answer: a device that rejects everything is a fault.
                     _LOGGER.debug("Path %s is not supported by the device, skipping", path)
                     continue
-                except (SSCConnectionError, SSCTimeoutError):
+                except SSCConnectionError, SSCTimeoutError:
                     # A connection problem affects the whole cycle, not just
                     # this one path - propagate to the outer
                     # handling, instead of logging the same error again for

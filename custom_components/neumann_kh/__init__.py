@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PORT, Platform
@@ -37,7 +38,7 @@ from .const import (
     PATH_OUTPUT_LEVEL_OUT5,
 )
 from .coordinator import NeumannKHConfigEntry, NeumannKHCoordinator
-from .discovery import async_scan_for_speakers
+from .discovery import DiscoveredSpeaker, async_scan_for_speakers
 from .identity import as_identity_text, mask_serial, serial_matches
 from .ssc_client import (
     ERROR_NOT_FOUND,
@@ -105,12 +106,12 @@ async def _async_relocate(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # setup retry.
     semaphore = asyncio.Semaphore(MAX_PARALLEL_IDENTITY_QUERIES)
 
-    async def _serial_of(speaker):
+    async def _serial_of(speaker: DiscoveredSpeaker) -> Any:
         async with semaphore:
             client = SSCClient(host=speaker.host, port=speaker.port, timeout=DEFAULT_TIMEOUT)
             try:
                 return await client.get(PATH_IDENTITY_SERIAL)
-            except (SSCConnectionError, SSCTimeoutError, SSCDeviceError):
+            except SSCConnectionError, SSCTimeoutError, SSCDeviceError:
                 return None
             finally:
                 await client.close()
@@ -201,7 +202,7 @@ async def _async_answers_not_found(client: SSCClient, path: tuple[str, ...]) -> 
         await client.get(path)
     except SSCDeviceError as err:
         return err.code == ERROR_NOT_FOUND
-    except (SSCConnectionError, SSCTimeoutError):
+    except SSCConnectionError, SSCTimeoutError:
         return False
     return False
 
@@ -209,7 +210,7 @@ async def _async_answers_not_found(client: SSCClient, path: tuple[str, ...]) -> 
 async def _async_answers_a_number(client: SSCClient, path: tuple[str, ...]) -> bool:
     try:
         value = await client.get(path)
-    except (SSCConnectionError, SSCTimeoutError, SSCDeviceError):
+    except SSCConnectionError, SSCTimeoutError, SSCDeviceError:
         return False
     is_number = isinstance(value, (int, float)) and not isinstance(value, bool)
     return is_number and finite_float(value) is not None

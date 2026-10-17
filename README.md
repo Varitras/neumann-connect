@@ -10,14 +10,10 @@ Assistant's built-in Zeroconf component.
 
 Change history: see [CHANGELOG.md](./CHANGELOG.md).
 
-**Requires Home Assistant 2025.2 or newer.**
+**Requires Home Assistant 2026.10 or newer.**
 
 Custom icon/logo in `custom_components/neumann_kh/brand/` (an independent
-design, not a copy of the official Neumann company logo). The icon itself
-needs **2026.3 or newer** – only from that version on do custom integrations
-read their brand images directly from their own `brand/` folder (see the
-[HA Developer Blog](https://developers.home-assistant.io/blog/2026/02/24/brands-proxy-api/)).
-Everything else works from 2025.2; older versions simply show a generic icon.
+design, not a copy of the official Neumann company logo).
 
 Based on the SSC address paths documented in the
 [khtool project](https://github.com/schwinn/khtool).
@@ -272,10 +268,9 @@ wakes from standby, Home Assistant picks it up again on its own. How quickly
 it returns depends on which of two mechanisms is running.
 
 If the speaker was already unavailable when Home Assistant started, the config
-entry never finished setting up and Home Assistant retries it with a widening
-gap: 5 s, 10 s, 20 s, 40 s, 80 s, and from then on every 80 s. Since Home
-Assistant 2026.6 the gap keeps doubling instead (160 s, 320 s) until it
-reaches 10 minutes. It never gives up. Home Assistant notes each retry in
+entry never finished setting up and Home Assistant retries it with a gap that
+doubles each time (5 s, 10 s, 20 s, ...) until it reaches 10 minutes. It never
+gives up. Home Assistant notes each retry in
 the log itself.
 
 If the entry was up and running when the speaker went to sleep, the poll cycle

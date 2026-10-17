@@ -10,15 +10,10 @@ Home Assistants eingebaute Zeroconf-Komponente.
 
 Änderungshistorie: siehe [CHANGELOG.de.md](./CHANGELOG.de.md).
 
-**Benötigt Home Assistant 2025.2 oder neuer.**
+**Benötigt Home Assistant 2026.10 oder neuer.**
 
 Eigenes Icon/Logo unter `custom_components/neumann_kh/brand/` (eigenständiges
-Design, keine Kopie des offiziellen Neumann-Firmenlogos). Das Icon selbst
-braucht **2026.3 oder neuer** – erst ab dieser Version lesen Custom
-Integrations ihre Marken-Bilder direkt aus einem eigenen `brand/`-Ordner
-(siehe [HA Developer Blog](https://developers.home-assistant.io/blog/2026/02/24/brands-proxy-api/)).
-Alles andere läuft ab 2025.2; ältere Versionen zeigen lediglich ein
-generisches Icon.
+Design, keine Kopie des offiziellen Neumann-Firmenlogos).
 
 Basiert auf den SSC-Adresspfaden, die im
 [khtool-Projekt](https://github.com/schwinn/khtool) dokumentiert sind.
@@ -282,10 +277,9 @@ Assistant das von selbst wieder. Wie schnell es zurückkommt, hängt davon ab,
 welcher der beiden Mechanismen greift.
 
 War der Lautsprecher schon beim Start von Home Assistant nicht erreichbar, kam
-der Eintrag nie zustande und Home Assistant versucht es mit wachsendem Abstand
-erneut: 5 s, 10 s, 20 s, 40 s, 80 s und danach alle 80 s. Seit Home Assistant
-2026.6 verdoppelt sich der Abstand stattdessen weiter (160 s, 320 s) bis auf
-10 Minuten. Aufgegeben wird nie. Jeden Wiederholungsversuch vermerkt Home
+der Eintrag nie zustande und Home Assistant versucht es mit jeweils
+verdoppeltem Abstand erneut (5 s, 10 s, 20 s, …) bis auf 10 Minuten.
+Aufgegeben wird nie. Jeden Wiederholungsversuch vermerkt Home
 Assistant selbst im Log.
 
 Lief der Eintrag bereits, als der Lautsprecher einschlief, läuft der

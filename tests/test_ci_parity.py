@@ -77,6 +77,9 @@ GATES = {
     # Anchored at the line end: anything after -m "" (-k, --deselect) narrows it.
     "pytest full run": r'-m pytest tests/ -q -m ""\s*$',
     "mutation run": r'^\s*"\$PYTHON" \.github/scripts/mutate\.py ',
+    "gitleaks pin": r'^\s*"\$PYTHON" \.github/scripts/check_gitleaks_pin\.py\s*$',
+    # No arguments: files and strictness live in mypy.ini, so a narrowed call shows here.
+    "mypy": r'^\s*"\$PYTHON" -m mypy\s*$',
 }
 
 
@@ -113,6 +116,8 @@ def test_the_gate_scan_ignores_comments_and_near_misses():
     assert _missing_gates(narrowed) == ["pytest full run"]
     assert _missing_gates(deselected) == ["pytest full run"]
     assert _missing_gates(only_echoed) == ["mutation run"]
+    one_file = script.replace("-m mypy", "-m mypy custom_components/neumann_kh/_util.py")
+    assert _missing_gates(one_file) == ["mypy"]
 
 
 def test_the_scripts_are_committed_executable():

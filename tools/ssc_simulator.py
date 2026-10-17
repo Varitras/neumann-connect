@@ -624,7 +624,7 @@ async def _handle_client(
         while True:
             try:
                 raw_line = await reader.readuntil(b"\n")
-            except (asyncio.IncompleteReadError, ConnectionResetError):
+            except asyncio.IncompleteReadError, ConnectionResetError:
                 break
             except asyncio.LimitOverrunError:
                 _LOGGER.warning("Line exceeded the limit, dropping connection")

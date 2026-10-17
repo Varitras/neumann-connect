@@ -37,7 +37,8 @@ _FAILED_COUNT = re.compile(r"\b(\d+) failed\b")
 
 def _run_expected_test(node_id: str) -> bool:
     """True if the named test FAILS (which is what a live mutation must do)."""
-    finished = subprocess.run(
+    # The node id comes from the committed plan, not from outside input.
+    finished = subprocess.run(  # noqa: S603
         [sys.executable, "-m", "pytest", node_id, "-q", "-m", "", "-p", "no:cacheprovider"],
         cwd=REPO,
         capture_output=True,

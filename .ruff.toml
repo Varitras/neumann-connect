@@ -1,10 +1,10 @@
-# Ruff is pinned in requirements_test.txt, which CI installs. Without the pin
+# Ruff is pinned in requirements_tools.txt, which every CI check job installs. Without the pin
 # a new release turns the build red for rules that did not exist when the code
 # was written, which is what happened on the 0.16.0 upgrade.
 
-# The oldest Python the supported Home Assistant version runs on (2025.2).
+# The oldest Python the supported Home Assistant version runs on (2026.10).
 # Without this Ruff assumes a much older Python and misjudges what is idiomatic.
-target-version = "py313"
+target-version = "py314"
 
 # The width `ruff format` wraps to (the gate runs `ruff format --check`). The
 # default rule set does not flag longer lines, so a long literal stays as is.
@@ -13,10 +13,14 @@ line-length = 100
 [lint]
 # Added on top of the defaults, not instead of them - "select" would replace
 # the default set and silently drop rules that are already catching things.
-extend-select = ["B", "SLF"]
+# S: dangerous APIs (subprocess with input, eval, insecure hashes, URL schemes) -
+# the integration talks to devices and writes files, so a reviewer should not
+# have to spot these by eye.
+extend-select = ["B", "SLF", "S"]
 
 [lint.per-file-ignores]
 # Tests reach into the client on purpose: asserting that a failure dropped the
 # connection means looking at _writer, and there is no public equivalent that
-# would not exist solely for the tests.
-"tests/*" = ["SLF001"]
+# would not exist solely for the tests. assert is how pytest checks, and the
+# tests start git, ruff and pytest with fixed arguments.
+"tests/*" = ["SLF001", "S101", "S603", "S607"]

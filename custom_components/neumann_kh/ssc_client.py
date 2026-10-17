@@ -246,7 +246,7 @@ class SSCClient:
                 self._writer = None
                 self._reader = None
 
-    async def _send_raw(self, payload: dict) -> None:
+    async def _send_raw(self, payload: dict[str, Any]) -> None:
         if self._writer is None:
             # Should be ruled out by _ensure_connected() before every call -
             # explicit check instead of `assert`, since assert statements can be
@@ -310,7 +310,7 @@ class SSCClient:
                 # (accepted risk A5 - one lost request, no wrong value).
                 self._drop_connection()
                 return
-            except (asyncio.LimitOverrunError, OSError):
+            except asyncio.LimitOverrunError, OSError:
                 # Broken or flooded connection - let the actual request fail.
                 self._drop_connection()
                 return
@@ -421,7 +421,7 @@ class SSCClient:
                 continue
             try:
                 parsed = json.loads(line)
-            except (json.JSONDecodeError, UnicodeDecodeError):
+            except json.JSONDecodeError, UnicodeDecodeError:
                 # json.loads decodes the bytes itself, so a line that is not
                 # valid UTF-8 raises before it ever gets to the JSON parser.
                 # Both mean the same thing here: unusable line, keep reading.
@@ -457,10 +457,10 @@ class SSCClient:
 
     async def request(
         self,
-        payload: dict,
+        payload: dict[str, Any],
         priority: bool = False,
         expect_path: tuple[str, ...] | None = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Sends an SSC message and returns the merged result dict.
 
         priority=True marks a user action: if a poll cycle is currently
@@ -481,7 +481,9 @@ class SSCClient:
             if priority:
                 self._priority_waiting.clear()
 
-    async def _locked_request(self, payload: dict, expect_path: tuple[str, ...] | None) -> dict:
+    async def _locked_request(
+        self, payload: dict[str, Any], expect_path: tuple[str, ...] | None
+    ) -> dict[str, Any]:
         """Send one message and read its answer. Caller holds the lock."""
         try:
             # Connecting and draining are inside the try on purpose: both
@@ -492,7 +494,7 @@ class SSCClient:
             await self._discard_stale_lines()
             await self._send_raw(payload)
             merged = await self._read_lines_until_settled(expect_path)
-        except (SSCConnectionError, SSCTimeoutError):
+        except SSCConnectionError, SSCTimeoutError:
             # Drop the connection so the next attempt reconnects
             self._drop_connection()
             raise
