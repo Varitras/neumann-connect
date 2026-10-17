@@ -5,6 +5,62 @@
 All notable changes to this integration are documented here.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.19.0] – KH 750 firmware 1.2, KH 80 saving, the measured EQ
+
+### Added
+- KH 750 with firmware 1.2.x: level and mute are found in `audio/out5`,
+  where this firmware keeps them. The setup asks which container the speaker
+  has and switches only on a clear answer; anything else stays on
+  `audio/out`, the layout of current firmware (not tested on hardware)
+- KH 80 DSP: every change is followed by the speaker's save command, so it
+  survives switching off (reported for this model, not tested on hardware).
+  The KH 120 II and KH 750 were measured to save by themselves. If the save
+  fails, the change is reported as not kept
+
+### Changed
+- The KH 750 EQ entities match the measured device: the main output gains
+  "EQ3", and the two "EQ Crossover Output 1/2" switches and buttons are gone –
+  that container does not exist on the speaker, so they never had a value.
+  They are not removed automatically: delete them under Settings → Devices &
+  Services → [device] → Entities
+- Factory reset and Restore backup confirm only with a second press between
+  2 s and 30 s after the first. A double-click used to confirm before the
+  warning could be read
+- The model is now read again at every setup, as the firmware already was.
+  An entry that was added while the speaker did not report its model now
+  corrects itself; entities of the previously assumed model then show as no
+  longer provided and can be deleted the same way
+- Input gain, Subwoofer input gain and Subwoofer low cut are listed with the
+  diagnostic entities
+- A speaker that answers but rejects every value now marks the entities
+  unavailable and logs an error, instead of a successful cycle without values
+- The KH 750 is no longer asked for the six monitor-only front-panel values
+- The speaker list of the network scan marks speakers you ignored instead of
+  listing them as already set up
+- German texts use one term per thing and the informal form throughout; the
+  "another action is running" message names the EQ reset too
+- Tests run against Home Assistant 2026.10.0
+
+### Fixed
+- Error messages and logs no longer carry the speaker's address or serial:
+  connection errors quoted the full socket address, the mDNS name contains
+  the serial, and debug lines held raw device answers
+- A value the speaker did not confirm is read again on the next cycle, rarely
+  polled ones such as the device name included, instead of showing the old
+  value for up to five minutes
+- Numbers the speaker sends that are not finite or too large show as unknown
+  instead of raising errors; a non-finite number is never sent to the speaker
+- Delays are rounded to whole samples before writing instead of being cut
+  off; Auto standby time, Standby threshold level and Logo brightness are
+  sent as whole numbers instead of decimals
+- A device name longer than 52 characters shows as unknown instead of keeping
+  the Device name entity from being added, so it can be shortened again
+- A missing serial is no longer shown as a made-up masked one, and backups
+  from before 1.15 are accepted for their speaker again
+- The downgraded "speaker offline" log line respects the configured log level
+- Padded or odd firmware and serial answers are normalised before they are
+  stored
+
 ## [1.18.3] – The right speaker, and the newest write wins
 
 ### Fixed

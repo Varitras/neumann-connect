@@ -5,6 +5,70 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
+## [1.19.0] – KH-750-Firmware 1.2, Speichern beim KH 80, der gemessene EQ
+
+### Hinzugefügt
+- KH 750 mit Firmware 1.2.x: Pegel und Stummschaltung werden in `audio/out5`
+  gefunden, wo diese Firmware sie ablegt. Das Einrichten fragt ab, welchen
+  Container der Lautsprecher hat, und wechselt nur bei eindeutiger Antwort;
+  alles andere bleibt bei `audio/out`, dem Aufbau aktueller Firmware (nicht
+  an Hardware getestet)
+- KH 80 DSP: Nach jeder Änderung folgt der Speicherbefehl des Lautsprechers,
+  damit sie das Ausschalten übersteht (für dieses Modell berichtet, nicht an
+  Hardware getestet). KH 120 II und KH 750 speichern nachweislich selbst.
+  Scheitert das Speichern, wird die Änderung als nicht gesichert gemeldet
+
+### Geändert
+- Die EQ-Entitäten der KH 750 entsprechen dem gemessenen Gerät: Der
+  Hauptausgang bekommt „EQ3“, die beiden Schalter und Buttons „EQ Crossover
+  Ausgang 1/2“ entfallen – diesen Container hat der Lautsprecher nicht, sie
+  hatten nie einen Wert. Sie werden nicht automatisch entfernt: Lösche sie
+  unter Einstellungen → Geräte & Dienste → [Gerät] → Entitäten
+- Werksreset und „Backup zurückspielen“ lösen erst mit einem zweiten Druck
+  frühestens 2 s und spätestens 30 s nach dem ersten aus. Ein Doppelklick hat
+  bisher bestätigt, bevor die Warnung zu lesen war
+- Das Modell wird jetzt wie bisher schon die Firmware bei jedem Einrichten
+  neu gelesen. Ein Eintrag, der angelegt wurde, als der Lautsprecher sein
+  Modell nicht meldete, korrigiert sich jetzt selbst; Entitäten des bisher
+  angenommenen Modells erscheinen danach als nicht mehr bereitgestellt und
+  lassen sich ebenso löschen
+- Eingangsverstärkung, Subwoofer-Eingangsverstärkung und Subwoofer-Low-Cut
+  stehen bei den Diagnose-Entitäten
+- Ein Lautsprecher, der antwortet, aber jeden Wert ablehnt, macht die
+  Entitäten jetzt nicht verfügbar und schreibt einen Fehler ins Log, statt
+  einen erfolgreichen Zyklus ohne Werte zu melden
+- Die KH 750 wird nicht mehr nach den sechs Frontpanel-Werten der Monitore
+  gefragt
+- Die Lautsprecherliste der Netzwerksuche kennzeichnet ignorierte
+  Lautsprecher, statt sie als bereits eingerichtet aufzuführen
+- Deutsche Texte nutzen einen Begriff je Sache und durchgehend das Du; die
+  Meldung „andere Aktion läuft“ nennt auch den EQ-Reset
+- Tests laufen gegen Home Assistant 2026.10.0
+
+### Behoben
+- Fehlermeldungen und Logs enthalten nicht mehr die Adresse oder
+  Seriennummer des Lautsprechers: Verbindungsfehler zitierten die volle
+  Socket-Adresse, der mDNS-Name enthält die Seriennummer, und Debug-Zeilen
+  enthielten rohe Geräteantworten
+- Ein Wert, den der Lautsprecher nicht bestätigt, wird im nächsten Zyklus
+  neu gelesen, auch selten abgefragte wie der Gerätename, statt bis zu fünf
+  Minuten den alten Wert zu zeigen
+- Zahlen vom Lautsprecher, die nicht endlich oder zu groß sind, erscheinen
+  als unbekannt, statt Fehler auszulösen; eine nicht endliche Zahl wird nie
+  an den Lautsprecher gesendet
+- Verzögerungen werden vor dem Schreiben auf ganze Samples gerundet statt
+  abgeschnitten; Auto-Standby-Zeit, Standby-Schwellwert und Logo-Helligkeit
+  werden als ganze Zahlen statt als Dezimalzahlen gesendet
+- Ein Gerätename mit mehr als 52 Zeichen erscheint als unbekannt, statt die
+  Entität „Gerätename“ am Hinzufügen zu hindern – er lässt sich so wieder
+  kürzen
+- Eine fehlende Seriennummer erscheint nicht mehr als erfundene maskierte,
+  und Backups von vor 1.15 werden für ihren Lautsprecher wieder angenommen
+- Die heruntergestufte Log-Zeile „Lautsprecher offline“ beachtet das
+  eingestellte Log-Level
+- Aufgefüllte oder ungewöhnliche Antworten zu Firmware und Seriennummer
+  werden vor dem Speichern bereinigt
+
 ## [1.18.3] – Der richtige Lautsprecher, und der neueste Schreibzugriff gewinnt
 
 ### Behoben
