@@ -44,6 +44,27 @@ from .ssc_client import SSCClient, SSCConnectionError, SSCDeviceError, SSCTimeou
 _LOGGER = logging.getLogger(__name__)
 
 
+def poll_paths_for_model(model: str | None) -> tuple[list[tuple[str, ...]], list[tuple[str, ...]]]:
+    """The (fast, slow) paths a model is polled for, EQ aside.
+
+    The one answer to "which paths does this model have": the backup reads the
+    same list plus every EQ leaf, so a path added here reaches both.
+    """
+    fast = list(POLL_PATHS)
+    slow = list(SLOW_POLL_PATHS)
+    # Logo brightness only on matching models (not KH 750 DSP).
+    if model in MODELS_WITH_LOGO_BRIGHTNESS:
+        fast.append(PATH_LOGO_BRIGHTNESS)
+    if model in MODELS_WITH_SUBWOOFER_FEATURES:
+        fast.extend(SUBWOOFER_POLL_PATHS)
+        slow.extend(SUBWOOFER_SLOW_POLL_PATHS)
+    else:
+        # Paths the subwoofer answers with a 404 - asking it every cycle only
+        # earns a rejection (see NON_SUBWOOFER_POLL_PATHS).
+        fast.extend(NON_SUBWOOFER_POLL_PATHS)
+    return fast, slow
+
+
 class SpeakerUnreachable(UpdateFailed):
     """The speaker answered nothing at all - normal while it is switched off."""
 
@@ -105,19 +126,7 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # client's priority mechanism already keeps user actions ahead of it.
         self.action_lock = asyncio.Lock()
         # Fast paths: every cycle. Slow paths: only every N cycles.
-        self._poll_paths = list(POLL_PATHS)
-        self._slow_poll_paths = list(SLOW_POLL_PATHS)
-        # Logo brightness only on matching models (not KH 750 DSP).
-        if model in MODELS_WITH_LOGO_BRIGHTNESS:
-            self._poll_paths.append(PATH_LOGO_BRIGHTNESS)
-        # Paths the subwoofer answers with a 404 - asking it every cycle only
-        # earns a rejection (see NON_SUBWOOFER_POLL_PATHS).
-        if model not in MODELS_WITH_SUBWOOFER_FEATURES:
-            self._poll_paths.extend(NON_SUBWOOFER_POLL_PATHS)
-        # Subwoofer-specific paths only on a detected subwoofer.
-        if model in MODELS_WITH_SUBWOOFER_FEATURES:
-            self._poll_paths.extend(SUBWOOFER_POLL_PATHS)
-            self._slow_poll_paths.extend(SUBWOOFER_SLOW_POLL_PATHS)
+        self._poll_paths, self._slow_poll_paths = poll_paths_for_model(model)
         # EQ "enabled" arrays for the container on/off switches (see eq.py).
         # Change only through user action (which applies the confirmed value
         # immediately) - therefore in the slow poll.
