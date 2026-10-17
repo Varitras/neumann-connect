@@ -52,3 +52,53 @@ BUNDLE_REPLY = (
         '"osc":{"error":[{"audio":{"out":[404,{"desc":"address not found"}]}}]}}'
     ),
 )
+
+# Writes, recorded 2026-10-17 by writing back the value just read (nothing
+# changed on the devices). The KH 120 II's ui/input_gain and the KH 750's
+# ui/bass_management are read-only; both answered alike.
+SET_REPLIES = (
+    (
+        {"audio": {"out": {"mute": False}}},
+        '{"audio":{"out":{"mute":false}}}',
+    ),
+    (
+        {"audio": {"out": {"dimm": 0}}},
+        '{"osc":{"error":[{"audio":{"out":{"dimm":[404,{"desc":"address not found"}]}}}]}}',
+    ),
+    (
+        # A value of the wrong type.
+        {"audio": {"out": {"mute": "x"}}},
+        '{"osc":{"error":[{"audio":{"out":{"mute":[406,{"desc":"not acceptable"}]}}}]}}',
+    ),
+    (
+        {"audio": {"out": {"mute": False, "delay": 0}}},
+        '{"audio":{"out":{"mute":false,"delay":0}}}',
+    ),
+    (
+        # The valid leaf is written; the 404 sits at the missing leaf's parent.
+        {"audio": {"out": {"mute": False, "dimm": 0}}},
+        (
+            '{"audio":{"out":{"mute":false}},'
+            '"osc":{"error":[{"audio":{"out":[404,{"desc":"address not found"}]}}]}}'
+        ),
+    ),
+    (
+        {"audio": {"out": {"delay": None, "mute": False}}},
+        '{"audio":{"out":{"mute":false,"delay":0}}}',
+    ),
+)
+
+KH_120_II_READ_ONLY_SET_REPLIES = (
+    (
+        {"ui": {"input_gain": 0.0}},
+        '{"osc":{"error":[{"ui":{"input_gain":[405,{"desc":"method not allowed"}]}}]}}',
+    ),
+    (
+        # The valid leaf is written; the 405 sits at the read-only leaf itself.
+        {"audio": {"out": {"mute": False}}, "ui": {"input_gain": 0.0}},
+        (
+            '{"audio":{"out":{"mute":false}},'
+            '"osc":{"error":[{"ui":{"input_gain":[405,{"desc":"method not allowed"}]}}]}}'
+        ),
+    ),
+)

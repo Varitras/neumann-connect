@@ -15,8 +15,10 @@ import pytest
 from recorded_replies import (
     BUNDLE_REPLY,
     CONTAINER_REPLY,
+    KH_120_II_READ_ONLY_SET_REPLIES,
     KH_750_NOT_FOUND_REPLIES,
     NOT_FOUND_REPLIES,
+    SET_REPLIES,
 )
 
 from tools.ssc_simulator import MODEL_KH_120_II, MODEL_KH_750, SSCSimulator
@@ -37,6 +39,24 @@ def test_the_simulator_answers_like_the_device(model, request_, line):
 @pytest.mark.parametrize(("request_", "line"), KH_750_NOT_FOUND_REPLIES)
 def test_the_simulated_kh_750_answers_like_the_device(request_, line):
     assert SSCSimulator(MODEL_KH_750).handle(request_) == json.loads(line)
+
+
+@pytest.mark.parametrize("model", MODELS)
+@pytest.mark.parametrize(
+    ("request_", "line"),
+    SET_REPLIES,
+    ids=["set", "set-missing", "set-wrong-type", "bundle-set", "bundle-set-missing", "get-and-set"],
+)
+def test_the_simulator_answers_sets_like_the_device(model, request_, line):
+    """Recorded with values equal to the simulator's defaults (mute off, delay 0)."""
+    assert SSCSimulator(model).handle(request_) == json.loads(line)
+
+
+@pytest.mark.parametrize(
+    ("request_", "line"), KH_120_II_READ_ONLY_SET_REPLIES, ids=["read-only", "bundle-read-only"]
+)
+def test_the_simulated_kh_120_ii_refuses_read_only_sets_like_the_device(request_, line):
+    assert SSCSimulator(MODEL_KH_120_II).handle(request_) == json.loads(line)
 
 
 def _get(simulator: SSCSimulator, *path: str):
