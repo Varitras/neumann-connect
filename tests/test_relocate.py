@@ -27,6 +27,8 @@ from custom_components.neumann_kh.const import (
     CONF_MODEL,
     CONF_SERIAL,
     DOMAIN,
+    FALLBACK_MODEL,
+    PATH_IDENTITY_PRODUCT,
     PATH_IDENTITY_SERIAL,
 )
 from custom_components.neumann_kh.discovery import DiscoveredSpeaker
@@ -58,18 +60,15 @@ def _entry(hass, serial=_SERIAL, host=_OLD_HOST) -> MockConfigEntry:
     return entry
 
 
-def _own_speaker(answer_for_other_paths=None):
-    """A client whose device carries the entry's serial.
+def _own_speaker(answer_for_other_paths=None, product="KH 120 II"):
+    """A client whose device carries the entry's serial and model.
 
     Setup verifies the serial before the first poll, so a fake that answers
     the same thing for every path would be refused as a different speaker.
     """
+    answers = {PATH_IDENTITY_SERIAL: _SERIAL, PATH_IDENTITY_PRODUCT: product}
     client = AsyncMock()
-    client.get = AsyncMock(
-        side_effect=lambda path, **_: (
-            _SERIAL if path == PATH_IDENTITY_SERIAL else answer_for_other_paths
-        )
-    )
+    client.get = AsyncMock(side_effect=lambda path, **_: answers.get(path, answer_for_other_paths))
     client.close = AsyncMock()
     return client
 
@@ -203,13 +202,13 @@ async def test_a_speaker_that_only_changed_port_is_followed(hass, _custom_integr
 # --- Firmware version -------------------------------------------------------
 
 
-async def _run_setup(hass, entry, version, stored=None):
+async def _run_setup(hass, entry, version, stored=None, product="KH 120 II"):
     """Drive a successful setup with a client reporting `version`."""
     if stored is not None:
         hass.config_entries.async_update_entry(
             entry, data={**entry.data, CONF_FIRMWARE_VERSION: stored}
         )
-    client = _own_speaker(answer_for_other_paths=version)
+    client = _own_speaker(answer_for_other_paths=version, product=product)
     with (
         patch(
             "custom_components.neumann_kh.NeumannKHCoordinator.async_config_entry_first_refresh",
@@ -266,6 +265,32 @@ async def test_an_odd_firmware_answer_does_not_overwrite_the_version(
     await _run_setup(hass, entry, version=answered, stored="1_7_3")
 
     assert entry.data[CONF_FIRMWARE_VERSION] == "1_7_3"
+
+
+async def test_a_model_stored_as_the_fallback_is_corrected_at_setup(hass, _custom_integration):
+    """A product answer missing while adding the entry stored the fallback for good.
+
+    A KH 750 then ran as a monitor forever: no subwoofer entities, the wrong
+    poll paths and EQ containers.
+    """
+    entry = _entry(hass)
+    hass.config_entries.async_update_entry(entry, data={**entry.data, CONF_MODEL: FALLBACK_MODEL})
+
+    await _run_setup(hass, entry, version="2_1_2", product="KH 750")
+
+    assert entry.data[CONF_MODEL] == "KH 750"
+    assert entry.runtime_data.model == "KH 750"
+
+
+@pytest.mark.parametrize("answered", [None, "", ["KH 750"]])
+async def test_an_unusable_product_answer_keeps_the_stored_model(
+    hass, _custom_integration, answered
+):
+    entry = _entry(hass)
+
+    await _run_setup(hass, entry, version="2_1_2", product=answered)
+
+    assert entry.data[CONF_MODEL] == "KH 120 II"
 
 
 async def test_silent_candidates_are_asked_concurrently(hass, _custom_integration):

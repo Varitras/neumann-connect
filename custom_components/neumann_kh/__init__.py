@@ -30,6 +30,7 @@ from .const import (
     MAX_PARALLEL_IDENTITY_QUERIES,
     MODELS_WITH_SUBWOOFER_FEATURES,
     OUT5_OUTPUT_ALIASES,
+    PATH_IDENTITY_PRODUCT,
     PATH_IDENTITY_SERIAL,
     PATH_IDENTITY_VERSION,
     PATH_OUTPUT_LEVEL,
@@ -142,14 +143,23 @@ async def _async_relocate(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return False
 
 
-async def _async_refresh_firmware_version(
+# Entry field and the path it is refreshed from at every setup.
+_REFRESHED_IDENTITY = (
+    (CONF_MODEL, PATH_IDENTITY_PRODUCT),
+    (CONF_FIRMWARE_VERSION, PATH_IDENTITY_VERSION),
+)
+
+
+async def _async_refresh_identity(
     hass: HomeAssistant, entry: ConfigEntry, client: SSCClient
 ) -> None:
-    """Store the firmware version the speaker reports right now.
+    """Store the model and firmware version the speaker reports right now.
 
-    It is otherwise only read while adding or reconfiguring the entry, so the
-    version shown in the device info kept describing whatever was installed
-    back then.
+    Both are otherwise only read while adding or reconfiguring the entry, so
+    the device info kept describing whatever was installed back then - and a
+    product answer missing at that moment left the fallback model stored for
+    good, which runs a KH 750 without its subwoofer entities. Read before the
+    coordinator is built, because the model decides what it polls.
 
     Once per setup is not the same as "always current": a speaker that reboots
     while Home Assistant is running does not make the entry reload - the poll
@@ -161,28 +171,28 @@ async def _async_refresh_firmware_version(
     Only written when it actually differs: every update rewrites the stored
     entry and notifies its listeners, which is pointless when nothing changed.
     """
-    try:
-        version = await client.get(PATH_IDENTITY_VERSION)
-    except Exception:
-        # Deliberately broad. This is a cosmetic detail of the device info, so
-        # nothing it can throw may take down a setup that otherwise succeeded -
-        # the previously stored value simply stays.
-        _LOGGER.debug("Could not read the firmware version of %s", entry.title, exc_info=True)
-        return
-
-    version = as_identity_text(version) or ""
-    if not version or version == entry.data.get(CONF_FIRMWARE_VERSION):
-        return
-
-    _LOGGER.info(
-        "%s reports firmware %s now instead of %s",
-        entry.title,
-        version,
-        entry.data.get(CONF_FIRMWARE_VERSION) or "an unknown version",
-    )
-    hass.config_entries.async_update_entry(
-        entry, data={**entry.data, CONF_FIRMWARE_VERSION: version}
-    )
+    changed = {}
+    for key, path in _REFRESHED_IDENTITY:
+        try:
+            answered = await client.get(path)
+        except Exception:
+            # Deliberately broad. Nothing this can throw may take down a setup
+            # that otherwise succeeds - the previously stored value stays.
+            _LOGGER.debug("Could not read %s of %s", key, entry.title, exc_info=True)
+            continue
+        value = as_identity_text(answered)
+        if not value or value == entry.data.get(key):
+            continue
+        _LOGGER.info(
+            "%s reports %s %s now instead of %s",
+            entry.title,
+            key,
+            value,
+            entry.data.get(key) or "nothing",
+        )
+        changed[key] = value
+    if changed:
+        hass.config_entries.async_update_entry(entry, data={**entry.data, **changed})
 
 
 async def _async_answers_not_found(client: SSCClient, path: tuple[str, ...]) -> bool:
@@ -258,10 +268,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: NeumannKHConfigEntry) ->
         timeout=DEFAULT_TIMEOUT,
     )
 
-    coordinator = NeumannKHCoordinator(hass, client, entry.title, model=entry.data.get(CONF_MODEL))
     try:
         await _async_verify_identity(entry, client)
+        await _async_refresh_identity(hass, entry, client)
         await _async_select_output_paths(entry, client)
+        coordinator = NeumannKHCoordinator(
+            hass, client, entry.title, model=entry.data.get(CONF_MODEL)
+        )
         await coordinator.async_config_entry_first_refresh()
     except asyncio.CancelledError:
         # `except Exception` does not catch this - CancelledError derives from
@@ -282,8 +295,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: NeumannKHConfigEntry) ->
         # instead of the entry failing on every retry indefinitely.
         await _async_relocate(hass, entry)
         raise
-
-    await _async_refresh_firmware_version(hass, entry, client)
 
     entry.runtime_data = coordinator
 
