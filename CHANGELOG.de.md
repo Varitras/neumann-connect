@@ -21,8 +21,8 @@ Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 ### Geändert
 - Die EQ-Entitäten der KH 750 entsprechen dem gemessenen Gerät: Der
   Hauptausgang bekommt „EQ3“, die beiden Schalter und Buttons „EQ Crossover
-  Ausgang 1/2“ entfallen – diesen Container hat der Lautsprecher nicht, sie
-  hatten nie einen Wert. Sie werden nicht automatisch entfernt: Lösche sie
+  Ausgang 1/2“ entfallen – die Pfade, die sie abfragten, gibt es am
+  Lautsprecher nicht (404), sie hatten nie einen Wert. Sie werden nicht automatisch entfernt: Lösche sie
   unter Einstellungen → Geräte & Dienste → [Gerät] → Entitäten
 - Werksreset und „Backup zurückspielen“ lösen erst mit einem zweiten Druck
   frühestens 2 s und spätestens 30 s nach dem ersten aus. Ein Doppelklick hat

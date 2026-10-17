@@ -49,8 +49,9 @@ NON_SUBWOOFER_EQ_CONTAINERS: tuple[EQContainer, ...] = (
 )
 
 # Subwoofer (KH 750): eq2 and eq3 on the main output and on out1/out2, ten
-# bands each - measured on the device. There is no eq1 (404), although the
-# command schema lists one. All labels deliberately begin with "EQ" so they
+# bands each - measured on the device. eq1 is the crossover and has no leaves
+# of its own (404): they sit under eq1/in1 and eq1/in2, two bands each
+# (measured; not exposed). All labels deliberately begin with "EQ" so they
 # appear grouped together alphabetically in the configuration section.
 SUBWOOFER_EQ_CONTAINERS: tuple[EQContainer, ...] = (
     EQContainer(

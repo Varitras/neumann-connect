@@ -20,7 +20,8 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 ### Changed
 - The KH 750 EQ entities match the measured device: the main output gains
   "EQ3", and the two "EQ Crossover Output 1/2" switches and buttons are gone –
-  that container does not exist on the speaker, so they never had a value.
+  the paths they read do not exist on the speaker (404), so they never had a
+  value.
   They are not removed automatically: delete them under Settings → Devices &
   Services → [device] → Entities
 - Factory reset and Restore backup confirm only with a second press between

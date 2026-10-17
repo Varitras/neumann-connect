@@ -1,7 +1,8 @@
 """The KH 750 EQ layout, as measured on the device.
 
 Read-only probe of two KH 750 (firmware 2_1_2): eq2 and eq3 exist on the main
-output and on out1/out2, ten bands each; eq1 exists nowhere (404). The table
+output and on out1/out2, ten bands each; eq1/<leaf> answers 404 everywhere,
+because eq1 - the crossover - keeps its leaves under eq1/in1 and eq1/in2. The table
 used to carry an eq1 "crossover" on out1/out2 - two switches stuck at unknown,
 two reset buttons failing on every press - and lacked eq3 on the main output.
 
