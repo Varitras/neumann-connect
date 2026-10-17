@@ -107,6 +107,19 @@ def test_every_mutation_is_valid_code():
     )
 
 
+def test_a_check_without_a_working_ruff_fails_instead_of_passing(monkeypatch):
+    """No ruff means no check - and an empty report used to read as "valid".
+
+    On an environment without ruff every mutation counted as valid code, so
+    the guard above was green while it checked nothing.
+    """
+    monkeypatch.setattr(sys, "executable", "/bin/false")
+    entry = {"path": "custom_components/neumann_kh/const.py", "find": "DOMAIN", "replace": "DOMAIN"}
+
+    with pytest.raises(RuntimeError, match="ruff"):
+        _broken_by(entry)
+
+
 def test_a_mutation_calling_a_name_that_is_gone_is_reported():
     """Proof-of-red for the check above."""
     entry = {
