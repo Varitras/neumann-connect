@@ -244,3 +244,21 @@ def _leaf_paths(tree, prefix=()):
             yield from _leaf_paths(value, prefix + (key,))
         else:
             yield prefix + (key,)
+
+
+@pytest.mark.parametrize(
+    "request_",
+    [
+        {"osc": {"feature": {"pattern": "x"}}},
+        {"osc": {"feature": None}},
+        {"osc": {"feature": {}}},
+        {"osc": {}},
+        {"osc": {"version": "2"}},
+    ],
+    ids=["feature-set", "feature-container", "feature-empty", "osc-empty", "version-set"],
+)
+def test_unrecorded_osc_requests_are_refused_rather_than_invented(request_):
+    """Only the recorded gets are answered; anything else gets the generic 400."""
+    assert SSCSimulator(MODEL_KH_120_II).handle(request_) == {
+        "osc": {"error": [400, {"desc": "message not understood"}]}
+    }
