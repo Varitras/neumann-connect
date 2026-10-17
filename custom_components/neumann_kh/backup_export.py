@@ -132,13 +132,24 @@ async def async_build_backup(client: SSCClient, model: str | None) -> dict[str, 
     a partial snapshot is more dangerous than none, because it looks complete
     and would replace the last usable one.
     """
+    paths = [path for path in known_paths_for_model(model) if path not in _EXCLUDED_PATHS]
+    return await async_read_paths(client, paths, BackupTimeoutError)
+
+
+async def async_read_paths(
+    client: SSCClient, paths: list[tuple[str, ...]], timeout_error: type[Exception]
+) -> dict[str, Any]:
+    """Read each path on its own and merge the answers into one tree.
+
+    Shared by the backup and the discovery. A path the device rejects is
+    skipped; a lost connection or the time limit aborts the run, because a
+    half-read snapshot looks complete and would replace the last good one.
+    """
     result: dict[str, Any] = {}
     deadline = asyncio.get_running_loop().time() + DEVICE_ACTION_TIMEOUT_SECONDS
-    for path in known_paths_for_model(model):
-        if path in _EXCLUDED_PATHS:
-            continue
+    for path in paths:
         if asyncio.get_running_loop().time() >= deadline:
-            raise BackupTimeoutError(
+            raise timeout_error(
                 f"reading the values took longer than {DEVICE_ACTION_TIMEOUT_SECONDS:.0f}s"
             )
         try:
@@ -148,12 +159,11 @@ async def async_build_backup(client: SSCClient, model: str | None) -> dict[str, 
         except (SSCConnectionError, SSCTimeoutError):
             raise
         except Exception:
-            # A bug on one path should not abort the backup, but swallowing it
+            # A bug on one path should not abort the run, but swallowing it
             # silently would leave a value missing from the file with nothing
             # to explain it. Same handling as the poll cycle in coordinator.py.
-            _LOGGER.exception("Unexpected error while reading path %s for the backup", path)
+            _LOGGER.exception("Unexpected error while reading path %s", path)
             continue
         if value is not None:
             deep_merge(result, build_nested(path, value))
-
     return result

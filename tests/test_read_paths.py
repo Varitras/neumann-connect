@@ -75,4 +75,3 @@ async def test_the_backup_leaves_live_readings_out():
     await async_build_backup(client, "KH 120 II")
     assert PATH_OUTPUT_LEVEL in client.asked
     assert PATH_METER_INPUT_LEVEL not in client.asked
-
