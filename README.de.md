@@ -8,6 +8,9 @@ zusätzliches pip-Paket installiert werden – für das SSC-Protokoll selbst
 ist ein schlanker eigener asyncio-Client enthalten, die Geräte-Suche nutzt
 Home Assistants eingebaute Zeroconf-Komponente.
 
+Ohne Home Assistant: Eine eigenständige Desktop-App für dieselben Lautsprecher
+entsteht unter [Neumann-Control](https://github.com/Varitras/Neumann-Control).
+
 Änderungshistorie: siehe [CHANGELOG.de.md](./CHANGELOG.de.md).
 Protokoll- und Gerätedetails (SSC, gemessenes Lautsprecher-Verhalten): siehe
 [Wiki](https://github.com/Varitras/neumann-connect/wiki) (auf Englisch).

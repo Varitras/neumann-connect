@@ -8,6 +8,9 @@ pip package needs to be installed – a lean, self-contained asyncio client is
 included for the SSC protocol itself, and device discovery uses Home
 Assistant's built-in Zeroconf component.
 
+Without Home Assistant: a standalone desktop app for the same speakers is in
+development at [Neumann-Control](https://github.com/Varitras/Neumann-Control).
+
 Change history: see [CHANGELOG.md](./CHANGELOG.md).
 Protocol and device details (SSC, measured speaker behaviour): see the
 [wiki](https://github.com/Varitras/neumann-connect/wiki).
