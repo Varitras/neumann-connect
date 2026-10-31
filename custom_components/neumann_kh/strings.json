@@ -337,6 +337,9 @@
     },
     "restore_nothing_written": {
       "message": "The speaker accepted none of the values in the backup ({skipped} skipped), so nothing was changed. Check that the backup belongs to this model and firmware."
+    },
+    "restore_unconfirmed": {
+      "message": "The speaker answered, but confirmed none of the {unconfirmed} values that were sent. It may still have taken them; their state is being read back. Check the values before relying on them."
     }
   }
 }

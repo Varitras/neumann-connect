@@ -27,6 +27,9 @@ from .const import (
     CONTROL_MODE_LOCAL,
     DEVICE_ACTION_TIMEOUT_SECONDS,
     DOMAIN,
+    PATH_OUT1_MUTE,
+    PATH_OUT2_MUTE,
+    PATH_OUTPUT_MUTE,
     PATH_UI_CONTROL_MODE,
 )
 from .discovery_export import DiscoveryTimeoutError, async_discover_all_values
@@ -276,6 +279,49 @@ async def async_check_restorable(hass: HomeAssistant, entry: ConfigEntry) -> dic
     return backup
 
 
+def _notify_restored(
+    hass: HomeAssistant, entry: ConfigEntry, written: int, adjusted: int, skipped: int, refused: int
+) -> None:
+    language = hass.config.language
+    adjusted_de = f", {adjusted} vom Gerät angepasst" if adjusted else ""
+    adjusted_en = f", {adjusted} adjusted by the device" if adjusted else ""
+    refused_de = f" (davon {refused} vom Gerät abgelehnt)" if refused else ""
+    refused_en = f" ({refused} refused by the device)" if refused else ""
+    _notify(
+        hass,
+        entry,
+        "restore",
+        localized(
+            language,
+            "Neumann Connect: Backup zurückgespielt",
+            "Neumann Connect: backup restored",
+        ),
+        localized(
+            language,
+            f"Backup für **{entry.title}** zurückgespielt: {written} Werte "
+            f"geschrieben{adjusted_de}, {skipped} übersprungen{refused_de}.",
+            f"Backup restored for **{entry.title}**: {written} values "
+            f"written{adjusted_en}, {skipped} skipped{refused_en}.",
+        ),
+    )
+
+
+_MUTE_PATHS = (PATH_OUTPUT_MUTE, PATH_OUT1_MUTE, PATH_OUT2_MUTE)
+
+
+def _write_order(paths: list[tuple[str, ...]], values: dict[str, Any]) -> list[tuple[str, ...]]:
+    """Mute before any level, unmute after every level.
+
+    In allowlist order a backup "muted, high level" played the speaker unmuted
+    at that level for a round trip - and left it so if the connection dropped
+    in between.
+    """
+    muting = [path for path in _MUTE_PATHS if path in paths and extract(values, path) is True]
+    unmuting = [path for path in _MUTE_PATHS if path in paths and path not in muting]
+    rest = [path for path in paths if path not in _MUTE_PATHS]
+    return muting + rest + unmuting
+
+
 async def async_run_restore(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -302,7 +348,11 @@ async def async_run_restore(
 
     written = 0
     adjusted = 0
+    # skipped counts every path that did not land confirmed; refused and
+    # unconfirmed are the parts of it the user can act on.
     skipped = 0
+    refused = 0
+    unconfirmed = 0
     # Checked between paths, never around the whole loop: cancelling inside a
     # set() would drop the values already confirmed and leave the user with a
     # bare abort instead of "wrote 12 of 23" on a half-written speaker.
@@ -327,7 +377,7 @@ async def async_run_restore(
             },
         )
 
-    for path in restorable_paths_for_model(entry.data.get(CONF_MODEL)):
+    for path in _write_order(restorable_paths_for_model(entry.data.get(CONF_MODEL)), values):
         if asyncio.get_running_loop().time() >= deadline:
             raise _stop("restore_timed_out", seconds=f"{DEVICE_ACTION_TIMEOUT_SECONDS:.0f}")
         value = extract(values, path)
@@ -339,9 +389,11 @@ async def async_run_restore(
         except SSCLocalModeError as err:
             # The whole device refuses, so every further write would too.
             raise _stop("restore_local_mode") from err
-        except SSCDeviceError:
+        except SSCDeviceError as err:
             # Not writable on this model or firmware.
+            _LOGGER.info("Restore: the device refused %s (%s)", "/".join(path), err.code)
             skipped += 1
+            refused += 1
         except (SSCConnectionError, SSCTimeoutError) as err:
             # The request may have landed before the line dropped.
             coordinator.request_reread(path)
@@ -354,6 +406,7 @@ async def async_run_restore(
                 # to the coordinator would drop the entity to unknown. It may
                 # still hold the new value, so the path is read back.
                 skipped += 1
+                unconfirmed += 1
                 coordinator.request_reread(path)
                 continue
             # Applied now, published later: the device has this value from
@@ -369,10 +422,20 @@ async def async_run_restore(
     # One notification for the whole restore instead of one per path: each
     # publish notifies every entity of the device, so per-path publishing
     # produced thousands of state changes for a single press.
+    if not written + adjusted and unconfirmed:
+        # The sets went out and the paths are being read back, so the device
+        # may hold every value: not "nothing changed", and saved like any
+        # other write (KH 80) so they survive a power cycle.
+        await coordinator.async_persist()
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="restore_unconfirmed",
+            translation_placeholders={"unconfirmed": str(unconfirmed)},
+        )
     if not written + adjusted:
-        # Every path was refused or went unconfirmed. Announcing a successful
-        # restore of nothing is worse than an error: the user walks away
-        # believing the speaker was rewritten.
+        # Every path was refused. Announcing a successful restore of nothing
+        # is worse than an error: the user walks away believing the speaker
+        # was rewritten.
         raise HomeAssistantError(
             translation_domain=DOMAIN,
             translation_key="restore_nothing_written",
@@ -391,24 +454,5 @@ async def async_run_restore(
         skipped,
     )
 
-    language = hass.config.language
-    adjusted_de = f", {adjusted} vom Gerät angepasst" if adjusted else ""
-    adjusted_en = f", {adjusted} adjusted by the device" if adjusted else ""
-    _notify(
-        hass,
-        entry,
-        "restore",
-        localized(
-            language,
-            "Neumann Connect: Backup zurückgespielt",
-            "Neumann Connect: backup restored",
-        ),
-        localized(
-            language,
-            f"Backup für **{entry.title}** zurückgespielt: {written} Werte "
-            f"geschrieben{adjusted_de}, {skipped} übersprungen.",
-            f"Backup restored for **{entry.title}**: {written} values "
-            f"written{adjusted_en}, {skipped} skipped.",
-        ),
-    )
+    _notify_restored(hass, entry, written, adjusted, skipped, refused)
     return written, adjusted, skipped

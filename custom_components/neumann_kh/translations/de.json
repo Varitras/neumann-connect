@@ -337,6 +337,9 @@
     },
     "restore_nothing_written": {
       "message": "Der Lautsprecher hat keinen einzigen Wert aus dem Backup angenommen ({skipped} übersprungen), es wurde also nichts geändert. Prüfe, ob das Backup zu diesem Modell und dieser Firmware gehört."
+    },
+    "restore_unconfirmed": {
+      "message": "Der Lautsprecher hat geantwortet, aber keinen der {unconfirmed} gesendeten Werte bestätigt. Er kann sie trotzdem übernommen haben; ihr Zustand wird neu gelesen. Prüfe die Werte, bevor du dich darauf verlässt."
     }
   }
 }
