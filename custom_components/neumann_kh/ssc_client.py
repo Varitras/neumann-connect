@@ -427,10 +427,10 @@ class SSCClient:
                 continue
             try:
                 parsed = json.loads(line)
-            except json.JSONDecodeError, UnicodeDecodeError:
-                # json.loads decodes the bytes itself, so a line that is not
-                # valid UTF-8 raises before it ever gets to the JSON parser.
-                # Both mean the same thing here: unusable line, keep reading.
+            except ValueError, RecursionError:
+                # Covers invalid JSON, invalid UTF-8 (both ValueError), integers
+                # over 4300 digits (plain ValueError) and deep nesting
+                # (RecursionError) alike: unusable line, keep reading.
                 _LOGGER.debug(
                     "Ignored an invalid %d-byte SSC response from %s", len(line), self._host
                 )
