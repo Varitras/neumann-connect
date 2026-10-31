@@ -31,7 +31,8 @@ LINE_BUDGETS = {
     # identity handling. Splitting was considered and rejected: the flows
     # share the candidate/identity helpers, and HA discovers the class here.
     # Raised to 754 for the probatio import the mypy gate needs.
-    "config_flow.py": 754,
+    # Raised to 758 so user setup is not aborted by an open discovery card.
+    "config_flow.py": 758,
     # Raised from 500 for the KH 750 out5 support (device error code, path
     # aliases); the alternative was splitting the read loop out of its owner.
     # Raised to 540 for reading the nested osc/error format real speakers send.

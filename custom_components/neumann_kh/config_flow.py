@@ -351,7 +351,11 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if checked.error or identity is None:
             return await self._show_manual_form(user_input, checked.error)
 
-        await self.async_set_unique_id(str(identity.serial or f"{checked.host}_{checked.port}"))
+        # An open discovery card for this speaker must not abort the user's own
+        # setup; Home Assistant aborts the card once this flow creates the entry.
+        await self.async_set_unique_id(
+            str(identity.serial or f"{checked.host}_{checked.port}"), raise_on_progress=False
+        )
         self._abort_if_unique_id_configured()
         if identity.serial:
             await storage.async_remember_name(self.hass, identity.serial, name)
@@ -712,7 +716,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return await self._show_scan_confirm_form(identity, candidate, "name_required")
 
         unique_id = identity.serial or f"{candidate.host}_{candidate.port}"
-        await self.async_set_unique_id(str(unique_id))
+        await self.async_set_unique_id(str(unique_id), raise_on_progress=False)
         self._abort_if_unique_id_configured()
         if identity.serial:
             await storage.async_remember_name(self.hass, identity.serial, name)
