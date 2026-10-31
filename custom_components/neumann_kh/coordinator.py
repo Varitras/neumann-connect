@@ -31,6 +31,7 @@ from .const import (
     MODELS_WITH_SUBWOOFER_FEATURES,
     NON_SUBWOOFER_POLL_PATHS,
     NON_SUBWOOFER_SLOW_POLL_PATHS,
+    OPTIONAL_FAST_POLL_PATHS,
     PATH_LOGO_BRIGHTNESS,
     PATH_SAVE_SETTINGS,
     POLL_CYCLE_TIMEOUT_SECONDS,
@@ -177,6 +178,22 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # poll that read the path before the request must not use it up.
         self._reread_requests = 0
 
+    def _fast_paths(self) -> list[tuple[str, ...]]:
+        """Fast paths minus the optional ones no entity asked for.
+
+        Before any entity is added (the first refresh) nothing has asked yet,
+        so everything is polled; an enabled optional entity would otherwise
+        stay unknown for a whole cycle.
+        """
+        if not self._listeners:
+            return list(self._poll_paths)
+        wanted = set(self.async_contexts())
+        return [
+            path
+            for path in self._poll_paths
+            if path not in OPTIONAL_FAST_POLL_PATHS or path in wanted
+        ]
+
     async def _async_update_data(self) -> dict[str, Any]:
         """Query each path individually; a rejected/faulty single path is skipped."""
         include_slow = self._slow_poll_pending or self._cycle_count % SLOW_POLL_EVERY_N_CYCLES == 0
@@ -185,7 +202,7 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             # Stays set until the slow poll succeeded (see below).
             self._slow_poll_pending = True
 
-        paths = list(self._poll_paths)
+        paths = self._fast_paths()
         if include_slow:
             paths.extend(self._slow_poll_paths)
 

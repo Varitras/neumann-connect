@@ -405,6 +405,7 @@ async def test_a_save_that_times_out_is_reported_as_not_saved(hass):
         await coordinator.async_persist()
     assert caught.value.translation_key == "settings_not_saved"
 
+
 def _kh750(hass, client: FakeClient) -> NeumannKHCoordinator:
     coord = NeumannKHCoordinator(hass, client, "test", model="KH 750")
     coord.update_interval = None
