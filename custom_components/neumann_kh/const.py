@@ -142,6 +142,8 @@ INPUT_INTERFACE_OPTIONS = ("ANALOG ONLY", "DIGITAL ONLY", "DIGITAL DISCARDS ANAL
 
 # Follows the rear CONTROL (MODE) switch; read-only over SSC (405).
 PATH_UI_CONTROL_MODE = ("ui", "control_mode")
+# On LOCAL the device reports its local settings, not the network ones.
+CONTROL_MODE_LOCAL = "LOCAL"
 
 # Pure info/diagnostic paths (read-only)
 PATH_IDENTITY_HW_VERSION = ("device", "identity", "hw_version")

@@ -312,6 +312,12 @@
     "backup_empty": {
       "message": "The speaker answered none of the values a restore could write, so nothing was backed up. The previous backup was kept."
     },
+    "backup_local_mode": {
+      "message": "The speaker's CONTROL (MODE) switch on the back is set to LOCAL, so it reports its local settings instead of the network ones. Nothing was backed up and the previous backup was kept. Set the switch to NETWORK, then create the backup again."
+    },
+    "restore_backup_from_local_mode": {
+      "message": "The stored backup was taken while the speaker's CONTROL (MODE) switch was set to LOCAL, so it holds the local settings instead of the network ones. Nothing was written. Set the switch to NETWORK and create a new backup."
+    },
     "restore_nothing_to_write": {
       "message": "The stored backup holds no value this speaker can be restored from. Create a new backup first."
     },

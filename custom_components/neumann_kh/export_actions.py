@@ -21,7 +21,14 @@ from .backup_export import (
     async_build_backup,
     restorable_paths_for_model,
 )
-from .const import CONF_MODEL, CONF_SERIAL, DEVICE_ACTION_TIMEOUT_SECONDS, DOMAIN
+from .const import (
+    CONF_MODEL,
+    CONF_SERIAL,
+    CONTROL_MODE_LOCAL,
+    DEVICE_ACTION_TIMEOUT_SECONDS,
+    DOMAIN,
+    PATH_UI_CONTROL_MODE,
+)
 from .discovery_export import DiscoveryTimeoutError, async_discover_all_values
 from .export_file import async_write_export
 from .identity import mask_serial
@@ -106,6 +113,11 @@ async def async_run_backup(hass: HomeAssistant, entry: ConfigEntry, client: SSCC
             translation_domain=DOMAIN,
             translation_key="backup_empty",
         )
+    # Checked before the file and the store: on LOCAL the values are the local
+    # settings (measured on the KH 750), and keeping them would replace the
+    # last good snapshot with ones a restore must not write back.
+    if extract(values, PATH_UI_CONTROL_MODE) == CONTROL_MODE_LOCAL:
+        raise HomeAssistantError(translation_domain=DOMAIN, translation_key="backup_local_mode")
 
     # The exported content carries a masked serial only; the store stays keyed
     # by the real one for mapping and retrieval.
@@ -253,6 +265,12 @@ async def async_check_restorable(hass: HomeAssistant, entry: ConfigEntry) -> dic
         raise HomeAssistantError(
             translation_domain=DOMAIN,
             translation_key="restore_nothing_to_write",
+        )
+
+    # Backups from before async_run_backup refused LOCAL can still hold one.
+    if extract(backup["values"], PATH_UI_CONTROL_MODE) == CONTROL_MODE_LOCAL:
+        raise HomeAssistantError(
+            translation_domain=DOMAIN, translation_key="restore_backup_from_local_mode"
         )
 
     return backup
