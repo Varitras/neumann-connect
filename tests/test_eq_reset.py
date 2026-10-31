@@ -29,6 +29,7 @@ class _Client:
 
     def __init__(self, reject: str | None = None, error: type = SSCDeviceError) -> None:
         self.written: list[str] = []
+        self.payloads: list[list[float]] = []
         self._reject = reject
         self._error = error
 
@@ -36,6 +37,7 @@ class _Client:
         if path[-1] == self._reject:
             raise self._error("device rejected the write")
         self.written.append(path[-1])
+        self.payloads.append(value)
 
 
 class _Coordinator:
@@ -43,17 +45,21 @@ class _Coordinator:
 
     claim_device = NeumannKHCoordinator.claim_device
 
-    def __init__(self, client: _Client) -> None:
+    def __init__(self, client: _Client, enabled=None) -> None:
         self.action_lock = asyncio.Lock()
         self.client = client
         self.persisted = 0
+        self._enabled = enabled
+
+    def value(self, path):
+        return self._enabled if path == _CONTAINER.path + ("enabled",) else None
 
     async def async_persist(self) -> None:
         self.persisted += 1
 
 
-def _button(client: _Client):
-    return SimpleNamespace(coordinator=_Coordinator(client), _container=_CONTAINER)
+def _button(client: _Client, enabled=None):
+    return SimpleNamespace(coordinator=_Coordinator(client, enabled), _container=_CONTAINER)
 
 
 async def test_a_reset_cannot_start_while_another_action_owns_the_device():
@@ -111,3 +117,12 @@ async def test_a_rejected_reset_is_not_persisted():
     with pytest.raises(HomeAssistantError):
         await NeumannKHEQResetButton.async_press(button)
     assert button.coordinator.persisted == 0
+
+
+async def test_a_reset_writes_as_many_bands_as_the_device_reports():
+    """The band count is measured on two models only; the device's array is not a guess."""
+    button = _button(_Client(), enabled=[True, True, True])
+
+    await NeumannKHEQResetButton.async_press(button)
+
+    assert [len(payload) for payload in button.coordinator.client.payloads] == [3, 3]
