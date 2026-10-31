@@ -18,7 +18,7 @@ import os
 import socket
 from typing import Any
 
-from ._util import build_nested, deep_merge, extract
+from ._util import build_nested, deep_merge, extract, nesting_exceeds
 from .const import DEFAULT_QUERY_SETTLE, DEFAULT_TIMEOUT
 
 _LOGGER = logging.getLogger(__name__)
@@ -65,6 +65,8 @@ _MESSAGE_TERMINATOR = b"\n"
 # _read_lines_until_settled). Well above any realistic SSC response (even the
 # full -q dump is <<1 MB).
 _MAX_LINE_BYTES = 1_048_576  # 1 MiB
+# Real replies nest a handful of levels (path plus osc/error); far past that is junk.
+_MAX_NESTING = 64
 
 # Upper bounds for a single response. Every incoming line refreshes the settle
 # window, so a device that keeps talking would otherwise hold the read open
@@ -157,6 +159,21 @@ def _error_details(osc_error: Any) -> tuple[int | None, str]:
         if code is not None:
             return code, description
     return None, ""
+
+
+def _parse_reply(line: bytes) -> dict[str, Any] | None:
+    """A reply line as an address tree, or None if the line is unusable."""
+    try:
+        parsed = json.loads(line)
+    except ValueError, RecursionError:
+        # Covers invalid JSON, invalid UTF-8 (both ValueError), integers over
+        # 4300 digits (plain ValueError) and deep nesting (RecursionError).
+        return None
+    # Nesting is bounded here too: json.loads accepts depths that every
+    # recursive walk after it (deep_merge, _error_details) cannot.
+    if not isinstance(parsed, dict) or nesting_exceeds(parsed, _MAX_NESTING):
+        return None
+    return parsed
 
 
 class SSCClient:
@@ -425,20 +442,10 @@ class SSCClient:
             line = raw_line.strip()
             if not line:
                 continue
-            try:
-                parsed = json.loads(line)
-            except ValueError, RecursionError:
-                # Covers invalid JSON, invalid UTF-8 (both ValueError), integers
-                # over 4300 digits (plain ValueError) and deep nesting
-                # (RecursionError) alike: unusable line, keep reading.
+            parsed = _parse_reply(line)
+            if parsed is None:
                 _LOGGER.debug(
-                    "Ignored an invalid %d-byte SSC response from %s", len(line), self._host
-                )
-                continue
-            if not isinstance(parsed, dict):
-                # Valid JSON, but not an address tree - nothing to merge.
-                _LOGGER.debug(
-                    "Ignored a non-object %d-byte SSC response from %s", len(line), self._host
+                    "Ignored an unusable %d-byte SSC response from %s", len(line), self._host
                 )
                 continue
 

@@ -39,7 +39,9 @@ LINE_BUDGETS = {
     # Raised to 540 for reading the nested osc/error format real speakers send.
     # Raised to 542 for the type arguments the mypy gate requires.
     # Raised to 549 for the LOCAL-mode error (401) every writer has to name.
-    "ssc_client.py": 549,
+    # Raised to 556 for _parse_reply: the nesting limit on faulty replies, taken
+    # out of the read loop so its complexity went down instead of up.
+    "ssc_client.py": 556,
 }
 
 # SonarSource's default. Everything above needs a written entry.
@@ -48,7 +50,7 @@ COMPLEXITY_BUDGETS = {
     # The one function this project keeps having trouble with. Kept whole by
     # owner decision (ledger A8, 2026-09-02) rather than split under pressure:
     # every previous attempt moved the branching instead of removing it.
-    "ssc_client.py::SSCClient._read_lines_until_settled": 35,
+    "ssc_client.py::SSCClient._read_lines_until_settled": 33,
     # Writes, counts and reports per path, with a deadline between paths and
     # three ways out that all have to keep what already landed (the third:
     # LOCAL mode, where every further write would be refused too).

@@ -142,8 +142,8 @@
   {
     "name": "a line the JSON parser refuses escapes the client",
     "path": "custom_components/neumann_kh/ssc_client.py",
-    "find": "            except ValueError, RecursionError:",
-    "replace": "            except json.JSONDecodeError:",
+    "find": "    except ValueError, RecursionError:",
+    "replace": "    except json.JSONDecodeError:",
     "expect": "tests/test_ssc_client.py::test_a_line_the_parser_refuses_is_skipped"
   }
 ]
