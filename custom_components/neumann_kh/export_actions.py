@@ -280,13 +280,24 @@ async def async_check_restorable(hass: HomeAssistant, entry: ConfigEntry) -> dic
 
 
 def _notify_restored(
-    hass: HomeAssistant, entry: ConfigEntry, written: int, adjusted: int, skipped: int, refused: int
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    written: int,
+    adjusted: int,
+    skipped: int,
+    refused: int,
+    unconfirmed: int,
 ) -> None:
     language = hass.config.language
     adjusted_de = f", {adjusted} vom Gerät angepasst" if adjusted else ""
     adjusted_en = f", {adjusted} adjusted by the device" if adjusted else ""
-    refused_de = f" (davon {refused} vom Gerät abgelehnt)" if refused else ""
-    refused_en = f" ({refused} refused by the device)" if refused else ""
+    parts_de = [f"{refused} vom Gerät abgelehnt"] if refused else []
+    parts_en = [f"{refused} refused by the device"] if refused else []
+    if unconfirmed:
+        parts_de.append(f"{unconfirmed} unbestätigt")
+        parts_en.append(f"{unconfirmed} unconfirmed")
+    refused_de = f" (davon {', '.join(parts_de)})" if parts_de else ""
+    refused_en = f" ({', '.join(parts_en)})" if parts_en else ""
     _notify(
         hass,
         entry,
@@ -405,6 +416,7 @@ async def async_run_restore(
                 # counting it as adjusted would misreport it, and handing None
                 # to the coordinator would drop the entity to unknown. It may
                 # still hold the new value, so the path is read back.
+                _LOGGER.info("Restore: the device did not confirm %s", "/".join(path))
                 skipped += 1
                 unconfirmed += 1
                 coordinator.request_reread(path)
@@ -454,5 +466,5 @@ async def async_run_restore(
         skipped,
     )
 
-    _notify_restored(hass, entry, written, adjusted, skipped, refused)
+    _notify_restored(hass, entry, written, adjusted, skipped, refused, unconfirmed)
     return written, adjusted, skipped

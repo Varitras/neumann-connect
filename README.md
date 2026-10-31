@@ -327,8 +327,8 @@ unavailable until one is closed.
 - Restore backup has the same two-step safety confirmation as the factory
   reset below: the first press only arms it, a second press between 2 s and 30 s
   later writes the backup. Mute is written before the levels and unmute after
-  them. The notification counts values the speaker refused separately, and
-  each refusal is logged with its error code.
+  them. The notification counts values the speaker refused or did not confirm
+  separately, and each of them is logged (a refusal with its error code).
 - Factory reset (`device/restore`) has a two-step safety confirmation: the
   first press only arms it, a second press between 2 s and 30 s later
   triggers it.

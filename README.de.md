@@ -344,8 +344,9 @@ Entities sind „nicht verfügbar“, bis eine wieder geschlossen wird.
   der Werksreset unten: Der erste Tastendruck schaltet nur scharf, ein zweiter
   Druck frühestens 2 s und spätestens 30 s danach schreibt das Backup.
   Stummschalten wird vor den Pegeln geschrieben, Aufheben danach. Die
-  Benachrichtigung zählt vom Lautsprecher abgelehnte Werte gesondert, und
-  jede Ablehnung wird mit ihrem Fehlercode protokolliert.
+  Benachrichtigung zählt vom Lautsprecher abgelehnte oder nicht bestätigte
+  Werte gesondert, und jeder davon wird protokolliert (eine Ablehnung mit
+  ihrem Fehlercode).
 - Werksreset (`device/restore`) hat eine Zwei-Schritt-Sicherheitsabfrage:
   Der erste Tastendruck schaltet nur scharf, ein zweiter Druck frühestens 2 s
   und spätestens 30 s danach löst aus. Alternativ über eine physische Schalterfolge am Gerät selbst:
