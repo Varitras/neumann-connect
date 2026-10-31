@@ -32,6 +32,7 @@ from custom_components.neumann_kh.const import (
     DOMAIN,
     PATH_IDENTITY_SERIAL,
 )
+from custom_components.neumann_kh.ssc_client import SSCConnectionError, SSCTimeoutError
 
 _SERIAL = "SIM0001234"
 _OTHER_SERIAL = "SIM0009999"
@@ -135,3 +136,35 @@ async def test_an_entry_without_a_stored_serial_is_not_checked(hass, _custom_int
 
     assert loaded
     assert not client.asked_for_serial
+
+
+class _SwitchedOffSpeaker(_SpeakerWithSerial):
+    """A speaker in standby: its network stack is off, nothing answers."""
+
+    def __init__(self, error: type[Exception]) -> None:
+        super().__init__(None)
+        self.error = error
+
+    async def get(self, path):
+        raise self.error("no answer")
+
+
+@pytest.mark.parametrize("error", [SSCConnectionError, SSCTimeoutError])
+async def test_a_speaker_switched_off_at_startup_is_retried(hass, _custom_integration, error):
+    """The most common field case: the speaker is in standby when HA restarts.
+
+    Reading the serial is the first thing that fails. Only its translation into
+    ConfigEntryNotReady puts the entry into SETUP_RETRY; without it the error
+    escapes as a plain setup error and Home Assistant never tries again. The
+    offline tests elsewhere let the serial answer and fail the first refresh,
+    which skips exactly this path.
+    """
+    entry = _entry(hass)
+    client = _SwitchedOffSpeaker(error)
+
+    loaded, relocated = await _set_up(hass, entry, client)
+
+    assert not loaded
+    assert entry.state is ConfigEntryState.SETUP_RETRY
+    assert relocated, "the speaker may have moved - the search for it did not run"
+    assert client.closed
