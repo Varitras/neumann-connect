@@ -32,7 +32,8 @@ LINE_BUDGETS = {
     # share the candidate/identity helpers, and HA discovers the class here.
     # Raised to 754 for the probatio import the mypy gate needs.
     # Raised to 758 so user setup is not aborted by an open discovery card.
-    "config_flow.py": 758,
+    # Raised to 759 for the link-local limit of Home Assistant's discovery.
+    "config_flow.py": 759,
     # Raised from 500 for the KH 750 out5 support (device error code, path
     # aliases); the alternative was splitting the read loop out of its owner.
     # Raised to 540 for reading the nested osc/error format real speakers send.
@@ -44,8 +45,8 @@ LINE_BUDGETS = {
 # SonarSource's default. Everything above needs a written entry.
 COMPLEXITY_LIMIT = 15
 COMPLEXITY_BUDGETS = {
-    # The one function this project keeps having trouble with. Documented as
-    # an open decision (ledger E1) rather than split under time pressure:
+    # The one function this project keeps having trouble with. Kept whole by
+    # owner decision (ledger A8, 2026-09-02) rather than split under pressure:
     # every previous attempt moved the branching instead of removing it.
     "ssc_client.py::SSCClient._read_lines_until_settled": 35,
     # Writes, counts and reports per path, with a deadline between paths and
@@ -54,8 +55,6 @@ COMPLEXITY_BUDGETS = {
     "export_actions.py::async_run_restore": 21,
     # Walks an unknown schema one level at a time against two budgets.
     "discovery_export.py::_async_discover_via_schema": 18,
-    # Matches an announcement against known entries, unknown devices and
-    # devices that answer with a different serial than announced.
 }
 
 

@@ -1,5 +1,6 @@
 """Switch entities: mute, identify device, auto-standby (non-subwoofer only),
-phase inversion (non-subwoofer only).
+phase inversion (non-subwoofer only), output 1/2 mute (subwoofer only), and
+one switch per EQ container (see eq.py).
 
 "Identify" is a switch rather than an auto-stop button, because the blinking
 only stops by itself after several minutes.

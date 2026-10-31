@@ -67,8 +67,9 @@ _UNASSIGNED_STATE = "not_assigned"
 # The sensors where "UNKNOWN" means an unassigned subwoofer output. Only these
 # are exposed as `not_assigned`, which reads as "Not assigned" - saying that
 # about a hardware version the device simply does not report would be wrong.
-# Measured 2026-09-02: of the seventeen text sensors, these two are the only
-# ones a KH 120 II or KH 750 ever answers "UNKNOWN" for.
+# Measured 2026-09-02: of the seventeen text sensors that existed then, these
+# two are the only ones a KH 120 II or KH 750 ever answers "UNKNOWN" for
+# (control mode came later and was not part of that measurement).
 #
 # Kept in step with the translations by tests/test_sensor_states.py: a sensor
 # listed here needs a `not_assigned` state text, and one that has such a text

@@ -46,9 +46,6 @@ _SETTLE = 0.05
 _TIMEOUT = 2.0
 # Only where the timeout itself is what is being tested.
 _SHORT_TIMEOUT = 0.3
-# Comfortably past the client's stale-drain window, so a line written after
-# this gap is one the drain can no longer catch.
-_STALE_DRAIN_GAP = 0.05
 
 
 class FakeSSCServer:

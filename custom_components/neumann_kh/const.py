@@ -30,8 +30,8 @@ POLL_CYCLE_TIMEOUT_SECONDS = 25.0  # Time limit for a complete poll cycle
 # discovery, restore). Unlike the poll cycle these are not repeated, so nothing
 # else would ever end them: a device that answers *something* but never the
 # requested path costs up to 12s per path, which on a KH 750 backup adds up to
-# roughly 17 minutes of a spinning button. A real run against that model takes
-# a few seconds, so this leaves a factor of about twenty.
+# a quarter of an hour of a spinning button. A real run against that model
+# takes a few seconds, so this leaves a factor of about twenty.
 #
 # Checked between paths rather than wrapped around the whole run: cancelling
 # mid-write during a restore would lose the values already confirmed and
@@ -201,7 +201,9 @@ PATH_OUT2_LOUDSPEAKER = ("audio", "out2", "loudspeaker")
 
 # Paths the coordinator queries individually on every poll cycle (see
 # coordinator.py: one leaf per message keeps every answer unambiguous).
-# Contains all values that can actually change at runtime.
+# Contains all values that can actually change at runtime. Control mode and
+# standby enabled follow rear-panel switches but stay here: on LOCAL every
+# write fails with 401, so the sensor has to show the switch within a cycle.
 POLL_PATHS = (
     PATH_OUTPUT_LEVEL,
     PATH_OUTPUT_DELAY,
@@ -217,7 +219,7 @@ POLL_PATHS = (
     PATH_WARNINGS,
 )
 
-# Rarely/never changing values (identity, static configuration, fixed
+# Rarely/never changing values (identity, static configuration, most
 # rear-panel switches, device name): queried only every SLOW_POLL_EVERY_N_CYCLES
 # to reduce the poll scope. User actions on writable
 # fields below (e.g. device name) apply the confirmed value

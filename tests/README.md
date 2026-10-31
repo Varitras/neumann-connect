@@ -10,8 +10,8 @@ no memory of why any of it is here.
 .github/scripts/check.sh
 ```
 
-Ruff, the full test suite, a compile pass, the gitleaks pin check and the
-mutation run, in that order, stopping at the first failure. The pin check asks
+Ruff (lint and format check), the full test suite, mypy, a compile pass, the
+gitleaks pin check and the mutation run, in that order, stopping at the first failure. The pin check asks
 GitHub for the latest gitleaks release, so the script needs the network; a
 check that cannot ask fails rather than passes.
 

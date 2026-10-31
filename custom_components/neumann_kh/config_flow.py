@@ -9,9 +9,10 @@ Pure UI setup (no YAML needed). The starting point is a menu with two paths:
 - "manual": Classic manual input (IP address, interface dropdown, port, name)
   - fallback for devices that the automatic search does not find.
 
-Home Assistant also passes in mDNS announcements on its own (see the
-"zeroconf" key in manifest.json), which keeps the stored address correct
-without anyone having to notice that it went stale - see async_step_zeroconf.
+Home Assistant also passes in mDNS announcements ("zeroconf" in manifest.json),
+which keeps the stored address current - see async_step_zeroconf. It drops
+records that carry link-local addresses only, so a speaker announcing nothing
+else never gets there and is found by the scan instead.
 
 A separate config entry is created for each speaker.
 """

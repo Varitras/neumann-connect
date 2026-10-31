@@ -182,8 +182,8 @@ class SSCClient:
         # reopen the connection of an entry that is already unloaded.
         self._closed = False
         self._lock = asyncio.Lock()
-        # Signals the poll loop that a user action is waiting on the lock
-        # (see request(priority=True)) - poll then releases the lock.
+        # Tells the poll loop a user action is waiting (see request(priority=
+        # True)); the poll then pauses before its next path.
         self._priority_waiting = asyncio.Event()
         # Logical path -> path on this device (see use_path_aliases).
         self._path_aliases: dict[tuple[str, ...], tuple[str, ...]] = {}
@@ -469,9 +469,9 @@ class SSCClient:
     ) -> dict[str, Any]:
         """Sends an SSC message and returns the merged result dict.
 
-        priority=True marks a user action: if a poll cycle is currently
-        running, it is signaled to release the lock after the current single
-        query instead of waiting for the whole cycle.
+        priority=True marks a user action. The poll takes the lock per path and
+        asyncio.Lock is FIFO, so the action waits one query at most either way;
+        the flag only makes the poll pause briefly before its next path.
         """
         if priority:
             self._priority_waiting.set()

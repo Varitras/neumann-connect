@@ -136,8 +136,9 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # and that mixed snapshot then replaces the last good one.
         #
         # Deliberately NOT taken by the poll cycle. Blocking it would drop
-        # every entity to unavailable for the duration of a backup; the
-        # client's priority mechanism already keeps user actions ahead of it.
+        # every entity to unavailable for the duration of a backup. The poll
+        # takes the client lock per path, and asyncio.Lock hands it over in
+        # FIFO order, so a user action waits for one query at most.
         self.action_lock = asyncio.Lock()
         # Fast paths: every cycle. Slow paths: only every N cycles.
         self._poll_paths, self._slow_poll_paths = poll_paths_for_model(model)

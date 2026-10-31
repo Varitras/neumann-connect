@@ -1,5 +1,6 @@
 """Button entities: 'Restore factory defaults', 'Create backup',
-'Restore backup' and 'Run device discovery'.
+'Restore backup' and 'Run device discovery', plus one EQ reset button per
+EQ container (see eq.py).
 
 'Restore factory defaults' and 'Restore backup' both overwrite device state,
 so both use a two-step confirmation: the first press only arms it, a second
