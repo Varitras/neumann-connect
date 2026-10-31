@@ -632,8 +632,12 @@ async def test_a_line_that_is_not_utf8_is_skipped(socket_enabled):
     [
         b'{"device": {"name": ' + b"9" * 5000 + b"}}",  # int-max-str-digits -> ValueError
         b"[" * 100_000 + b"]" * 100_000,  # nesting depth -> RecursionError
+        # Parses fine, but deep_merge recursed into it past the recursion limit.
+        b'{"a":' * 1200 + b"1" + b"}" * 1200,
+        # Parses and merges fine, but _error_details recursed into it.
+        b'{"osc": {"error": ' + b"[" * 5000 + b"]" * 5000 + b"}}",
     ],
-    ids=["integer-too-long", "nesting-too-deep"],
+    ids=["integer-too-long", "nesting-too-deep", "deep-object", "deep-error"],
 )
 async def test_a_line_the_parser_refuses_is_skipped(socket_enabled, unusable_line):
     """json.loads raises more than JSONDecodeError on lines a firmware bug can produce.
