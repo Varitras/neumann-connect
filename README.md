@@ -116,7 +116,9 @@ Home Assistant also passes the speakers' own announcements on. A speaker that
 is not set up yet appears under **Settings → Devices & Services** as a
 discovered device and only needs a name. For one that is already set up, a
 changed address is taken over once the speaker has confirmed its serial
-number.
+number. This only works for speakers that announce a global or ULA IPv6
+address as well: Home Assistant ignores announcements that carry link-local
+addresses only. Such a speaker is found by the scan above.
 
 **Advantage with IPv6 link-local:** The discovered address already includes
 the scope ID automatically (e.g. `fe80::...%3`) – for automatically
@@ -319,10 +321,14 @@ unavailable until one is closed.
   answered with "authorisation needed") and uses its local settings instead of
   the network configuration (measured: a different output level and auto
   standby time). Set the switch to `NETWORK` to control it from Home
-  Assistant. Measured on the KH 750 DSP.
+  Assistant. The refused write is measured on both models, the different
+  local settings on the KH 750 DSP. A backup taken while the switch is on
+  `LOCAL` is refused, so it cannot replace the last good one.
 - Restore backup has the same two-step safety confirmation as the factory
   reset below: the first press only arms it, a second press between 2 s and 30 s
-  later writes the backup.
+  later writes the backup. Mute is written before the levels and unmute after
+  them. The notification counts values the speaker refused separately, and
+  each refusal is logged with its error code.
 - Factory reset (`device/restore`) has a two-step safety confirmation: the
   first press only arms it, a second press between 2 s and 30 s later
   triggers it.

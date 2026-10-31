@@ -121,7 +121,10 @@ Zusätzlich reicht Home Assistant die Ankündigungen der Lautsprecher selbst
 weiter. Ein noch nicht eingerichteter Lautsprecher erscheint unter
 **Einstellungen → Geräte & Dienste** als gefundenes Gerät und braucht nur
 noch einen Namen. Bei einem bereits eingerichteten wird eine geänderte Adresse
-übernommen, sobald der Lautsprecher seine Seriennummer bestätigt hat.
+übernommen, sobald der Lautsprecher seine Seriennummer bestätigt hat. Das
+klappt nur bei Lautsprechern, die zusätzlich eine globale oder ULA-IPv6-Adresse
+ankündigen: Home Assistant ignoriert Ankündigungen, die nur Link-Local-Adressen
+enthalten. Ein solcher Lautsprecher wird über die Suche oben gefunden.
 
 **Vorteil bei IPv6-Link-Local:** Die gefundene Adresse enthält die
 Scope-ID bereits automatisch (z. B. `fe80::...%3`) – bei automatisch
@@ -333,10 +336,16 @@ Entities sind „nicht verfügbar“, bis eine wieder geschlossen wird.
   needed“ beantwortet) und nutzt seine lokalen Einstellungen statt der
   Netzwerk-Konfiguration (gemessen: anderer Ausgangspegel und andere
   Auto-Standby-Zeit). Für die Steuerung aus Home Assistant den Schalter auf
-  `NETWORK` stellen. Gemessen an der KH 750 DSP.
+  `NETWORK` stellen. Der abgelehnte Schreibversuch ist an beiden Modellen
+  gemessen, die abweichenden lokalen Einstellungen an der KH 750 DSP. Ein
+  Backup, während der Schalter auf `LOCAL` steht, wird abgelehnt und kann das
+  letzte gute Backup deshalb nicht ersetzen.
 - „Backup zurückspielen“ hat dieselbe Zwei-Schritt-Sicherheitsabfrage wie
   der Werksreset unten: Der erste Tastendruck schaltet nur scharf, ein zweiter
   Druck frühestens 2 s und spätestens 30 s danach schreibt das Backup.
+  Stummschalten wird vor den Pegeln geschrieben, Aufheben danach. Die
+  Benachrichtigung zählt vom Lautsprecher abgelehnte Werte gesondert, und
+  jede Ablehnung wird mit ihrem Fehlercode protokolliert.
 - Werksreset (`device/restore`) hat eine Zwei-Schritt-Sicherheitsabfrage:
   Der erste Tastendruck schaltet nur scharf, ein zweiter Druck frühestens 2 s
   und spätestens 30 s danach löst aus. Alternativ über eine physische Schalterfolge am Gerät selbst:
