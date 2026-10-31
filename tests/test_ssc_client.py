@@ -630,6 +630,38 @@ async def test_a_line_that_is_not_utf8_is_skipped(socket_enabled):
         await _shutdown(raw_server, handled)
 
 
+@pytest.mark.parametrize(
+    "unusable_line",
+    [
+        b'{"device": {"name": ' + b"9" * 5000 + b"}}",  # int-max-str-digits -> ValueError
+        b"[" * 100_000 + b"]" * 100_000,  # nesting depth -> RecursionError
+    ],
+    ids=["integer-too-long", "nesting-too-deep"],
+)
+async def test_a_line_the_parser_refuses_is_skipped(socket_enabled, unusable_line):
+    """json.loads raises more than JSONDecodeError on lines a firmware bug can produce.
+
+    A plain ValueError or RecursionError escaped the client untranslated, so
+    setup ended in SETUP_ERROR without a retry and writers showed a raw error.
+    """
+
+    async def _handle(reader, writer):
+        await reader.readline()
+        writer.write(unusable_line + b"\r\n")
+        writer.write(json.dumps({"device": {"name": "ok"}}).encode() + b"\r\n")
+        await writer.drain()
+        await _stay_open()
+
+    raw_server, handled = await _serve(_handle)
+    port = raw_server.sockets[0].getsockname()[1]
+    client = _client(port)
+    try:
+        assert await client.get(("device", "name")) == "ok"
+    finally:
+        await client.close()
+        await _shutdown(raw_server, handled)
+
+
 async def test_a_reset_while_reading_becomes_a_connection_error(socket_enabled):
     """readuntil() can raise a bare ConnectionResetError.
 
