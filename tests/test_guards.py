@@ -18,6 +18,7 @@ Build rules for every new guard here:
 import ast
 import importlib
 import pathlib
+import re
 
 TESTS = pathlib.Path(__file__).resolve().parent
 PACKAGE = TESTS.parents[0] / "custom_components" / "neumann_kh"
@@ -129,3 +130,15 @@ def test_every_guard_is_documented():
     readme = (TESTS / "README.md").read_text(encoding="utf-8")
     undocumented = [name for name in GUARD_FILES if f"`{name}`" not in readme]
     assert not undocumented, f"guard(s) missing from tests/README.md: {undocumented}"
+
+
+def test_every_documented_guard_is_listed():
+    """The other direction: a guard in the README table but not in GUARD_FILES.
+
+    Its deletion was a green diff - the very thing this file exists to stop.
+    """
+    readme = (TESTS / "README.md").read_text(encoding="utf-8")
+    table = readme.split("## The guards", 1)[1].split("\n## ", 1)[0]
+    documented = set(re.findall(r"^\| `(test_\w+\.py)` \|", table, flags=re.MULTILINE))
+    unlisted = sorted(documented - set(GUARD_FILES))
+    assert not unlisted, f"guard(s) documented but not in GUARD_FILES: {unlisted}"
