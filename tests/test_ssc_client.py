@@ -366,9 +366,10 @@ async def test_cancellation_in_the_drain_window_drops_the_connection(server, mon
         in_drain.set()
         await asyncio.sleep(60)  # hold the request inside the drain window
 
-    monkeypatch.setattr(SSCClient, "_discard_stale_lines", _hanging_drain)
-
     client = _client(server.port)
+    # A fresh connection skips the drain, so open it with a first request.
+    await client.get(("device", "name"))
+    monkeypatch.setattr(SSCClient, "_discard_stale_lines", _hanging_drain)
     try:
         task = asyncio.create_task(client.get(("device", "name")))
         await asyncio.wait_for(in_drain.wait(), timeout=5)

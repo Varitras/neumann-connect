@@ -227,13 +227,14 @@ class SSCClient:
         # Third hex character must be in range 8..b (fe80..febf = /10).
         return prefix[2] in "89ab"
 
-    async def _ensure_connected(self) -> None:
+    async def _ensure_connected(self) -> bool:
+        """Connect if needed; True when this call opened the connection."""
         if self._closed:
             raise SSCConnectionError(
                 "the connection was closed - the config entry is being unloaded"
             )
         if self._writer is not None and not self._writer.is_closing():
-            return
+            return False
         try:
             self._reader, self._writer = await asyncio.wait_for(
                 asyncio.open_connection(
@@ -250,6 +251,7 @@ class SSCClient:
             raise SSCConnectionError(
                 f"Connection to {mask_host(self._connect_host)}:{self._port} failed: {_os_reason(err)}"
             ) from err
+        return True
 
     def _drop_connection(self) -> None:
         """Drops the current connection; the next access reconnects."""
@@ -503,8 +505,9 @@ class SSCClient:
             # await, so both can be cancelled. Left outside, a cancellation
             # hitting that window would keep a connection the caller believes
             # was dropped - the invariant the v1.15.0 hardening relies on.
-            await self._ensure_connected()
-            await self._discard_stale_lines()
+            # Nothing can be stale on a socket opened for this request.
+            if not await self._ensure_connected():
+                await self._discard_stale_lines()
             await self._send_raw(payload)
             merged = await self._read_lines_until_settled(expect_path)
         except SSCConnectionError, SSCTimeoutError:
