@@ -999,3 +999,28 @@ async def test_an_unaliased_path_is_sent_unchanged(server):
         assert received == [{"audio": {"out": {"delay": None}}}]
     finally:
         await client.close()
+
+
+async def test_a_fresh_connection_skips_the_stale_drain(server, monkeypatch):
+    """Nothing can be stale on a socket that was just opened.
+
+    The drain waits out its window every time it finds nothing, so running it
+    right after connecting was pure dead time on every reconnect.
+    """
+    drains = 0
+    real_drain = SSCClient._discard_stale_lines
+
+    async def _counting_drain(self) -> None:
+        nonlocal drains
+        drains += 1
+        await real_drain(self)
+
+    monkeypatch.setattr(SSCClient, "_discard_stale_lines", _counting_drain)
+    client = _client(server.port)
+    try:
+        await client.get(("device", "name"))
+        assert drains == 0, "drained a socket that was opened for this very request"
+        await client.get(("device", "name"))
+        assert drains == 1, "the reused connection was not drained"
+    finally:
+        await client.close()
