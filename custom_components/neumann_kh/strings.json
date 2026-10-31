@@ -72,8 +72,7 @@
       "no_ipv6": "The device announced no IPv6 address. Neumann KH speakers only support IPv6.",
       "cannot_connect": "The discovered device did not respond to SSC requests.",
       "discovery_expired": "The discovery result has expired, please search again.",
-      "unknown": "Unexpected error – the setup was cancelled.",
-      "already_in_progress": "This speaker is already being set up."
+      "unknown": "Unexpected error – the setup was cancelled."
     }
   },
   "entity": {

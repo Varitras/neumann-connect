@@ -72,8 +72,7 @@
       "no_ipv6": "Das Gerät hat keine IPv6-Adresse gemeldet. Neumann-KH-Lautsprecher unterstützen nur IPv6.",
       "cannot_connect": "Das gefundene Gerät hat nicht auf SSC-Anfragen geantwortet.",
       "discovery_expired": "Das Suchergebnis ist abgelaufen, bitte suche erneut.",
-      "unknown": "Unerwarteter Fehler – die Einrichtung wurde abgebrochen.",
-      "already_in_progress": "Dieser Lautsprecher wird bereits eingerichtet."
+      "unknown": "Unerwarteter Fehler – die Einrichtung wurde abgebrochen."
     }
   },
   "entity": {
