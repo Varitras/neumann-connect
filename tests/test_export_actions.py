@@ -762,3 +762,23 @@ async def test_a_restore_never_plays_unmuted_on_the_new_level_by_accident(muted,
 
     order = [path for path, _ in client.written]
     assert (order.index(PATH_OUTPUT_MUTE) < order.index(PATH_OUTPUT_LEVEL)) is mute_first
+
+
+async def test_an_unconfirmed_value_is_logged_and_reported(monkeypatch, caplog):
+    """Sibling of the refusal: an unconfirmed value also vanished into "skipped"."""
+    unconfirmed = restorable_paths_for_model(_KH_120_II)[1]
+    notified: list[str] = []
+    monkeypatch.setattr(export_actions, "_notify", lambda *args: notified.append(args[-1]))
+    coordinator = _FakeCoordinator(_FakeClient(answers_none={unconfirmed}))
+
+    with caplog.at_level("INFO", logger=export_actions.__name__):
+        await async_run_restore(
+            _FakeHass(), _FakeEntry(_KH_120_II), coordinator, backup=_backup_covering(_KH_120_II)
+        )
+
+    assert any(
+        "/".join(unconfirmed) in record.getMessage()
+        for record in caplog.records
+        if record.levelname == "INFO"
+    ), "the unconfirmed path was not logged"
+    assert "1 unconfirmed" in notified[0]
