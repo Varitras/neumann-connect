@@ -554,3 +554,17 @@ async def test_a_backup_from_out5_firmware_restores_onto_out_firmware(
         await _press(hass, entry, "_restore_backup")
 
         assert new_firmware.state["audio"]["out"]["level"] == 90.0
+
+
+async def test_every_entity_tells_the_coordinator_which_path_it_reads(hass, socket_enabled):
+    """The coordinator skips optional paths no entity asked for.
+
+    An entity that registered without its path would see its value vanish on
+    the next cycle - checked against the real platforms, not a fake.
+    """
+    async with _simulator(MODEL_KH_750) as port:
+        entry = await _setup_entry(hass, MODEL_KH_750, port, "SIM0007500")
+        contexts = set(entry.runtime_data.async_contexts())
+
+    assert ("audio", "out", "level") in contexts
+    assert ("ui", "control_mode") in contexts
