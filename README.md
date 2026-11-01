@@ -17,9 +17,6 @@ Protocol and device details (SSC, measured speaker behaviour): see the
 
 **Requires Home Assistant 2026.10 or newer.**
 
-Custom icon/logo in `custom_components/neumann_kh/brand/` (an independent
-design, not a copy of the official Neumann company logo).
-
 The SSC address paths were first taken from the
 [khtool project](https://github.com/schwinn/khtool); the paths the integration
 uses and how they behave have since been checked on KH 120 II and KH 750 DSP
