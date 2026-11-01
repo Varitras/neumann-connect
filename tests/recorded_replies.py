@@ -129,6 +129,13 @@ LOCAL_MODE_SET_REPLY = (
     '{"osc":{"error":[{"audio":{"out":{"mute":[401,{"desc":"authorisation needed"}]}}}]}}',
 )
 
+# On LOCAL a read-only leaf keeps its 405: writability is checked before the
+# switch (KH 120 II, 2026-11-01, sent with an xid; the xid is left out here).
+LOCAL_MODE_READ_ONLY_SET_REPLY = (
+    {"ui": {"control_mode": "LOCAL"}},
+    '{"osc":{"error":[{"ui":{"control_mode":[405,{"desc":"method not allowed"}]}}]}}',
+)
+
 # osc/schema and osc/limits - answered by both models in exactly the form the
 # integration sends (an older note said 400; it is not).
 SCHEMA_ROOT_REPLY = (

@@ -20,6 +20,7 @@ from recorded_replies import (
     KH_750_SWITCH_SET_REPLIES,
     LIMITS_LEVEL_REQUEST,
     LIMITS_LEVEL_TYPE,
+    LOCAL_MODE_READ_ONLY_SET_REPLY,
     LOCAL_MODE_SET_REPLY,
     MALFORMED_OSC_REPLIES,
     NOT_FOUND_REPLIES,
@@ -89,6 +90,15 @@ def test_a_simulator_in_local_mode_answers_like_the_device(model):
     assert simulator.handle(request_) == json.loads(line)
     assert _get(simulator, "audio", "out", "mute") is False
     assert _get(simulator, "ui", "control_mode") == "LOCAL"
+
+
+@pytest.mark.parametrize("model", MODELS)
+def test_a_simulator_in_local_mode_refuses_a_read_only_leaf_with_405(model):
+    """The simulator guessed 401 first; the device checks writability before the switch."""
+    simulator = SSCSimulator(model, local_mode=True)
+    request_, line = LOCAL_MODE_READ_ONLY_SET_REPLY
+
+    assert simulator.handle(request_) == json.loads(line)
 
 
 @pytest.mark.parametrize("model", MODELS)
