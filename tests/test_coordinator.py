@@ -14,7 +14,9 @@ import pytest
 
 from custom_components.neumann_kh.const import (
     PATH_DEVICE_NAME,
+    PATH_OUT1_LEVEL,
     PATH_OUTPUT_MUTE,
+    PATH_STANDBY_COUNTDOWN,
     SLOW_POLL_PATHS,
 )
 from custom_components.neumann_kh.coordinator import NeumannKHCoordinator
@@ -29,8 +31,10 @@ class FakeClient:
         self.fail_connection = False
         self.rejected_paths: set[tuple[str, ...]] = set()
         self.priority_waiting = asyncio.Event()
+        self.asked: list[tuple[str, ...]] = []
 
     async def get(self, path: tuple[str, ...]) -> Any:
+        self.asked.append(path)
         if self.fail_connection:
             raise SSCConnectionError("device offline (test)")
         if path in self.rejected_paths:
@@ -400,3 +404,100 @@ async def test_a_save_that_times_out_is_reported_as_not_saved(hass):
     with pytest.raises(HomeAssistantError) as caught:
         await coordinator.async_persist()
     assert caught.value.translation_key == "settings_not_saved"
+
+
+def _kh750(hass, client: FakeClient) -> NeumannKHCoordinator:
+    coord = NeumannKHCoordinator(hass, client, "test", model="KH 750")
+    coord.update_interval = None
+    return coord
+
+
+async def test_paths_only_disabled_entities_read_are_not_polled(hass):
+    """On a KH 750, 9 of 21 fast paths served only entities disabled by default.
+
+    That was about 26 000 requests a day per subwoofer nobody looked at.
+    """
+    client = FakeClient({})
+    coord = _kh750(hass, client)
+    await coord.async_refresh()  # the first refresh polls everything
+    coord.async_add_listener(lambda: None, PATH_OUTPUT_MUTE)
+    client.asked.clear()
+
+    await coord.async_refresh()
+
+    assert PATH_OUT1_LEVEL not in client.asked
+    assert PATH_STANDBY_COUNTDOWN not in client.asked
+    assert PATH_OUTPUT_MUTE in client.asked
+
+
+async def test_an_enabled_optional_entity_gets_its_path_polled(hass):
+    client = FakeClient({PATH_OUT1_LEVEL: -3.0})
+    coord = _kh750(hass, client)
+    coord.async_add_listener(lambda: None, PATH_OUT1_LEVEL)
+
+    await coord.async_refresh()
+
+    assert coord.value(PATH_OUT1_LEVEL) == -3.0
+
+
+async def test_the_first_refresh_polls_every_path(hass):
+    """The first refresh runs before any entity is added - none has asked yet.
+
+    Skipping the optional paths then would leave an enabled entity unknown
+    until the next cycle.
+    """
+    client = FakeClient({})
+    coord = _kh750(hass, client)
+
+    await coord.async_refresh()
+
+    assert PATH_OUT1_LEVEL in client.asked
+
+
+def _descriptions_with_paths(model: str):
+    """Every entity description that carries an SSC path, across the platforms."""
+    import importlib
+
+    found = []
+    for platform in ("sensor", "binary_sensor", "number", "select", "switch", "text"):
+        module = importlib.import_module(f"custom_components.neumann_kh.{platform}")
+        for value in vars(module).values():
+            for item in value if isinstance(value, tuple) else (value,):
+                if getattr(item, "ssc_path", None) and hasattr(item, "key"):
+                    found.append(item)
+    number = importlib.import_module("custom_components.neumann_kh.number")
+    found.append(number._build_output_delay_description(model == "KH 750"))
+    return found
+
+
+@pytest.mark.parametrize("model", ["KH 120 II", "KH 750"])
+def test_the_optional_poll_paths_are_exactly_those_of_disabled_entities(model):
+    """A hand-kept list drifts: an entity enabled by default whose path sits
+    here would stay unknown, and a new disabled one would still be polled."""
+    from custom_components.neumann_kh.const import OPTIONAL_FAST_POLL_PATHS
+    from custom_components.neumann_kh.coordinator import poll_paths_for_model
+
+    fast, _ = poll_paths_for_model(model)
+    descriptions = _descriptions_with_paths(model)
+    enabled = {tuple(d.ssc_path) for d in descriptions if d.entity_registry_enabled_default}
+    disabled = {tuple(d.ssc_path) for d in descriptions if not d.entity_registry_enabled_default}
+
+    expected = (disabled - enabled) & {tuple(path) for path in fast}
+    assert expected == OPTIONAL_FAST_POLL_PATHS & {tuple(path) for path in fast}
+
+
+async def test_the_first_refresh_polls_every_path_even_with_a_listener(hass):
+    """The first-refresh signal must not hang on Home Assistant internals.
+
+    It was "no listener registered yet", read from the coordinator's private
+    _listeners. A listener added before the first refresh then skipped the
+    optional paths, and a rename of that attribute in Home Assistant would
+    fail every cycle. "No data yet" holds exactly until the first success.
+    """
+    client = FakeClient({})
+    coord = _kh750(hass, client)
+    coord.async_add_listener(lambda: None, PATH_OUTPUT_MUTE)
+
+    await coord.async_refresh()
+
+    assert PATH_OUT1_LEVEL in client.asked

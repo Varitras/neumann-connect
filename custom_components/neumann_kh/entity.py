@@ -54,6 +54,13 @@ class NeumannKHEntity(CoordinatorEntity[NeumannKHCoordinator]):
         )
         self._unique_id_base = serial
 
+    async def async_added_to_hass(self) -> None:
+        # The coordinator polls an optional path only while an entity names it
+        # as its context; the description is only set after __init__ here.
+        description = getattr(self, "entity_description", None)
+        self.coordinator_context = getattr(description, "ssc_path", None)
+        await super().async_added_to_hass()
+
     async def _async_write(
         self, path: tuple[str, ...], value: Any, rejected_key: str = "change_rejected"
     ) -> None:

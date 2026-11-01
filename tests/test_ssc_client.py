@@ -366,9 +366,10 @@ async def test_cancellation_in_the_drain_window_drops_the_connection(server, mon
         in_drain.set()
         await asyncio.sleep(60)  # hold the request inside the drain window
 
-    monkeypatch.setattr(SSCClient, "_discard_stale_lines", _hanging_drain)
-
     client = _client(server.port)
+    # A fresh connection skips the drain, so open it with a first request.
+    await client.get(("device", "name"))
+    monkeypatch.setattr(SSCClient, "_discard_stale_lines", _hanging_drain)
     try:
         task = asyncio.create_task(client.get(("device", "name")))
         await asyncio.wait_for(in_drain.wait(), timeout=5)
@@ -997,5 +998,30 @@ async def test_an_unaliased_path_is_sent_unchanged(server):
         client.use_path_aliases({("audio", "out", "level"): ("audio", "out5", "level")})
         await client.get(("audio", "out", "delay"))
         assert received == [{"audio": {"out": {"delay": None}}}]
+    finally:
+        await client.close()
+
+
+async def test_a_fresh_connection_skips_the_stale_drain(server, monkeypatch):
+    """Nothing can be stale on a socket that was just opened.
+
+    The drain waits out its window every time it finds nothing, so running it
+    right after connecting was pure dead time on every reconnect.
+    """
+    drains = 0
+    real_drain = SSCClient._discard_stale_lines
+
+    async def _counting_drain(self) -> None:
+        nonlocal drains
+        drains += 1
+        await real_drain(self)
+
+    monkeypatch.setattr(SSCClient, "_discard_stale_lines", _counting_drain)
+    client = _client(server.port)
+    try:
+        await client.get(("device", "name"))
+        assert drains == 0, "drained a socket that was opened for this very request"
+        await client.get(("device", "name"))
+        assert drains == 1, "the reused connection was not drained"
     finally:
         await client.close()

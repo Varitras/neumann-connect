@@ -41,7 +41,8 @@ LINE_BUDGETS = {
     # Raised to 549 for the LOCAL-mode error (401) every writer has to name.
     # Raised to 556 for _parse_reply: the nesting limit on faulty replies, taken
     # out of the read loop so its complexity went down instead of up.
-    "ssc_client.py": 556,
+    # Raised to 559 to skip the stale drain on a connection opened just now.
+    "ssc_client.py": 559,
 }
 
 # SonarSource's default. Everything above needs a written entry.

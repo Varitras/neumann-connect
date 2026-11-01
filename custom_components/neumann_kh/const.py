@@ -269,6 +269,23 @@ SUBWOOFER_POLL_PATHS = (
     PATH_OUT2_MUTE,
 )
 
+# Fast paths only entities disabled by default read. Polled only while such an
+# entity is enabled (see coordinator._fast_paths); on a KH 750 they were 9 of
+# 21 requests per cycle. Kept equal to the descriptions by test_coordinator.
+OPTIONAL_FAST_POLL_PATHS = frozenset(
+    {
+        PATH_METER_OUTPUT_LEVEL,
+        PATH_METER_OUTPUT_CLIP,
+        PATH_OUT1_LEVEL,
+        PATH_OUT1_DELAY,
+        PATH_OUT1_MUTE,
+        PATH_OUT2_LEVEL,
+        PATH_OUT2_DELAY,
+        PATH_OUT2_MUTE,
+        PATH_STANDBY_COUNTDOWN,
+    }
+)
+
 # Rarely changing subwoofer values (only every SLOW_POLL_EVERY_N_CYCLES).
 SUBWOOFER_SLOW_POLL_PATHS = (
     PATH_DIGITAL_BYPASS,
