@@ -188,8 +188,10 @@ XID_ERROR_REPLIES = (
     ),
     (
         {"osc": {"xid": 104}, "audio": {"out": {"level": None, "dimm": None}}},
-        '{"audio":{"out":{"level":100.0}},'
-        '"osc":{"error":[{"audio":{"out":[404,{"desc":"address not found"}]}}],"xid":104}}',
+        (
+            '{"audio":{"out":{"level":100.0}},'
+            '"osc":{"error":[{"audio":{"out":[404,{"desc":"address not found"}]}}],"xid":104}}'
+        ),
     ),
     (
         {"osc": {"xid": 105, "nonexistent": None}},
