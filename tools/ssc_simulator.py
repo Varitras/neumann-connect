@@ -606,6 +606,13 @@ class SSCSimulator:
                 if "schema" in osc:
                     return self._osc_schema(osc["schema"])
                 return self._osc_limits(osc["limits"])
+            unknown = set(osc) - set(_OSC_TREE)
+            if unknown and "xid" in osc:
+                # Recorded with an xid: an unknown method is a 404 at the osc
+                # node (two keys, so the bundle rule moves it up), xid echoed.
+                return {
+                    "osc": {"error": [_error_entry(("osc",), _ERR_NOT_FOUND)], "xid": osc["xid"]}
+                }
             methods = _osc_method_answer(osc)
             if methods is None:
                 return _error(_ERR_BAD_REQUEST)
