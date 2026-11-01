@@ -23,7 +23,6 @@ from .backup_export import (
 )
 from .const import (
     CONF_MODEL,
-    CONF_SERIAL,
     CONTROL_MODE_LOCAL,
     DEVICE_ACTION_TIMEOUT_SECONDS,
     DOMAIN,
@@ -32,7 +31,9 @@ from .const import (
     PATH_OUTPUT_MUTE,
     PATH_UI_CONTROL_MODE,
 )
+from .coordinator import NeumannKHCoordinator
 from .discovery_export import DiscoveryTimeoutError, async_discover_all_values
+from .entity import unique_id_base
 from .export_file import async_write_export
 from .identity import mask_serial
 from .ssc_client import (
@@ -85,7 +86,7 @@ def _notify_written(hass: HomeAssistant, entry: ConfigEntry, kind: str, path: st
 
 async def async_run_backup(hass: HomeAssistant, entry: ConfigEntry, client: SSCClient) -> str:
     """Read all known values, store them and write them out."""
-    serial = entry.data.get(CONF_SERIAL) or entry.entry_id
+    serial = unique_id_base(entry)
     model = entry.data.get(CONF_MODEL)
 
     try:
@@ -159,7 +160,7 @@ async def async_run_backup(hass: HomeAssistant, entry: ConfigEntry, client: SSCC
 
 async def async_run_discovery(hass: HomeAssistant, entry: ConfigEntry, client: SSCClient) -> str:
     """Run a full device discovery, store it and write it out."""
-    serial = entry.data.get(CONF_SERIAL) or entry.entry_id
+    serial = unique_id_base(entry)
     model = entry.data.get(CONF_MODEL)
 
     try:
@@ -234,7 +235,7 @@ async def async_check_restorable(hass: HomeAssistant, entry: ConfigEntry) -> dic
     both the model and the (masked) serial have to match before anything is
     written.
     """
-    serial = entry.data.get(CONF_SERIAL) or entry.entry_id
+    serial = unique_id_base(entry)
     backup = await storage.async_get_backup(hass, serial)
     if not backup or not backup.get("values"):
         raise HomeAssistantError(translation_domain=DOMAIN, translation_key="restore_no_backup")
@@ -336,7 +337,7 @@ def _write_order(paths: list[tuple[str, ...]], values: dict[str, Any]) -> list[t
 async def async_run_restore(
     hass: HomeAssistant,
     entry: ConfigEntry,
-    coordinator: Any,
+    coordinator: NeumannKHCoordinator,
     backup: dict[str, Any],
 ) -> tuple[int, int, int]:
     """Write a stored backup back to the device.
