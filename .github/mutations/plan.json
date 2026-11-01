@@ -152,5 +152,19 @@
     "find": "        self.coordinator_context = getattr(description, \"ssc_path\", None)",
     "replace": "        self.coordinator_context = None",
     "expect": "tests/test_integration_e2e.py::test_every_optional_path_has_an_entity_asking_for_it"
+  },
+  {
+    "name": "a late answer with another xid is taken as the answer",
+    "path": "custom_components/neumann_kh/ssc_client.py",
+    "find": "            if _is_late(reply_xid, xid):",
+    "replace": "            if False:",
+    "expect": "tests/test_ssc_client.py::test_a_line_with_another_xid_is_dropped"
+  },
+  {
+    "name": "a request over the token limit still carries an xid",
+    "path": "custom_components/neumann_kh/ssc_client.py",
+    "find": "        if \"osc\" in payload or json_tokens(payload) + _XID_TOKENS > _MAX_REQUEST_TOKENS:",
+    "replace": "        if \"osc\" in payload:",
+    "expect": "tests/test_ssc_client.py::test_a_request_over_the_token_limit_goes_without_an_xid"
   }
 ]
