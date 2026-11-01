@@ -403,18 +403,12 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return
         try:
             await self.client.set(PATH_SAVE_SETTINGS, True)
-        except SSCDeviceError as err:
-            if err.code == ERROR_NOT_FOUND:
+        except (SSCDeviceError, SSCConnectionError, SSCTimeoutError) as err:
+            if isinstance(err, SSCDeviceError) and err.code == ERROR_NOT_FOUND:
                 # The KH 80 need is reported, not measured: a firmware without
                 # the path has nothing to save, and must not fail every change.
                 _LOGGER.debug("%s has no save command - nothing to save", self.name)
                 return
-            raise HomeAssistantError(
-                translation_domain=DOMAIN,
-                translation_key="settings_not_saved",
-                translation_placeholders={"error": str(err)},
-            ) from err
-        except (SSCConnectionError, SSCTimeoutError) as err:
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
                 translation_key="settings_not_saved",

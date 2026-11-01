@@ -44,8 +44,8 @@
   {
     "name": "a factory reset with a lost reply keeps the stale cache",
     "path": "custom_components/neumann_kh/button.py",
-    "find": "                await self.coordinator.async_invalidate_and_refresh()\n                raise HomeAssistantError(",
-    "replace": "                raise HomeAssistantError(",
+    "find": "                on_unreachable=self.coordinator.async_invalidate_and_refresh,",
+    "replace": "                on_unreachable=None,",
     "expect": "tests/test_factory_reset.py::test_a_reset_whose_reply_is_lost_still_drops_the_cache"
   },
   {

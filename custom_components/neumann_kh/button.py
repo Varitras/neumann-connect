@@ -31,18 +31,16 @@ from homeassistant.components.persistent_notification import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from ._util import localized
 from .const import (
     CONF_MODEL,
-    DOMAIN,
     PATH_RESTORE,
     RESTORE_FACTORY_DEFAULTS_VALUE,
 )
 from .coordinator import NeumannKHConfigEntry, NeumannKHCoordinator
-from .entity import NeumannKHEntity
+from .entity import NeumannKHEntity, device_errors
 from .eq import build_eq_reset_buttons
 from .export_actions import (
     async_check_restorable,
@@ -50,7 +48,6 @@ from .export_actions import (
     async_run_discovery,
     async_run_restore,
 )
-from .ssc_client import SSCConnectionError, SSCDeviceError, SSCLocalModeError, SSCTimeoutError
 
 # Upper bound of the confirmation window shared by factory reset and restore
 # backup. After it elapses, the button must be armed again.
@@ -134,31 +131,18 @@ class NeumannKHRestoreButton(NeumannKHEntity, ButtonEntity):
             # Second press after the minimum gap, within the window -> reset.
             self._armed_at = None
             async_dismiss_notification(self.hass, self._notification_id)
-            try:
-                async with self.coordinator.claim_device():
-                    await self.coordinator.client.set(PATH_RESTORE, RESTORE_FACTORY_DEFAULTS_VALUE)
-            except SSCLocalModeError as err:
-                raise HomeAssistantError(
-                    translation_domain=DOMAIN, translation_key="local_mode"
-                ) from err
-            except SSCDeviceError as err:
-                raise HomeAssistantError(
-                    translation_domain=DOMAIN,
-                    translation_key="factory_reset_rejected",
-                    translation_placeholders={"error": str(err)},
-                ) from err
-            except (SSCConnectionError, SSCTimeoutError) as err:
-                # The command may already have reached the speaker: a reset
-                # reboots it, so a missing reply is what success looks like
-                # from here too. Reading that as "nothing happened" kept every
-                # value from before a reset that did in fact run - forever,
-                # for values that are only ever written once.
-                await self.coordinator.async_invalidate_and_refresh()
-                raise HomeAssistantError(
-                    translation_domain=DOMAIN,
-                    translation_key="device_unreachable",
-                    translation_placeholders={"error": str(err)},
-                ) from err
+            # A lost reply drops the cache too: a reset reboots the speaker,
+            # so a missing reply is what success looks like from here as well.
+            # Reading that as "nothing happened" kept every value from before
+            # a reset that did in fact run - forever, for values written once.
+            async with (
+                device_errors(
+                    rejected_key="factory_reset_rejected",
+                    on_unreachable=self.coordinator.async_invalidate_and_refresh,
+                ),
+                self.coordinator.claim_device(),
+            ):
+                await self.coordinator.client.set(PATH_RESTORE, RESTORE_FACTORY_DEFAULTS_VALUE)
             # A reset rewrites everything at once, so every cached value is
             # stale - including the slow-polled ones, which would otherwise
             # keep showing pre-reset settings for up to five minutes.

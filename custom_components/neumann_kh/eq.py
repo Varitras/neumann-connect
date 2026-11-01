@@ -20,13 +20,10 @@ from homeassistant.components.button import ButtonEntity, ButtonEntityDescriptio
 from homeassistant.components.switch import SwitchEntity, SwitchEntityDescription
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory
-from homeassistant.exceptions import HomeAssistantError
 
-from .const import DOMAIN
 from .coordinator import NeumannKHCoordinator
-from .entity import NeumannKHEntity
+from .entity import NeumannKHEntity, device_errors
 from .eq_containers import EQContainer, eq_containers_for_model
-from .ssc_client import SSCConnectionError, SSCDeviceError, SSCLocalModeError, SSCTimeoutError
 
 # --- Container on/off switch -------------------------------------------------
 
@@ -136,25 +133,9 @@ class NeumannKHEQResetButton(NeumannKHEntity, ButtonEntity):
         # lock: a backup reading while this writes mixes the old curve with
         # the new one and then replaces the last good snapshot.
         async with self.coordinator.claim_device():
-            try:
+            async with device_errors(rejected_key="eq_reset_rejected"):
                 await self.coordinator.client.set(self._container.path + ("gain",), zero)
                 await self.coordinator.client.set(self._container.path + ("boost",), zero)
-            except SSCLocalModeError as err:
-                raise HomeAssistantError(
-                    translation_domain=DOMAIN, translation_key="local_mode"
-                ) from err
-            except SSCDeviceError as err:
-                raise HomeAssistantError(
-                    translation_domain=DOMAIN,
-                    translation_key="eq_reset_rejected",
-                    translation_placeholders={"error": str(err)},
-                ) from err
-            except (SSCConnectionError, SSCTimeoutError) as err:
-                raise HomeAssistantError(
-                    translation_domain=DOMAIN,
-                    translation_key="device_unreachable",
-                    translation_placeholders={"error": str(err)},
-                ) from err
             await self.coordinator.async_persist()
         # No refresh afterwards: gain and boost are never polled (only the
         # container's "enabled" array is), so there is no cached value a
