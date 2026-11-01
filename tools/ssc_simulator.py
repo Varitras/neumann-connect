@@ -532,12 +532,12 @@ class SSCSimulator:
             return None, _error_entry(node, _ERR_NOT_FOUND)
         if value is None:
             return _build_nested(path, current), None
-        # Recorded for a writable leaf only; which code a read-only leaf gets
-        # in LOCAL mode is not, and 401 first is the guess.
-        if self._local_mode():
-            return None, _error_entry(path, _ERR_AUTHORISATION_NEEDED)
+        # Recorded on LOCAL: a read-only leaf keeps its 405, only a writable
+        # one gets 401 - the device checks writability before the switch.
         if path in self.read_only:
             return None, _error_entry(path, _ERR_NOT_ALLOWED)
+        if self._local_mode():
+            return None, _error_entry(path, _ERR_AUTHORISATION_NEEDED)
         if not _same_kind(current, value):
             return None, _error_entry(path, _ERR_NOT_ACCEPTABLE)
         self._apply_set(path, value)
