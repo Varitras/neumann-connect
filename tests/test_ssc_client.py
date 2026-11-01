@@ -1279,3 +1279,38 @@ async def test_a_json_line_that_is_not_an_object_is_skipped(socket_enabled, not_
     finally:
         await client.close()
         await _shutdown(raw_server, handled)
+
+
+async def test_a_write_during_a_poll_waits_for_one_query_at_most(server):
+    """The poll takes the lock per path, and asyncio.Lock hands it over in FIFO
+    order: a waiting write goes before the poll's next query. That carries user
+    actions ahead of a cycle - no priority flag is needed for it.
+    """
+    server.response_delay = 0.02
+    order: list[str] = []
+
+    def _record(request):
+        is_write = "mute" in request.get("audio", {}).get("out", {})
+        order.append("write" if is_write else "poll")
+        return [request]
+
+    server.responder = _record
+    client = _client(server.port)
+    three_polled = asyncio.Event()
+
+    async def _poll() -> None:
+        for count in range(1, 21):
+            await client.get(("audio", "out", "level"))
+            if count == 3:
+                three_polled.set()
+
+    try:
+        poll = asyncio.create_task(_poll())
+        await three_polled.wait()
+        issued_at = len(order)
+        await client.set(("audio", "out", "mute"), True)
+        await poll
+    finally:
+        await client.close()
+
+    assert order.index("write") - issued_at <= 1, order
