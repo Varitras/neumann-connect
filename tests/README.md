@@ -76,7 +76,7 @@ the thing it prevents actually happened here.
 | `test_mutation_harness.py` | The mutation run fails loudly instead of reporting a breakage it never applied |
 | `test_resolve_phcc.py` | The latest-HA job picks the newest plugin release that pins a final Home Assistant, never a beta |
 | `test_sensor_states.py` | The not_assigned mapping and its translations stay in step |
-| `test_translations.py` | strings.json, en.json and de.json carry the same keys |
+| `test_translations.py` | strings.json, en.json and de.json carry the same keys, and every error key the code hands out has a text |
 | `test_guards.py` | Every guard is listed, scans a real directory, and is not pinned to one file |
 
 ## When a budget turns red

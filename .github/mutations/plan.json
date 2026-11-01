@@ -201,5 +201,12 @@
     "find": "        # any more: it lives on the entry, and the next attempt overwrites it.\n        await client.close()",
     "replace": "        # any more: it lives on the entry, and the next attempt overwrites it.\n        pass",
     "expect": "tests/test_setup_cleanup.py::test_a_setup_whose_platforms_fail_closes_the_connection"
+  },
+  {
+    "name": "an error key in the code has no text",
+    "path": "custom_components/neumann_kh/export_actions.py",
+    "find": "translation_key=\"restore_no_backup\"",
+    "replace": "translation_key=\"restore_no_backups\"",
+    "expect": "tests/test_translations.py::test_every_error_key_in_the_code_has_a_text"
   }
 ]
