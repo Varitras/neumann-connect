@@ -568,3 +568,22 @@ async def test_every_entity_tells_the_coordinator_which_path_it_reads(hass, sock
 
     assert ("audio", "out", "level") in contexts
     assert ("ui", "control_mode") in contexts
+
+
+async def test_every_optional_path_has_an_entity_asking_for_it(hass, socket_enabled, monkeypatch):
+    """With every entity enabled, each optional path must be in the contexts.
+
+    An entity reading such a path without registering it - a hard-wired path
+    instead of its description's ssc_path - would stay unknown from the second
+    cycle on, and the description-based drift test cannot see that pattern.
+    """
+    from homeassistant.helpers.entity import Entity
+
+    from custom_components.neumann_kh.const import OPTIONAL_FAST_POLL_PATHS
+
+    monkeypatch.setattr(Entity, "entity_registry_enabled_default", property(lambda self: True))
+    async with _simulator(MODEL_KH_750) as port:
+        entry = await _setup_entry(hass, MODEL_KH_750, port, "SIM0007500")
+        contexts = set(entry.runtime_data.async_contexts())
+
+    assert OPTIONAL_FAST_POLL_PATHS <= contexts, sorted(OPTIONAL_FAST_POLL_PATHS - contexts)

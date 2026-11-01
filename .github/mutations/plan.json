@@ -145,5 +145,12 @@
     "find": "    except ValueError, RecursionError:",
     "replace": "    except json.JSONDecodeError:",
     "expect": "tests/test_ssc_client.py::test_a_line_the_parser_refuses_is_skipped"
+  },
+  {
+    "name": "entities stop telling the coordinator which path they read",
+    "path": "custom_components/neumann_kh/entity.py",
+    "find": "        self.coordinator_context = getattr(description, \"ssc_path\", None)",
+    "replace": "        self.coordinator_context = None",
+    "expect": "tests/test_integration_e2e.py::test_every_optional_path_has_an_entity_asking_for_it"
   }
 ]
