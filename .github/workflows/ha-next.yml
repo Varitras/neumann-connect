@@ -1,0 +1,95 @@
+name: Next Home Assistant
+
+# The CI jobs test the Home Assistant releases hacs.json and the plugin pins
+# promise. This takes the newest release on PyPI, beta included - while a
+# beta is out, one release ahead - so whatever it removes or newly reports as
+# deprecated turns up while there is time to change it. Weekly and by hand,
+# and on a pull request that changes the check or what it installs. Red here
+# means that release, not this branch: a warning, not a merge gate. In a
+# public repository GitHub disables a schedule after 60 days without
+# activity; re-enable it in the Actions tab.
+on:
+  schedule:
+    - cron: "23 4 * * 1"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/ha-next.yml
+      - .github/scripts/import_check.py
+      - tests/conftest.py
+      - tests/deprecations.py
+      - pytest.ini
+      - requirements_tools.txt
+      - custom_components/neumann_kh/manifest.json
+
+permissions:
+  contents: read
+
+jobs:
+  next:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      # The newest release of either, betas included, and whether the test
+      # harness pins exactly that Home Assistant. It follows a beta days late,
+      # if at all; without it only the import check can run.
+      - name: Find the newest Home Assistant and its test harness
+        id: versions
+        shell: python
+        run: |
+          import json, os, re, urllib.request
+
+          def pypi(name):
+              with urllib.request.urlopen(
+                  f"https://pypi.org/pypi/{name}/json", timeout=30
+              ) as answer:
+                  return json.load(answer)
+
+          def order(version):
+              year, month, patch, beta = re.fullmatch(
+                  r"(\d+)\.(\d+)\.(\d+)(?:b(\d+))?", version
+              ).groups()
+              final = beta is None
+              return int(year), int(month), int(patch), final, int(beta or 0)
+
+          releases = pypi("homeassistant")["releases"]
+          newest = max(
+              (
+                  version
+                  for version, files in releases.items()
+                  if re.fullmatch(r"\d+\.\d+\.\d+(b\d+)?", version)
+                  and files
+                  and not all(file["yanked"] for file in files)
+              ),
+              key=order,
+          )
+          harness = pypi("pytest-homeassistant-custom-component")["info"]
+          pinned = f"homeassistant=={newest}" in (harness["requires_dist"] or [])
+          print(f"Home Assistant {newest}; test harness for it: {pinned}")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              output.write(f"homeassistant={newest}\nharness={str(pinned).lower()}\n")
+      - name: Install it
+        env:
+          HOMEASSISTANT: ${{ steps.versions.outputs.homeassistant }}
+          HARNESS: ${{ steps.versions.outputs.harness }}
+        run: |
+          if [[ "$HARNESS" == true ]]; then
+            pip install pytest-homeassistant-custom-component "homeassistant==$HOMEASSISTANT" -r requirements_tools.txt
+          else
+            pip install "homeassistant==$HOMEASSISTANT"
+          fi
+      - name: Import every module
+        run: python .github/scripts/import_check.py
+      - name: Run the tests
+        if: steps.versions.outputs.harness == 'true'
+        run: python -m pytest tests/ -q -m ""
+      - name: Say what did not run
+        if: steps.versions.outputs.harness != 'true'
+        env:
+          HOMEASSISTANT: ${{ steps.versions.outputs.homeassistant }}
+        run: |
+          echo "::notice::No test harness for Home Assistant $HOMEASSISTANT yet: only the import check ran"

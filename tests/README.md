@@ -70,6 +70,7 @@ the thing it prevents actually happened here.
 | `test_ci_parity.py` | CI runs the same check script a developer runs, against the advertised minimum version |
 | `test_comment_narration.py` | No comment merely restates the code it sits on |
 | `test_constant_owners.py` | No constant is defined in two modules |
+| `test_deprecations.py` | Home Assistant's deprecation reports about the integration, and DeprecationWarnings from the package, fail the suite; probes produce each wording from Home Assistant itself |
 | `test_device_writes.py` | Every button press claims the device before writing |
 | `test_log_privacy.py` | No log call or raised message hands out a serial or an address in full |
 | `test_mutation_harness.py` | The mutation run fails loudly instead of reporting a breakage it never applied |

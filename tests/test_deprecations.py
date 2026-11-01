@@ -9,6 +9,7 @@ itself, so a rewording turns this file red instead of the check going blind.
 from __future__ import annotations
 
 import importlib
+import importlib.util
 import logging
 import os
 import subprocess
@@ -292,7 +293,7 @@ def test_the_suite_fails_on_reports_where_they_happen(
         INNER_TESTS.format(domain=INTEGRATION), encoding="utf-8"
     )
     tests_dir = Path(__file__).parent
-    result = subprocess.run(  # noqa: S603 - the interpreter running this suite
+    result = subprocess.run(
         [
             sys.executable,
             *("-m", "pytest", "-p", "conftest", "-p", "no:cacheprovider"),
@@ -398,3 +399,18 @@ def test_a_deprecation_warning_in_the_integration_fails(category: type[Warning])
         warnings.simplefilter("always")
         warnings.warn_explicit("old", category, "other.py", 1, module="other")
     assert len(elsewhere) == 1
+
+
+def test_the_import_check_fails_on_a_report(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The next-release workflow runs it where no test harness exists yet."""
+    path = Path(__file__).parents[1] / ".github" / "scripts" / "import_check.py"
+    spec = importlib.util.spec_from_file_location("import_check", path)
+    assert spec is not None
+    assert spec.loader is not None
+    import_check = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(import_check)
+
+    monkeypatch.setattr(import_check, "import_every_module", _a_report)
+    assert import_check.main() == 1
+    monkeypatch.setattr(import_check, "import_every_module", lambda: None)
+    assert import_check.main() == 0
