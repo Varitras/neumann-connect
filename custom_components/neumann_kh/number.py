@@ -10,11 +10,13 @@ from dataclasses import dataclass
 from typing import Any
 
 from homeassistant.components.number import (
+    NumberDeviceClass,
     NumberEntity,
     NumberEntityDescription,
     NumberMode,
 )
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -84,7 +86,8 @@ COMMON_NUMBER_DESCRIPTIONS: tuple[NeumannKHNumberDescription, ...] = (
         native_min_value=STANDBY_AUTO_TIME_MIN,
         native_max_value=STANDBY_AUTO_TIME_MAX,
         native_step=1,
-        native_unit_of_measurement="min",
+        device_class=NumberDeviceClass.DURATION,
+        native_unit_of_measurement=UnitOfTime.MINUTES,
         mode=NumberMode.BOX,
         ssc_path=PATH_STANDBY_AUTO_TIME,
         integer=True,
