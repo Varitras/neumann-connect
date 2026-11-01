@@ -129,6 +129,13 @@ LOCAL_MODE_SET_REPLY = (
     '{"osc":{"error":[{"audio":{"out":{"mute":[401,{"desc":"authorisation needed"}]}}}]}}',
 )
 
+# On LOCAL a read-only leaf keeps its 405: writability is checked before the
+# switch (KH 120 II, 2026-11-01, sent with an xid; the xid is left out here).
+LOCAL_MODE_READ_ONLY_SET_REPLY = (
+    {"ui": {"control_mode": "LOCAL"}},
+    '{"osc":{"error":[{"ui":{"control_mode":[405,{"desc":"method not allowed"}]}}]}}',
+)
+
 # osc/schema and osc/limits - answered by both models in exactly the form the
 # integration sends (an older note said 400; it is not).
 SCHEMA_ROOT_REPLY = (
@@ -162,6 +169,42 @@ MALFORMED_OSC_REPLIES = (
         {"osc": {"limits": {"audio": {"out": {"level": None}}}}},
         '{"osc":{"error":[{"osc":{"limits":[454,{"desc":"parameter address not found"}]}}]}}',
     ),
+)
+
+# Error replies to requests with an xid, both models alike (2026-11-01): the
+# xid sits next to "error" in the same osc object, never in a second one.
+XID_ERROR_REPLIES = (
+    (
+        {"osc": {"xid": 101}, "audio": {"out": {"dimm": None}}},
+        '{"osc":{"error":[{"audio":{"out":{"dimm":[404,{"desc":"address not found"}]}}}],"xid":101}}',
+    ),
+    (
+        {"osc": {"xid": 102}, "ui": {"control_mode": "NETWORK"}},
+        '{"osc":{"error":[{"ui":{"control_mode":[405,{"desc":"method not allowed"}]}}],"xid":102}}',
+    ),
+    (
+        {"osc": {"xid": 103}, "audio": {"out": {"mute": "x"}}},
+        '{"osc":{"error":[{"audio":{"out":{"mute":[406,{"desc":"not acceptable"}]}}}],"xid":103}}',
+    ),
+    (
+        {"osc": {"xid": 104}, "audio": {"out": {"level": None, "dimm": None}}},
+        (
+            '{"audio":{"out":{"level":100.0}},'
+            '"osc":{"error":[{"audio":{"out":[404,{"desc":"address not found"}]}}],"xid":104}}'
+        ),
+    ),
+    (
+        {"osc": {"xid": 105, "nonexistent": None}},
+        '{"osc":{"error":[{"osc":[404,{"desc":"address not found"}]}],"xid":105}}',
+    ),
+)
+
+# More than 29 JSON tokens, both models (KH 120 II 2026-10-20, KH 750
+# 2026-11-01): refused before anything is read, so the reply carries no xid.
+# Here a get bundle of 13 unknown leaves (31 tokens); 12 (29 tokens) answer 404.
+REQUEST_TOO_LONG_REPLY = (
+    {"osc": {"xid": 1}, "audio": {"out": {f"x{n}": None for n in range(13)}}},
+    '{"osc":{"error":[413,{"desc":"request too long"}]}}',
 )
 
 # Protocol methods of the osc container and the transaction id, both models.

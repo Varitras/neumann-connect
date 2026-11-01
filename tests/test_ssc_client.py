@@ -366,8 +366,10 @@ async def test_cancellation_in_the_drain_window_drops_the_connection(server, mon
         in_drain.set()
         await asyncio.sleep(60)  # hold the request inside the drain window
 
+    # Answered without the xid: only an answer matched by path is drained
+    # after, and a fresh connection skips the drain, so a first request opens it.
+    server.responder = lambda req: [{"device": {"name": "x"}}]
     client = _client(server.port)
-    # A fresh connection skips the drain, so open it with a first request.
     await client.get(("device", "name"))
     monkeypatch.setattr(SSCClient, "_discard_stale_lines", _hanging_drain)
     try:
@@ -966,6 +968,11 @@ def _recording(received: list, answer):
     return _respond
 
 
+def _without_xid(request: dict) -> dict:
+    """The value part of a request; the transaction id is tested on its own."""
+    return {key: value for key, value in request.items() if key != "osc"}
+
+
 async def test_an_aliased_get_asks_the_device_path(server):
     received: list = []
     server.responder = _recording(received, lambda req: {"audio": {"out5": {"level": 87.0}}})
@@ -973,7 +980,7 @@ async def test_an_aliased_get_asks_the_device_path(server):
     try:
         client.use_path_aliases({("audio", "out", "level"): ("audio", "out5", "level")})
         assert await client.get(("audio", "out", "level")) == 87.0
-        assert received == [{"audio": {"out5": {"level": None}}}]
+        assert [_without_xid(r) for r in received] == [{"audio": {"out5": {"level": None}}}]
     finally:
         await client.close()
 
@@ -985,7 +992,7 @@ async def test_an_aliased_set_writes_the_device_path(server):
     try:
         client.use_path_aliases({("audio", "out", "mute"): ("audio", "out5", "mute")})
         assert await client.set(("audio", "out", "mute"), True) is True
-        assert received == [{"audio": {"out5": {"mute": True}}}]
+        assert [_without_xid(r) for r in received] == [{"audio": {"out5": {"mute": True}}}]
     finally:
         await client.close()
 
@@ -997,7 +1004,7 @@ async def test_an_unaliased_path_is_sent_unchanged(server):
     try:
         client.use_path_aliases({("audio", "out", "level"): ("audio", "out5", "level")})
         await client.get(("audio", "out", "delay"))
-        assert received == [{"audio": {"out": {"delay": None}}}]
+        assert [_without_xid(r) for r in received] == [{"audio": {"out": {"delay": None}}}]
     finally:
         await client.close()
 
@@ -1017,6 +1024,8 @@ async def test_a_fresh_connection_skips_the_stale_drain(server, monkeypatch):
         await real_drain(self)
 
     monkeypatch.setattr(SSCClient, "_discard_stale_lines", _counting_drain)
+    # Without the xid echoed, so the reused connection has something to drain.
+    server.responder = lambda req: [{"device": {"name": "x"}}]
     client = _client(server.port)
     try:
         await client.get(("device", "name"))
@@ -1025,3 +1034,189 @@ async def test_a_fresh_connection_skips_the_stale_drain(server, monkeypatch):
         assert drains == 1, "the reused connection was not drained"
     finally:
         await client.close()
+
+
+# --- osc/xid -----------------------------------------------------------------
+#
+# Every value request carries a transaction id, which the device echoes in the
+# same line - error replies included (KH 120 II and KH 750, 2026-11-01). A line
+# with another id is a stale answer to an earlier request.
+
+
+def _xid_of(request: dict) -> object:
+    return request.get("osc", {}).get("xid")
+
+
+async def test_a_value_request_carries_an_xid(server):
+    sent: list[dict] = []
+
+    def _record(request):
+        sent.append(request)
+        return [request]
+
+    server.responder = _record
+    client = _client(server.port)
+    try:
+        await client.get(("device", "name"))
+        await client.get(("device", "name"))
+    finally:
+        await client.close()
+
+    xids = [_xid_of(request) for request in sent]
+    assert None not in xids, sent
+    assert xids[0] != xids[1], "two requests shared an xid"
+
+
+async def test_a_line_with_another_xid_is_dropped(server):
+    """A late answer to an earlier request names the same path - only its xid tells.
+
+    Without the xid it was taken as the answer: the documented limitation of
+    the early return, now closed for every request that carries an id.
+    """
+
+    def _stale_then_fresh(request):
+        stale = {"device": {"name": "old"}, "osc": {"xid": "earlier"}}
+        return [stale, request | {"device": {"name": "new"}}]
+
+    server.responder = _stale_then_fresh
+    client = _client(server.port)
+    try:
+        assert await client.get(("device", "name")) == "new"
+    finally:
+        await client.close()
+
+
+async def test_a_stale_error_with_another_xid_does_not_fail_the_request(server):
+    def _stale_error_then_fresh(request):
+        error = [{"device": {"name": [404, {"desc": "address not found"}]}}]
+        stale = {"osc": {"error": error, "xid": "earlier"}}
+        return [stale, request | {"device": {"name": "ok"}}]
+
+    server.responder = _stale_error_then_fresh
+    client = _client(server.port)
+    try:
+        assert await client.get(("device", "name")) == "ok"
+    finally:
+        await client.close()
+
+
+async def test_an_error_with_the_own_xid_is_the_answer(server):
+    def _refuse(request):
+        error = [{"ui": {"control_mode": [405, {"desc": "method not allowed"}]}}]
+        return [{"osc": {"error": error, "xid": _xid_of(request)}}]
+
+    server.responder = _refuse
+    client = _client(server.port)
+    try:
+        with pytest.raises(SSCDeviceError) as err:
+            await client.set(("ui", "control_mode"), "NETWORK")
+    finally:
+        await client.close()
+    assert err.value.code == 405
+
+
+async def test_the_xid_does_not_reach_the_caller(server):
+    """Callers walk the reply tree; an osc/xid there is noise they never asked for."""
+    client = _client(server.port)
+    try:
+        reply = await client.request({"device": {"name": None}}, expect_path=("device", "name"))
+    finally:
+        await client.close()
+    assert "osc" not in reply, reply
+
+
+async def test_a_request_over_the_token_limit_goes_without_an_xid(server):
+    """A KH 120 II refuses more than 29 JSON tokens with 413; the xid costs 4.
+
+    A set of a 20-band EQ leaf is exactly 29 tokens without it.
+    """
+    sent: list[dict] = []
+
+    def _record(request):
+        sent.append(request)
+        return [request]
+
+    server.responder = _record
+    client = _client(server.port)
+    try:
+        await client.set(("audio", "out", "eq3", "gain"), [0.0] * 20)
+        await client.set(("audio", "out", "eq2", "gain"), [0.0] * 10)
+    finally:
+        await client.close()
+
+    assert _xid_of(sent[0]) is None, "the 20-band set would be refused with 413"
+    assert _xid_of(sent[1]) is not None
+
+
+async def test_an_answer_matched_by_xid_needs_no_stale_drain(server, monkeypatch):
+    """The drain guards replies matched by path; an xid reply cannot be mistaken."""
+    drains = 0
+    real_drain = SSCClient._discard_stale_lines
+
+    async def _counting_drain(self) -> None:
+        nonlocal drains
+        drains += 1
+        await real_drain(self)
+
+    monkeypatch.setattr(SSCClient, "_discard_stale_lines", _counting_drain)
+    client = _client(server.port)
+    try:
+        await client.get(("device", "name"))
+        await client.get(("device", "name"))
+    finally:
+        await client.close()
+
+    assert drains == 0
+
+
+async def test_an_xid_line_without_the_value_does_not_end_the_answer(socket_enabled):
+    """A firmware that splits an answer may send the xid before the value.
+
+    Ending the read on the xid line returned None, and the value line - which
+    carries no xid - was then taken as the answer to the next request.
+    """
+
+    async def _handle(reader, writer):
+        while line := await reader.readline():
+            xid = json.loads(line)["osc"]["xid"]
+            writer.write(json.dumps({"osc": {"xid": xid}}).encode() + b"\r\n")
+            await writer.drain()
+            await asyncio.sleep(_SETTLE / 5)  # within the settle window
+            writer.write(json.dumps({"device": {"name": f"v{xid}"}}).encode() + b"\r\n")
+            await writer.drain()
+
+    raw_server, handled = await _serve(_handle)
+    port = raw_server.sockets[0].getsockname()[1]
+    client = _client(port)
+    try:
+        first = await client.get(("device", "name"))
+        second = await client.get(("device", "name"))
+    finally:
+        await client.close()
+        await _shutdown(raw_server, handled)
+    assert (first, second) == ("v1", "v2")
+
+
+async def test_an_answer_ended_by_the_settle_window_is_drained_after(server, monkeypatch):
+    """No xid and no requested path: the read ends on the settle window.
+
+    Such an answer is matched by nothing, so a trailing line of it could pass
+    for the next answer - the drain has to run before the next request.
+    """
+    drains = 0
+    real_drain = SSCClient._discard_stale_lines
+
+    async def _counting_drain(self) -> None:
+        nonlocal drains
+        drains += 1
+        await real_drain(self)
+
+    monkeypatch.setattr(SSCClient, "_discard_stale_lines", _counting_drain)
+    server.responder = lambda req: [{"other": {"value": 1}}]
+    client = _client(server.port)
+    try:
+        await client.get(("device", "name"))
+        await client.get(("device", "name"))
+    finally:
+        await client.close()
+    assert drains == 1

@@ -321,15 +321,15 @@ Entities sind „nicht verfügbar“, bis eine wieder geschlossen wird.
 - `ui/input_select` bleibt nur lesend. Der schreibbare Pfad ist
   `audio/in/interface`, bestätigt auf KH 120 II und KH 750 DSP und dort
   standardmäßig aktiviert.
-- Antwortet ein Lautsprecher auf eine einzelne Abfrage mit mehr als einer
-  Zeile, kann in einem engen Fall eine Folgezeile der einen Antwort als die
-  nächste ausgegeben werden. Die Integration sendet keine Transaktionskennung
-  (`osc/xid`, die beide Testgeräte zurückgeben), eine Folgezeile für den gerade
-  abgefragten Pfad ist von einer frischen Antwort darauf also nicht zu
-  unterscheiden. Bereits anliegende Zeilen werden
-  vor der nächsten Anfrage verworfen; betroffen ist nur eine, die genau
-  dazwischen eintrifft. Beide Testgeräte antworten mit exakt einer Zeile, das
-  betrifft also andere Firmware, nicht die eingesetzte Hardware.
+- Jede Wert-Anfrage trägt eine Transaktionskennung (`osc/xid`), die beide
+  Testgeräte in derselben Zeile zurückgeben, auch bei Fehlerantworten; eine
+  Zeile mit fremder Kennung ist eine verspätete Antwort auf eine frühere Anfrage
+  und wird verworfen. Ohne Kennung gehen nur EQ-Schreibvorgänge mit 20 Bändern,
+  weil die Kennung sie über die Größengrenze der Lautsprecher brächte, und die
+  Schema- und Limits-Abfrage der Geräte-Discovery; ihre Antworten werden über
+  den Pfad zugeordnet, wo in einem engen Fall eine Folgezeile der vorigen
+  Antwort als die nächste durchgehen könnte. Beide Testgeräte antworten mit
+  exakt einer Zeile.
 - Der Steuerungsmodus (`ui/control_mode`) wird mit dem Schalter CONTROL auf
   der Rückseite eingestellt (KH 750 DSP: CONTROL MODE) und lässt sich über das
   Netzwerk nicht ändern, deshalb ist er ein Sensor. Auf `LOCAL` antwortet der

@@ -49,6 +49,7 @@ _ERR_AUTHORISATION_NEEDED = 401
 _ERR_NOT_FOUND = 404
 _ERR_NOT_ALLOWED = 405
 _ERR_NOT_ACCEPTABLE = 406
+_ERR_REQUEST_TOO_LONG = 413
 _ERR_PARAMETER_NOT_FOUND = 454
 
 _ERR_DESCRIPTIONS = {
@@ -57,6 +58,7 @@ _ERR_DESCRIPTIONS = {
     _ERR_NOT_FOUND: "address not found",
     _ERR_NOT_ALLOWED: "method not allowed",
     _ERR_NOT_ACCEPTABLE: "not acceptable",
+    _ERR_REQUEST_TOO_LONG: "request too long",
     _ERR_PARAMETER_NOT_FOUND: "parameter address not found",
 }
 
@@ -452,8 +454,20 @@ def _introspection_path(value: Any, method: str) -> tuple[tuple[str, ...] | None
     return path, None
 
 
+# Every object, array, key and scalar counts; a 20-band EQ set is exactly 29.
+_MAX_REQUEST_TOKENS = 29
+
+
+def _json_tokens(value: Any) -> int:
+    if isinstance(value, dict):
+        return 1 + sum(1 + _json_tokens(child) for child in value.values())
+    if isinstance(value, list):
+        return 1 + sum(_json_tokens(child) for child in value)
+    return 1
+
+
 def _error(code: int) -> dict[str, Any]:
-    """A flat SSC error, for the cases whose real reply was never recorded (400)."""
+    """A flat SSC error: the recorded 413, and the never recorded cases (400)."""
     return {"osc": {"error": [code, {"desc": _ERR_DESCRIPTIONS[code]}]}}
 
 
@@ -532,12 +546,12 @@ class SSCSimulator:
             return None, _error_entry(node, _ERR_NOT_FOUND)
         if value is None:
             return _build_nested(path, current), None
-        # Recorded for a writable leaf only; which code a read-only leaf gets
-        # in LOCAL mode is not, and 401 first is the guess.
-        if self._local_mode():
-            return None, _error_entry(path, _ERR_AUTHORISATION_NEEDED)
+        # Recorded on LOCAL: a read-only leaf keeps its 405, only a writable
+        # one gets 401 - the device checks writability before the switch.
         if path in self.read_only:
             return None, _error_entry(path, _ERR_NOT_ALLOWED)
+        if self._local_mode():
+            return None, _error_entry(path, _ERR_AUTHORISATION_NEEDED)
         if not _same_kind(current, value):
             return None, _error_entry(path, _ERR_NOT_ACCEPTABLE)
         self._apply_set(path, value)
@@ -594,6 +608,10 @@ class SSCSimulator:
 
     def handle(self, request: dict[str, Any]) -> dict[str, Any]:
         """Answer a single decoded SSC request."""
+        # Recorded on both models: refused before anything is read, so a
+        # request over the limit gets a flat 413 and no xid.
+        if _json_tokens(request) > _MAX_REQUEST_TOKENS:
+            return _error(_ERR_REQUEST_TOO_LONG)
         # osc/schema and osc/limits are optional per the specification; both
         # tested firmwares answer them. Without them, the reply is unrecorded.
         if "osc" in request:
@@ -606,6 +624,13 @@ class SSCSimulator:
                 if "schema" in osc:
                     return self._osc_schema(osc["schema"])
                 return self._osc_limits(osc["limits"])
+            unknown = set(osc) - set(_OSC_TREE)
+            if unknown and "xid" in osc:
+                # Recorded with an xid: an unknown method is a 404 at the osc
+                # node (two keys, so the bundle rule moves it up), xid echoed.
+                return {
+                    "osc": {"error": [_error_entry(("osc",), _ERR_NOT_FOUND)], "xid": osc["xid"]}
+                }
             methods = _osc_method_answer(osc)
             if methods is None:
                 return _error(_ERR_BAD_REQUEST)

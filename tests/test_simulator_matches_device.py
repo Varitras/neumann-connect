@@ -20,15 +20,18 @@ from recorded_replies import (
     KH_750_SWITCH_SET_REPLIES,
     LIMITS_LEVEL_REQUEST,
     LIMITS_LEVEL_TYPE,
+    LOCAL_MODE_READ_ONLY_SET_REPLY,
     LOCAL_MODE_SET_REPLY,
     MALFORMED_OSC_REPLIES,
     NOT_FOUND_REPLIES,
     OSC_METHOD_REPLIES,
+    REQUEST_TOO_LONG_REPLY,
     SCHEMA_AUDIO_REPLIES,
     SCHEMA_AUDIO_REQUEST,
     SCHEMA_ROOT_REPLY,
     SET_REPLIES,
     SWITCH_SET_REPLIES,
+    XID_ERROR_REPLIES,
 )
 
 from tools.ssc_simulator import MODEL_KH_120_II, MODEL_KH_750, SSCSimulator
@@ -92,6 +95,15 @@ def test_a_simulator_in_local_mode_answers_like_the_device(model):
 
 
 @pytest.mark.parametrize("model", MODELS)
+def test_a_simulator_in_local_mode_refuses_a_read_only_leaf_with_405(model):
+    """The simulator guessed 401 first; the device checks writability before the switch."""
+    simulator = SSCSimulator(model, local_mode=True)
+    request_, line = LOCAL_MODE_READ_ONLY_SET_REPLY
+
+    assert simulator.handle(request_) == json.loads(line)
+
+
+@pytest.mark.parametrize("model", MODELS)
 def test_the_simulator_describes_its_tree_like_the_device(model):
     simulator = SSCSimulator(model)
     assert simulator.handle(SCHEMA_ROOT_REPLY[0]) == json.loads(SCHEMA_ROOT_REPLY[1])
@@ -125,6 +137,34 @@ def test_the_simulator_refuses_malformed_introspection_like_the_device(model, re
 )
 def test_the_simulator_answers_osc_methods_like_the_device(model, request_, line):
     assert SSCSimulator(model).handle(request_) == json.loads(line)
+
+
+@pytest.mark.parametrize("model", MODELS)
+def test_the_simulator_refuses_a_request_over_29_tokens_like_the_device(model):
+    request_, line = REQUEST_TOO_LONG_REPLY
+    assert SSCSimulator(model).handle(request_) == json.loads(line)
+
+
+def test_the_simulator_takes_29_tokens():
+    """Counter-check: a 20-band EQ set of a KH 120 II is exactly 29 tokens and goes through."""
+    simulator = SSCSimulator(MODEL_KH_120_II)
+    gain = _get(simulator, "audio", "out", "eq3", "gain")
+    assert len(gain) == 20
+    assert "osc" not in simulator.handle({"audio": {"out": {"eq3": {"gain": gain}}}})
+
+
+@pytest.mark.parametrize("model", MODELS)
+@pytest.mark.parametrize(
+    ("request_", "line"),
+    XID_ERROR_REPLIES,
+    ids=["404", "405", "406", "partial-bundle", "unknown-osc-method"],
+)
+def test_the_simulator_echoes_the_xid_on_errors_like_the_device(model, request_, line):
+    answer = SSCSimulator(model).handle(request_)
+    # The level differs per model; the shape and the xid are what is recorded.
+    if "audio" in answer and "level" in answer["audio"].get("out", {}):
+        answer["audio"]["out"]["level"] = 100.0
+    assert answer == json.loads(line)
 
 
 def _get(simulator: SSCSimulator, *path: str):

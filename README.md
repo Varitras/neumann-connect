@@ -308,14 +308,14 @@ unavailable until one is closed.
 - `ui/input_select` stays read-only. The writable path is
   `audio/in/interface`, confirmed on both the KH 120 II and the KH 750 DSP and
   enabled by default there.
-- A speaker that answers a single query with more than one line can, in a
-  narrow case, have a trailing line of one answer returned as the next one.
-  The integration sends no transaction id (`osc/xid`, which both test
-  speakers echo), so a trailing line for the path just requested cannot be
-  told apart from a fresh reply to it. Lines already waiting on the socket
-  are discarded before the next request; only one that
-  lands in between is affected. Both test devices answer with exactly one
-  line, so this concerns other firmware rather than the hardware in use.
+- Every value request carries a transaction id (`osc/xid`), which both test
+  speakers echo in the same line, error replies included; a line with another
+  id is a late answer to an earlier request and is dropped. Only EQ writes of
+  20 bands go without one, because the id would push them past the speakers'
+  request size limit, and the schema and limits walk of the device
+  discovery; their replies are matched by path, where a trailing line of the
+  previous answer could in a narrow case pass for the next one. Both test
+  devices answer with exactly one line.
 - Control mode (`ui/control_mode`) is set with the CONTROL switch on the
   back (KH 750 DSP: CONTROL MODE) and cannot be changed over the network, so
   it is a sensor. On `LOCAL` the speaker keeps answering, so its values stay

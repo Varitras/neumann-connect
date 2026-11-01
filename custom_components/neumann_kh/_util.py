@@ -37,6 +37,19 @@ def build_nested(path: tuple[str, ...], value: Any) -> dict[str, Any]:
     return root
 
 
+def json_tokens(value: Any) -> int:
+    """JSON tokens in a value: every object, array, key and scalar counts once.
+
+    The way a Neumann KH 120 II counts a request against its 29-token limit
+    (measured: a set of a 20-entry list four levels deep is exactly 29).
+    """
+    if isinstance(value, dict):
+        return 1 + sum(1 + json_tokens(child) for child in value.values())
+    if isinstance(value, list):
+        return 1 + sum(json_tokens(child) for child in value)
+    return 1
+
+
 def nesting_exceeds(value: Any, limit: int) -> bool:
     """Whether a parsed JSON value nests deeper than `limit`.
 

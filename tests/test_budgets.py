@@ -42,7 +42,9 @@ LINE_BUDGETS = {
     # Raised to 556 for _parse_reply: the nesting limit on faulty replies, taken
     # out of the read loop so its complexity went down instead of up.
     # Raised to 559 to skip the stale drain on a connection opened just now.
-    "ssc_client.py": 559,
+    # Raised to 608 for matching replies by osc/xid (token limit, late lines).
+    # Raised to 620 so a split xid answer waits for its value (re-audit R1).
+    "ssc_client.py": 620,
 }
 
 # SonarSource's default. Everything above needs a written entry.
@@ -51,7 +53,7 @@ COMPLEXITY_BUDGETS = {
     # The one function this project keeps having trouble with. Kept whole by
     # owner decision (ledger A8, 2026-09-02) rather than split under pressure:
     # every previous attempt moved the branching instead of removing it.
-    "ssc_client.py::SSCClient._read_lines_until_settled": 33,
+    "ssc_client.py::SSCClient._read_lines_until_settled": 32,
     # Writes, counts and reports per path, with a deadline between paths and
     # three ways out that all have to keep what already landed (the third:
     # LOCAL mode, where every further write would be refused too).
