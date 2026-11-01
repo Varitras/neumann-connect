@@ -199,6 +199,14 @@ XID_ERROR_REPLIES = (
     ),
 )
 
+# More than 29 JSON tokens, both models (KH 120 II 2026-10-20, KH 750
+# 2026-11-01): refused before anything is read, so the reply carries no xid.
+# Here a get bundle of 13 unknown leaves (31 tokens); 12 (29 tokens) answer 404.
+REQUEST_TOO_LONG_REPLY = (
+    {"osc": {"xid": 1}, "audio": {"out": {f"x{n}": None for n in range(13)}}},
+    '{"osc":{"error":[413,{"desc":"request too long"}]}}',
+)
+
 # Protocol methods of the osc container and the transaction id, both models.
 OSC_METHOD_REPLIES = (
     ({"osc": {"version": None}}, '{"osc":{"version":"1.1"}}'),

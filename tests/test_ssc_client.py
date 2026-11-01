@@ -1167,3 +1167,56 @@ async def test_an_answer_matched_by_xid_needs_no_stale_drain(server, monkeypatch
         await client.close()
 
     assert drains == 0
+
+
+async def test_an_xid_line_without_the_value_does_not_end_the_answer(socket_enabled):
+    """A firmware that splits an answer may send the xid before the value.
+
+    Ending the read on the xid line returned None, and the value line - which
+    carries no xid - was then taken as the answer to the next request.
+    """
+
+    async def _handle(reader, writer):
+        while line := await reader.readline():
+            xid = json.loads(line)["osc"]["xid"]
+            writer.write(json.dumps({"osc": {"xid": xid}}).encode() + b"\r\n")
+            await writer.drain()
+            await asyncio.sleep(0.05)
+            writer.write(json.dumps({"device": {"name": f"v{xid}"}}).encode() + b"\r\n")
+            await writer.drain()
+
+    raw_server, handled = await _serve(_handle)
+    port = raw_server.sockets[0].getsockname()[1]
+    client = _client(port)
+    try:
+        first = await client.get(("device", "name"))
+        second = await client.get(("device", "name"))
+    finally:
+        await client.close()
+        await _shutdown(raw_server, handled)
+    assert (first, second) == ("v1", "v2")
+
+
+async def test_an_answer_ended_by_the_settle_window_is_drained_after(server, monkeypatch):
+    """No xid and no requested path: the read ends on the settle window.
+
+    Such an answer is matched by nothing, so a trailing line of it could pass
+    for the next answer - the drain has to run before the next request.
+    """
+    drains = 0
+    real_drain = SSCClient._discard_stale_lines
+
+    async def _counting_drain(self) -> None:
+        nonlocal drains
+        drains += 1
+        await real_drain(self)
+
+    monkeypatch.setattr(SSCClient, "_discard_stale_lines", _counting_drain)
+    server.responder = lambda req: [{"other": {"value": 1}}]
+    client = _client(server.port)
+    try:
+        await client.get(("device", "name"))
+        await client.get(("device", "name"))
+    finally:
+        await client.close()
+    assert drains == 1

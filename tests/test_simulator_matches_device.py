@@ -25,6 +25,7 @@ from recorded_replies import (
     MALFORMED_OSC_REPLIES,
     NOT_FOUND_REPLIES,
     OSC_METHOD_REPLIES,
+    REQUEST_TOO_LONG_REPLY,
     SCHEMA_AUDIO_REPLIES,
     SCHEMA_AUDIO_REQUEST,
     SCHEMA_ROOT_REPLY,
@@ -136,6 +137,20 @@ def test_the_simulator_refuses_malformed_introspection_like_the_device(model, re
 )
 def test_the_simulator_answers_osc_methods_like_the_device(model, request_, line):
     assert SSCSimulator(model).handle(request_) == json.loads(line)
+
+
+@pytest.mark.parametrize("model", MODELS)
+def test_the_simulator_refuses_a_request_over_29_tokens_like_the_device(model):
+    request_, line = REQUEST_TOO_LONG_REPLY
+    assert SSCSimulator(model).handle(request_) == json.loads(line)
+
+
+def test_the_simulator_takes_29_tokens():
+    """Counter-check: a 20-band EQ set of a KH 120 II is exactly 29 tokens and goes through."""
+    simulator = SSCSimulator(MODEL_KH_120_II)
+    gain = _get(simulator, "audio", "out", "eq3", "gain")
+    assert len(gain) == 20
+    assert "osc" not in simulator.handle({"audio": {"out": {"eq3": {"gain": gain}}}})
 
 
 @pytest.mark.parametrize("model", MODELS)
