@@ -482,3 +482,20 @@ def test_the_optional_poll_paths_are_exactly_those_of_disabled_entities(model):
 
     expected = (disabled - enabled) & {tuple(path) for path in fast}
     assert expected == OPTIONAL_FAST_POLL_PATHS & {tuple(path) for path in fast}
+
+
+async def test_the_first_refresh_polls_every_path_even_with_a_listener(hass):
+    """The first-refresh signal must not hang on Home Assistant internals.
+
+    It was "no listener registered yet", read from the coordinator's private
+    _listeners. A listener added before the first refresh then skipped the
+    optional paths, and a rename of that attribute in Home Assistant would
+    fail every cycle. "No data yet" holds exactly until the first success.
+    """
+    client = FakeClient({})
+    coord = _kh750(hass, client)
+    coord.async_add_listener(lambda: None, PATH_OUTPUT_MUTE)
+
+    await coord.async_refresh()
+
+    assert PATH_OUT1_LEVEL in client.asked
