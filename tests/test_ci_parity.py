@@ -24,7 +24,7 @@ WORKFLOW = REPO / ".github" / "workflows" / "ci.yml"
 CHECK_SCRIPT = REPO / ".github" / "scripts" / "check.sh"
 
 # Tools whose invocation belongs to check.sh alone.
-OWNED_BY_THE_SCRIPT = ("ruff", "pytest", "mutate.py")
+OWNED_BY_THE_SCRIPT = ("ruff", "pytest", "mypy", "compileall", "check_gitleaks_pin", "mutate.py")
 
 
 def _run_commands(workflow_text: str) -> list[str]:
