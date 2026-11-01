@@ -8,6 +8,7 @@ itself, so a rewording turns this file red instead of the check going blind.
 
 from __future__ import annotations
 
+import ast
 import importlib
 import importlib.util
 import logging
@@ -414,3 +415,41 @@ def test_the_import_check_fails_on_a_report(monkeypatch: pytest.MonkeyPatch) -> 
     assert import_check.main() == 1
     monkeypatch.setattr(import_check, "import_every_module", lambda: None)
     assert import_check.main() == 0
+
+
+# Home Assistant calls that still exist but report as deprecated at runtime,
+# each with the replacement the message names. The runtime check above sees
+# only paths a test runs; this finds them in code nobody exercised.
+DEPRECATED_HA_CALLS = {
+    # 2026.9: device identifiers are no longer unique across config entries.
+    "async_get_device": "async_get_device_by_identifier / _by_connection",
+}
+
+
+def _deprecated_calls(source: str) -> list[str]:
+    return [
+        f"{node.lineno} {node.func.attr}"
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr in DEPRECATED_HA_CALLS
+    ]
+
+
+def test_no_deprecated_home_assistant_call() -> None:
+    """Tests are scanned too: a deprecated call can last live in a fixture."""
+    package = Path(importlib.import_module(f"custom_components.{INTEGRATION}").__file__).parent
+    offenders = [
+        f"{path.name}:{call}"
+        for path in [*sorted(package.glob("*.py")), *sorted(Path(__file__).parent.glob("*.py"))]
+        if path.name != Path(__file__).name
+        for call in _deprecated_calls(path.read_text(encoding="utf-8"))
+    ]
+    assert not offenders, f"deprecated Home Assistant calls: {offenders}"
+
+
+def test_the_static_scan_finds_a_deprecated_call() -> None:
+    """Counter-check: a scan that never matches passes on any code."""
+    assert _deprecated_calls("registry.async_get_device(identifiers={('x', 'y')})") == [
+        "1 async_get_device"
+    ]
