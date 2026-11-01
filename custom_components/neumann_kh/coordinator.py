@@ -42,7 +42,7 @@ from .const import (
     SUBWOOFER_SLOW_POLL_PATHS,
     UPDATE_INTERVAL_SECONDS,
 )
-from .eq_containers import eq_containers_for_model
+from .eq_containers import EQ_ENABLED, eq_containers_for_model
 from .ssc_client import (
     ERROR_NOT_FOUND,
     SSCClient,
@@ -147,7 +147,7 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Change only through user action (which applies the confirmed value
         # immediately) - therefore in the slow poll.
         for container in eq_containers_for_model(model):
-            self._slow_poll_paths.append(container.path + ("enabled",))
+            self._slow_poll_paths.append(container.leaf(EQ_ENABLED))
         # Counts the poll cycles to include the slow paths only every Nth round.
         # Starts at 0, so that the slow paths are queried right on the very first
         # cycle (values available immediately).

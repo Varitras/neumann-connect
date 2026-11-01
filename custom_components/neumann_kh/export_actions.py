@@ -48,6 +48,7 @@ _LOGGER = logging.getLogger(__name__)
 
 KIND_BACKUP = "backup"
 KIND_DISCOVERY = "discovery"
+KIND_RESTORE = "restore"
 
 
 def _notify(hass: HomeAssistant, entry: ConfigEntry, kind: str, title: str, body: str) -> None:
@@ -302,7 +303,7 @@ def _notify_restored(
     _notify(
         hass,
         entry,
-        "restore",
+        KIND_RESTORE,
         localized(
             language,
             "Neumann Connect: Backup zurückgespielt",

@@ -19,9 +19,10 @@ from homeassistant.exceptions import HomeAssistantError
 
 from custom_components.neumann_kh.coordinator import NeumannKHCoordinator
 from custom_components.neumann_kh.eq import NeumannKHEQResetButton
+from custom_components.neumann_kh.eq_containers import EQContainer
 from custom_components.neumann_kh.ssc_client import SSCDeviceError, SSCLocalModeError
 
-_CONTAINER = SimpleNamespace(path=("audio", "out", "eq2"), band_count=2)
+_CONTAINER = EQContainer(path=("audio", "out", "eq2"), band_count=2, label_en="EQ", label_de="EQ")
 
 
 class _Client:

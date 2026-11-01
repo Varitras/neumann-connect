@@ -25,6 +25,9 @@ from .const import DEFAULT_QUERY_SETTLE, DEFAULT_TIMEOUT
 _LOGGER = logging.getLogger(__name__)
 
 
+_VISIBLE_HOST_CHARACTERS = 2
+
+
 def mask_host(host: str) -> str:
     """Mask a host, leaving the network prefix and the last two characters.
 
@@ -38,9 +41,10 @@ def mask_host(host: str) -> str:
     """
     address, separator, scope = host.partition("%")
     prefix, delimiter, identifier = address.rpartition("::")
-    if len(identifier) <= 2:
+    if len(identifier) <= _VISIBLE_HOST_CHARACTERS:
         return host
-    return f"{prefix}{delimiter}xx{identifier[-2:]}{separator}{scope}"
+    visible = identifier[-_VISIBLE_HOST_CHARACTERS:]
+    return f"{prefix}{delimiter}xx{visible}{separator}{scope}"
 
 
 def _os_reason(err: OSError) -> str:
@@ -60,6 +64,8 @@ def _os_reason(err: OSError) -> str:
 
 # Terminator per the SSC specification: CR+LF or LF alone are allowed.
 _MESSAGE_TERMINATOR = b"\n"
+# What the devices send and expect; reading stops at the "\n" alone.
+_SEND_TERMINATOR = b"\r\n"
 
 # Guard against excessively large/never-terminated responses: set as an explicit
 # StreamReader limit (readuntil raises LimitOverrunError above it, see
@@ -331,7 +337,7 @@ class SSCClient:
             # json.dumps writes NaN/Infinity by default, which is not JSON. The
             # number entity refuses them first; this catches every other
             # writer, a restore of a hand-edited backup included.
-            message = json.dumps(payload, allow_nan=False).encode("utf-8") + b"\r\n"
+            message = json.dumps(payload, allow_nan=False).encode("utf-8") + _SEND_TERMINATOR
         except ValueError as err:
             raise SSCDeviceError(
                 f"Refused to send a non-finite number to {mask_host(self._host)}"

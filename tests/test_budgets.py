@@ -44,7 +44,8 @@ LINE_BUDGETS = {
     # Raised to 559 to skip the stale drain on a connection opened just now.
     # Raised to 608 for matching replies by osc/xid (token limit, late lines).
     # Raised to 620 so a split xid answer waits for its value (re-audit R1).
-    "ssc_client.py": 620,
+    # Raised to 626 for naming the visible host characters and the terminator.
+    "ssc_client.py": 626,
 }
 
 # SonarSource's default. Everything above needs a written entry.

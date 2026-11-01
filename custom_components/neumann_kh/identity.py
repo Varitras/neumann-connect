@@ -27,6 +27,10 @@ def as_identity_text(value: Any) -> str | None:
     return text or None
 
 
+# Enough to tell a pair of speakers apart in a support thread.
+_VISIBLE_SERIAL_CHARACTERS = 3
+
+
 def mask_serial(serial: Any) -> str:
     """Mask a serial number, leaving only the last 3 characters visible.
 
@@ -36,9 +40,9 @@ def mask_serial(serial: Any) -> str:
     text = as_identity_text(serial)
     if text is None:
         return "no serial"
-    if len(text) <= 3:
+    if len(text) <= _VISIBLE_SERIAL_CHARACTERS:
         return text
-    return "x" * (len(text) - 3) + text[-3:]
+    return "x" * (len(text) - _VISIBLE_SERIAL_CHARACTERS) + text[-_VISIBLE_SERIAL_CHARACTERS:]
 
 
 def serial_matches(expected: Any, answered: Any) -> bool:

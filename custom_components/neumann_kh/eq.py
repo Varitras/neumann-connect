@@ -23,7 +23,7 @@ from homeassistant.const import EntityCategory
 
 from .coordinator import NeumannKHCoordinator
 from .entity import NeumannKHEntity, device_errors
-from .eq_containers import EQContainer, eq_containers_for_model
+from .eq_containers import EQ_BOOST, EQ_ENABLED, EQ_GAIN, EQContainer, eq_containers_for_model
 
 # --- Container on/off switch -------------------------------------------------
 
@@ -34,7 +34,7 @@ def _reported_band_count(coordinator: NeumannKHCoordinator, container: EQContain
     band_count is measured on the KH 120 II and the KH 750 only; for any other
     model the device's own array is the better source.
     """
-    enabled = coordinator.value(container.path + ("enabled",))
+    enabled = coordinator.value(container.leaf(EQ_ENABLED))
     if isinstance(enabled, list) and enabled:
         return len(enabled)
     return container.band_count
@@ -74,7 +74,7 @@ class NeumannKHEQContainerSwitch(NeumannKHEntity, SwitchEntity):
         self._attr_translation_placeholders = {
             "container": container.label_for(coordinator.hass.config.language)
         }
-        self._path = container.path + ("enabled",)
+        self._path = container.leaf(EQ_ENABLED)
 
     @property
     def is_on(self) -> bool | None:
@@ -134,8 +134,8 @@ class NeumannKHEQResetButton(NeumannKHEntity, ButtonEntity):
         # the new one and then replaces the last good snapshot.
         async with self.coordinator.claim_device():
             async with device_errors(rejected_key="eq_reset_rejected"):
-                await self.coordinator.client.set(self._container.path + ("gain",), zero)
-                await self.coordinator.client.set(self._container.path + ("boost",), zero)
+                await self.coordinator.client.set(self._container.leaf(EQ_GAIN), zero)
+                await self.coordinator.client.set(self._container.leaf(EQ_BOOST), zero)
             await self.coordinator.async_persist()
         # No refresh afterwards: gain and boost are never polled (only the
         # container's "enabled" array is), so there is no cached value a
