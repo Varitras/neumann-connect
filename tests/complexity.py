@@ -3,7 +3,8 @@
 A measuring stick for the budget guard next door, not a general-purpose
 implementation. Calibrated against SonarQube Cloud during the complexity
 round of 1.18.1: Sonar reported 35 for `_read_lines_until_settled`, and this
-scorer returned 35 for it then (33 since `_parse_reply` was split out).
+scorer returned 35 for it then (lower since parts moved into helpers;
+test_budgets.py holds the current value).
 
 Three rules:
 

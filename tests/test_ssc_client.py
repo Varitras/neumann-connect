@@ -1181,7 +1181,7 @@ async def test_an_xid_line_without_the_value_does_not_end_the_answer(socket_enab
             xid = json.loads(line)["osc"]["xid"]
             writer.write(json.dumps({"osc": {"xid": xid}}).encode() + b"\r\n")
             await writer.drain()
-            await asyncio.sleep(0.05)
+            await asyncio.sleep(_SETTLE / 5)  # within the settle window
             writer.write(json.dumps({"device": {"name": f"v{xid}"}}).encode() + b"\r\n")
             await writer.drain()
 

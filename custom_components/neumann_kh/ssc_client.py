@@ -185,11 +185,24 @@ def _drop_xid(merged: dict[str, Any]) -> None:
             del merged["osc"]
 
 
-def _answer_complete(merged: dict[str, Any], expect_path: tuple[str, ...] | None) -> bool:
-    """An answer matched by path: it ends with an error or the requested value."""
+def _answer_complete(
+    merged: dict[str, Any], expect_path: tuple[str, ...] | None, reply_xid: Any
+) -> bool:
+    """The answer ends with an error or the requested value.
+
+    The own xid alone ends it only where no path was asked for: a firmware
+    that sends the xid before the value would otherwise leave the value line
+    behind, to be taken as the answer to the next request.
+    """
     if extract(merged, ("osc", "error")) is not None:
         return True
-    return expect_path is not None and extract(merged, expect_path) is not None
+    if expect_path is None:
+        return reply_xid is not None
+    if reply_xid is not None:
+        # Matched by xid, so a JSON null there is the answer, not a gap.
+        parent = extract(merged, expect_path[:-1])
+        return isinstance(parent, dict) and expect_path[-1] in parent
+    return extract(merged, expect_path) is not None
 
 
 def _parse_reply(line: bytes) -> dict[str, Any] | None:
@@ -489,8 +502,7 @@ class SSCClient:
                 continue
             received = True
             deep_merge(merged, parsed)
-            if reply_xid is not None or _answer_complete(merged, expect_path):
-                # An xid line is the whole answer; else the path or an error ends it.
+            if _answer_complete(merged, expect_path, reply_xid):
                 self._matched_by_path = reply_xid is None
                 break
 

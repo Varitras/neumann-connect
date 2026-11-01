@@ -100,9 +100,9 @@ headroom for the next person to spend.
 
 The measure is Cognitive Complexity (Campbell / SonarSource), implemented in
 `complexity.py` and calibrated against SonarQube Cloud: at calibration Sonar
-reported 35 for `_read_lines_until_settled`, and so did this. (Today it is 33,
-after the reply parsing moved out into `_parse_reply`.) `COMPLEXITY_LIMIT` is 15,
-SonarSource's default.
+reported 35 for `_read_lines_until_settled`, and so did this. It is lower
+today, since parts moved into helpers; `test_budgets.py` holds the current
+value. `COMPLEXITY_LIMIT` is 15, SonarSource's default.
 
 ## Adding a guard
 
