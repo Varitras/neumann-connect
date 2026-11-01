@@ -55,6 +55,9 @@ read no error code from a real device passed every test.
 - LOCAL control mode: `SSCSimulator(local_mode=True)` (tests only, no command
   line option) answers every set of a writable field with `401` at the
   field; a read-only field keeps its `405`, as recorded.
+- A request of more than 29 JSON tokens (every object, array, key and scalar)
+  gets a flat `413` "request too long" without an xid, measured on both
+  models; a 20-band EQ set is exactly 29.
 - Not simulated: address patterns (`*`, `?`) and subscriptions.
 - Malformed JSON lines are ignored, matching the client's behaviour.
 
