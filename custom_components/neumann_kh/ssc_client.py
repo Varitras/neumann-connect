@@ -12,13 +12,14 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import itertools
 import json
 import logging
 import os
 import socket
 from typing import Any
 
-from ._util import build_nested, deep_merge, extract, nesting_exceeds
+from ._util import build_nested, deep_merge, extract, json_tokens, nesting_exceeds
 from .const import DEFAULT_QUERY_SETTLE, DEFAULT_TIMEOUT
 
 _LOGGER = logging.getLogger(__name__)
@@ -67,6 +68,10 @@ _MESSAGE_TERMINATOR = b"\n"
 _MAX_LINE_BYTES = 1_048_576  # 1 MiB
 # Real replies nest a handful of levels (path plus osc/error); far past that is junk.
 _MAX_NESTING = 64
+# A KH 120 II refuses a request of more than 29 JSON tokens with 413, and
+# {"osc":{"xid":n}} adds 4: a 20-band EQ set fits only without it.
+_MAX_REQUEST_TOKENS = 29
+_XID_TOKENS = 4
 
 # Upper bounds for a single response. Every incoming line refreshes the settle
 # window, so a device that keeps talking would otherwise hold the read open
@@ -161,6 +166,32 @@ def _error_details(osc_error: Any) -> tuple[int | None, str]:
     return None, ""
 
 
+def _reply_xid(parsed: dict[str, Any]) -> Any:
+    osc = parsed.get("osc")
+    return osc.get("xid") if isinstance(osc, dict) else None
+
+
+def _is_late(reply_xid: Any, xid: int | None) -> bool:
+    """A line carrying another request's xid answers an earlier request."""
+    return reply_xid is not None and reply_xid != xid
+
+
+def _drop_xid(merged: dict[str, Any]) -> None:
+    """Callers walk the reply tree; the transaction id is the client's own business."""
+    osc = merged.get("osc")
+    if isinstance(osc, dict):
+        osc.pop("xid", None)
+        if not osc:
+            del merged["osc"]
+
+
+def _answer_complete(merged: dict[str, Any], expect_path: tuple[str, ...] | None) -> bool:
+    """An answer matched by path: it ends with an error or the requested value."""
+    if extract(merged, ("osc", "error")) is not None:
+        return True
+    return expect_path is not None and extract(merged, expect_path) is not None
+
+
 def _parse_reply(line: bytes) -> dict[str, Any] | None:
     """A reply line as an address tree, or None if the line is unusable."""
     try:
@@ -202,6 +233,11 @@ class SSCClient:
         # Tells the poll loop a user action is waiting (see request(priority=
         # True)); the poll then pauses before its next path.
         self._priority_waiting = asyncio.Event()
+        self._xids = itertools.count(1)
+        # Whether the last answer on this connection was matched by path only.
+        # Only then can a trailing line of it pass for the next answer, so
+        # only then is the stale drain worth its wait.
+        self._matched_by_path = False
         # Logical path -> path on this device (see use_path_aliases).
         self._path_aliases: dict[tuple[str, ...], tuple[str, ...]] = {}
 
@@ -255,6 +291,7 @@ class SSCClient:
 
     def _drop_connection(self) -> None:
         """Drops the current connection; the next access reconnects."""
+        self._matched_by_path = False
         if self._writer is not None:
             self._writer.close()
         self._writer = None
@@ -350,7 +387,7 @@ class SSCClient:
         self._drop_connection()
 
     async def _read_lines_until_settled(
-        self, expect_path: tuple[str, ...] | None = None
+        self, expect_path: tuple[str, ...] | None = None, xid: int | None = None
     ) -> dict[str, Any]:
         """Read response lines and merge them into one result dict.
 
@@ -363,24 +400,19 @@ class SSCClient:
         The settle window still applies while the answer is incomplete, so a
         firmware that splits a response across lines is still handled.
 
-        Known limitation, accepted deliberately. Returning early can leave a
-        trailing line of that answer in flight. _discard_stale_lines() catches
-        one that is already queued when the next request goes out, but not one
-        that lands after the drain and before the real reply - and since the
-        client sends no transaction id (the firmware would echo osc/xid), a
-        trailing line for the requested path is indistinguishable from a fresh
-        answer to it.
-
-        There is no cheap fix: waiting out the settle window every time is
-        what the early return exists to avoid, reconnecting per request costs
-        more, and learning from what the drain found does not help because in
-        exactly this case the drain sees nothing. Measured against both test
-        devices a leaf query is answered with exactly one line, so this is a
-        risk for other firmware rather than for the hardware in use.
+        A line carrying another request's osc/xid is a late answer and is
+        dropped; the line with this request's xid is the whole answer (the
+        device echoes it in the same line, error replies included). A request
+        without an xid - osc methods, a set too long to carry one - is matched
+        by path. That keeps the known limitation for those few: a trailing
+        line of the previous answer that lands after the stale drain is
+        indistinguishable from a fresh answer to the same path.
         """
         if self._reader is None:
             raise SSCConnectionError(f"No active connection to {mask_host(self._host)}")
         merged: dict[str, Any] = {}
+        # Until a line echoes the xid, this answer counts as matched by path.
+        self._matched_by_path = True
         received = False
         limit_hit = False
         lines = 0
@@ -451,11 +483,15 @@ class SSCClient:
                 )
                 continue
 
+            reply_xid = _reply_xid(parsed)
+            if _is_late(reply_xid, xid):
+                _LOGGER.debug("Dropped a late answer to an earlier request from %s", self._host)
+                continue
             received = True
             deep_merge(merged, parsed)
-            if extract(merged, ("osc", "error")) is not None:
-                break
-            if expect_path is not None and extract(merged, expect_path) is not None:
+            if reply_xid is not None or _answer_complete(merged, expect_path):
+                # An xid line is the whole answer; else the path or an error ends it.
+                self._matched_by_path = reply_xid is None
                 break
 
             # Both bounds are evaluated at the top of the next pass, which is
@@ -505,11 +541,13 @@ class SSCClient:
             # await, so both can be cancelled. Left outside, a cancellation
             # hitting that window would keep a connection the caller believes
             # was dropped - the invariant the v1.15.0 hardening relies on.
-            # Nothing can be stale on a socket opened for this request.
-            if not await self._ensure_connected():
+            xid = self._next_xid(payload)
+            # Nothing can be stale on a socket opened for this request, and
+            # a late line of an answer matched by xid carries its own id.
+            if not await self._ensure_connected() and self._matched_by_path:
                 await self._discard_stale_lines()
-            await self._send_raw(payload)
-            merged = await self._read_lines_until_settled(expect_path)
+            await self._send_raw(payload if xid is None else {"osc": {"xid": xid}, **payload})
+            merged = await self._read_lines_until_settled(expect_path, xid)
         except SSCConnectionError, SSCTimeoutError:
             # Drop the connection so the next attempt reconnects
             self._drop_connection()
@@ -522,6 +560,7 @@ class SSCClient:
             self._drop_connection()
             raise
 
+        _drop_xid(merged)
         osc_error = extract(merged, ("osc", "error"))
         if osc_error:
             code, description = _error_details(osc_error)
@@ -532,6 +571,16 @@ class SSCClient:
             )
 
         return merged
+
+    def _next_xid(self, payload: dict[str, Any]) -> int | None:
+        """An id for a value request, or None where the device would not take one.
+
+        osc methods were never measured with an xid, and a request the xid
+        would push past the token limit is refused (413) - both go without.
+        """
+        if "osc" in payload or json_tokens(payload) + _XID_TOKENS > _MAX_REQUEST_TOKENS:
+            return None
+        return next(self._xids)
 
     def use_path_aliases(self, aliases: dict[tuple[str, ...], tuple[str, ...]]) -> None:
         """Send these logical paths to a different path on this device.

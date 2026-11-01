@@ -366,8 +366,10 @@ async def test_cancellation_in_the_drain_window_drops_the_connection(server, mon
         in_drain.set()
         await asyncio.sleep(60)  # hold the request inside the drain window
 
+    # Answered without the xid: only an answer matched by path is drained
+    # after, and a fresh connection skips the drain, so a first request opens it.
+    server.responder = lambda req: [{"device": {"name": "x"}}]
     client = _client(server.port)
-    # A fresh connection skips the drain, so open it with a first request.
     await client.get(("device", "name"))
     monkeypatch.setattr(SSCClient, "_discard_stale_lines", _hanging_drain)
     try:
@@ -966,6 +968,11 @@ def _recording(received: list, answer):
     return _respond
 
 
+def _without_xid(request: dict) -> dict:
+    """The value part of a request; the transaction id is tested on its own."""
+    return {key: value for key, value in request.items() if key != "osc"}
+
+
 async def test_an_aliased_get_asks_the_device_path(server):
     received: list = []
     server.responder = _recording(received, lambda req: {"audio": {"out5": {"level": 87.0}}})
@@ -973,7 +980,7 @@ async def test_an_aliased_get_asks_the_device_path(server):
     try:
         client.use_path_aliases({("audio", "out", "level"): ("audio", "out5", "level")})
         assert await client.get(("audio", "out", "level")) == 87.0
-        assert received == [{"audio": {"out5": {"level": None}}}]
+        assert [_without_xid(r) for r in received] == [{"audio": {"out5": {"level": None}}}]
     finally:
         await client.close()
 
@@ -985,7 +992,7 @@ async def test_an_aliased_set_writes_the_device_path(server):
     try:
         client.use_path_aliases({("audio", "out", "mute"): ("audio", "out5", "mute")})
         assert await client.set(("audio", "out", "mute"), True) is True
-        assert received == [{"audio": {"out5": {"mute": True}}}]
+        assert [_without_xid(r) for r in received] == [{"audio": {"out5": {"mute": True}}}]
     finally:
         await client.close()
 
@@ -997,7 +1004,7 @@ async def test_an_unaliased_path_is_sent_unchanged(server):
     try:
         client.use_path_aliases({("audio", "out", "level"): ("audio", "out5", "level")})
         await client.get(("audio", "out", "delay"))
-        assert received == [{"audio": {"out": {"delay": None}}}]
+        assert [_without_xid(r) for r in received] == [{"audio": {"out": {"delay": None}}}]
     finally:
         await client.close()
 
@@ -1017,6 +1024,8 @@ async def test_a_fresh_connection_skips_the_stale_drain(server, monkeypatch):
         await real_drain(self)
 
     monkeypatch.setattr(SSCClient, "_discard_stale_lines", _counting_drain)
+    # Without the xid echoed, so the reused connection has something to drain.
+    server.responder = lambda req: [{"device": {"name": "x"}}]
     client = _client(server.port)
     try:
         await client.get(("device", "name"))

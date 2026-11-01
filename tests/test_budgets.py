@@ -42,7 +42,8 @@ LINE_BUDGETS = {
     # Raised to 556 for _parse_reply: the nesting limit on faulty replies, taken
     # out of the read loop so its complexity went down instead of up.
     # Raised to 559 to skip the stale drain on a connection opened just now.
-    "ssc_client.py": 559,
+    # Raised to 608 for matching replies by osc/xid (token limit, late lines).
+    "ssc_client.py": 608,
 }
 
 # SonarSource's default. Everything above needs a written entry.
