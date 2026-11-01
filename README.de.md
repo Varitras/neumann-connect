@@ -325,9 +325,9 @@ Entities sind „nicht verfügbar“, bis eine wieder geschlossen wird.
   Testgeräte in derselben Zeile zurückgeben, auch bei Fehlerantworten; eine
   Zeile mit fremder Kennung ist eine verspätete Antwort auf eine frühere Anfrage
   und wird verworfen. Ohne Kennung gehen nur EQ-Schreibvorgänge mit 20 Bändern,
-  weil die Kennung sie über die Größengrenze des KH 120 II brächte, und die
-  Schema-Abfrage der Geräte-Discovery; ihre Antworten werden über den Pfad
-  zugeordnet, wo in einem engen Fall eine Folgezeile der vorigen
+  weil die Kennung sie über die Größengrenze der Lautsprecher brächte, und die
+  Schema- und Limits-Abfrage der Geräte-Discovery; ihre Antworten werden über
+  den Pfad zugeordnet, wo in einem engen Fall eine Folgezeile der vorigen
   Antwort als die nächste durchgehen könnte. Beide Testgeräte antworten mit
   exakt einer Zeile.
 - Der Steuerungsmodus (`ui/control_mode`) wird mit dem Schalter CONTROL auf
