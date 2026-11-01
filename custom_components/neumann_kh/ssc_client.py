@@ -249,9 +249,6 @@ class SSCClient:
         # reopen the connection of an entry that is already unloaded.
         self._closed = False
         self._lock = asyncio.Lock()
-        # Tells the poll loop a user action is waiting (see request(priority=
-        # True)); the poll then pauses before its next path.
-        self._priority_waiting = asyncio.Event()
         self._xids = itertools.count(1)
         # Whether the last answer on this connection was matched by path only.
         # Only then can a trailing line of it pass for the next answer, so
@@ -259,11 +256,6 @@ class SSCClient:
         self._matched_by_path = False
         # Logical path -> path on this device (see use_path_aliases).
         self._path_aliases: dict[tuple[str, ...], tuple[str, ...]] = {}
-
-    @property
-    def priority_waiting(self) -> asyncio.Event:
-        """Event indicating that a user action is waiting on the lock."""
-        return self._priority_waiting
 
     @property
     def _connect_host(self) -> str:
@@ -527,28 +519,15 @@ class SSCClient:
     async def request(
         self,
         payload: dict[str, Any],
-        priority: bool = False,
         expect_path: tuple[str, ...] | None = None,
     ) -> dict[str, Any]:
         """Sends an SSC message and returns the merged result dict.
 
-        priority=True marks a user action. The poll takes the lock per path and
-        asyncio.Lock is FIFO, so the action waits one query at most either way;
-        the flag only makes the poll pause briefly before its next path.
+        The poll takes the lock per path and asyncio.Lock hands it over in FIFO
+        order, so a user action waits for one query of a running cycle at most.
         """
-        if priority:
-            self._priority_waiting.set()
-        try:
-            async with self._lock:
-                if priority:
-                    self._priority_waiting.clear()
-                return await self._locked_request(payload, expect_path)
-        finally:
-            # Cancellation while waiting for the lock would otherwise leave the
-            # event set forever, and the poll loop sleeps before every single
-            # path while it is (see coordinator._poll_all_paths).
-            if priority:
-                self._priority_waiting.clear()
+        async with self._lock:
+            return await self._locked_request(payload, expect_path)
 
     async def _locked_request(
         self, payload: dict[str, Any], expect_path: tuple[str, ...] | None
@@ -615,12 +594,7 @@ class SSCClient:
         return extract(response, device_path)
 
     async def set(self, path: tuple[str, ...], value: Any) -> Any:
-        """Sets a value and returns the value confirmed by the device.
-
-        Every write comes from a user action, so it always jumps the poll.
-        """
+        """Sets a value and returns the value confirmed by the device."""
         device_path = self._path_aliases.get(path, path)
-        response = await self.request(
-            build_nested(device_path, value), priority=True, expect_path=device_path
-        )
+        response = await self.request(build_nested(device_path, value), expect_path=device_path)
         return extract(response, device_path)

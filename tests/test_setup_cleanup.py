@@ -64,7 +64,6 @@ class _BlockingClient:
         self.reached_the_device = asyncio.Event()
         # The coordinator reads this one; the real client sets it while a user
         # action waits for the poll to yield.
-        self.priority_waiting = asyncio.Event()
 
     async def get(self, path):
         self.reached_the_device.set()
@@ -111,7 +110,6 @@ class _AnsweringClient:
 
     def __init__(self, **kwargs) -> None:
         self.closed = False
-        self.priority_waiting = asyncio.Event()
 
     async def get(self, path):
         if path == PATH_IDENTITY_SERIAL:

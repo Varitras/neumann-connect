@@ -30,7 +30,6 @@ class FakeClient:
         self.values = values
         self.fail_connection = False
         self.rejected_paths: set[tuple[str, ...]] = set()
-        self.priority_waiting = asyncio.Event()
         self.asked: list[tuple[str, ...]] = []
 
     async def get(self, path: tuple[str, ...]) -> Any:

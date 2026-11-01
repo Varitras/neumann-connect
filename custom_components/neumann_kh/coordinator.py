@@ -274,10 +274,6 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         answered = False
         try:
             for path in paths:
-                # Priority path: briefly yield to a waiting user action.
-                if self.client.priority_waiting.is_set():
-                    await asyncio.sleep(0.05)
-
                 try:
                     value = await self.client.get(path)
                 except SSCDeviceError:

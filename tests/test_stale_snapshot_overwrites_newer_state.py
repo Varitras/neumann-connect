@@ -51,7 +51,6 @@ class _Device:
             PATH_OUTPUT_MUTE: False,
             PATH_DEVICE_NAME: "Before",
         }
-        self.priority_waiting = asyncio.Event()
         self.after_set: dict[tuple[str, ...], Any] = {}
         self.hold_first_read_of: tuple[str, ...] | None = None
         self.release = asyncio.Event()

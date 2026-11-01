@@ -484,39 +484,6 @@ async def test_leftover_line_is_not_read_as_the_next_answer(server):
         await client.close()
 
 
-async def test_cancelled_priority_request_does_not_wedge_the_poll_loop(server):
-    """A cancelled priority request must not leave the event set.
-
-    The poll loop sleeps before every single path while priority_waiting is
-    set, so a stuck event slows down every cycle until another priority
-    request happens to complete.
-    """
-    server.release = asyncio.Event()
-    client = _client(server.port)
-    try:
-        # Occupy the lock so the priority request has to wait for it: the
-        # blocker holds it until the server is released.
-        blocker = asyncio.create_task(client.get(("device", "name")))
-        await asyncio.wait_for(server.request_received.wait(), timeout=5)
-
-        waiter = asyncio.create_task(client.set(("audio", "out", "mute"), True))
-        # request() sets the flag before it queues on the lock, so waiting for
-        # the event is exactly the state this test needs - no sleep required.
-        await asyncio.wait_for(client.priority_waiting.wait(), timeout=5)
-
-        waiter.cancel()
-        with pytest.raises(asyncio.CancelledError):
-            await waiter
-        server.release.set()
-        server.release = None
-        with contextlib.suppress(Exception):
-            await blocker
-
-        assert not client.priority_waiting.is_set(), "event stayed set after cancellation"
-    finally:
-        await client.close()
-
-
 def test_is_link_local():
     assert SSCClient.is_link_local("fe80::1")
     assert SSCClient.is_link_local("FE80::1")
