@@ -44,22 +44,22 @@ MODEL_KH_750 = "KH 750"
 MODELS = (MODEL_KH_120_II, MODEL_KH_750)
 
 # Error codes as observed on real hardware.
-_ERR_BAD_REQUEST = 400
-_ERR_AUTHORISATION_NEEDED = 401
-_ERR_NOT_FOUND = 404
-_ERR_NOT_ALLOWED = 405
-_ERR_NOT_ACCEPTABLE = 406
-_ERR_REQUEST_TOO_LONG = 413
-_ERR_PARAMETER_NOT_FOUND = 454
+_ERROR_BAD_REQUEST = 400
+_ERROR_AUTHORISATION_NEEDED = 401
+_ERROR_NOT_FOUND = 404
+_ERROR_NOT_ALLOWED = 405
+_ERROR_NOT_ACCEPTABLE = 406
+_ERROR_REQUEST_TOO_LONG = 413
+_ERROR_PARAMETER_NOT_FOUND = 454
 
-_ERR_DESCRIPTIONS = {
-    _ERR_BAD_REQUEST: "message not understood",
-    _ERR_AUTHORISATION_NEEDED: "authorisation needed",
-    _ERR_NOT_FOUND: "address not found",
-    _ERR_NOT_ALLOWED: "method not allowed",
-    _ERR_NOT_ACCEPTABLE: "not acceptable",
-    _ERR_REQUEST_TOO_LONG: "request too long",
-    _ERR_PARAMETER_NOT_FOUND: "parameter address not found",
+_ERROR_DESCRIPTIONS = {
+    _ERROR_BAD_REQUEST: "message not understood",
+    _ERROR_AUTHORISATION_NEEDED: "authorisation needed",
+    _ERROR_NOT_FOUND: "address not found",
+    _ERROR_NOT_ALLOWED: "method not allowed",
+    _ERROR_NOT_ACCEPTABLE: "not acceptable",
+    _ERROR_REQUEST_TOO_LONG: "request too long",
+    _ERROR_PARAMETER_NOT_FOUND: "parameter address not found",
 }
 
 # EQ containers per model: (path prefix, band count), as measured on the
@@ -444,13 +444,13 @@ def _introspection_path(value: Any, method: str) -> tuple[tuple[str, ...] | None
     454, a tree ending in {} a 406.
     """
     if not isinstance(value, list) or not value or not isinstance(value[0], dict) or not value[0]:
-        return None, _osc_error(method, _ERR_PARAMETER_NOT_FOUND)
+        return None, _osc_error(method, _ERROR_PARAMETER_NOT_FOUND)
     leaves = _collect_leaves(value[0])
     if len(leaves) != 1:
-        return None, _error(_ERR_BAD_REQUEST)
+        return None, _error(_ERROR_BAD_REQUEST)
     path, end = leaves[0]
     if end is not None:
-        return None, _osc_error(method, _ERR_NOT_ACCEPTABLE)
+        return None, _osc_error(method, _ERROR_NOT_ACCEPTABLE)
     return path, None
 
 
@@ -468,12 +468,12 @@ def _json_tokens(value: Any) -> int:
 
 def _error(code: int) -> dict[str, Any]:
     """A flat SSC error: the recorded 413, and the never recorded cases (400)."""
-    return {"osc": {"error": [code, {"desc": _ERR_DESCRIPTIONS[code]}]}}
+    return {"osc": {"error": [code, {"desc": _ERROR_DESCRIPTIONS[code]}]}}
 
 
 def _error_entry(node: tuple[str, ...], code: int) -> dict[str, Any]:
     """One osc/error entry nested at `node`, the format recorded from the devices."""
-    return _build_nested(node, [code, {"desc": _ERR_DESCRIPTIONS[code]}])
+    return _build_nested(node, [code, {"desc": _ERROR_DESCRIPTIONS[code]}])
 
 
 def _same_kind(current: Any, value: Any) -> bool:
@@ -543,17 +543,17 @@ class SSCSimulator:
             if bundled:
                 # Recorded: inside a bundle the 404 moves up to the parent.
                 node = node[:-1] or node
-            return None, _error_entry(node, _ERR_NOT_FOUND)
+            return None, _error_entry(node, _ERROR_NOT_FOUND)
         if value is None:
             return _build_nested(path, current), None
         # Recorded on LOCAL: a read-only leaf keeps its 405, only a writable
         # one gets 401 - the device checks writability before the switch.
         if path in self.read_only:
-            return None, _error_entry(path, _ERR_NOT_ALLOWED)
+            return None, _error_entry(path, _ERROR_NOT_ALLOWED)
         if self._local_mode():
-            return None, _error_entry(path, _ERR_AUTHORISATION_NEEDED)
+            return None, _error_entry(path, _ERROR_AUTHORISATION_NEEDED)
         if not _same_kind(current, value):
-            return None, _error_entry(path, _ERR_NOT_ACCEPTABLE)
+            return None, _error_entry(path, _ERROR_NOT_ACCEPTABLE)
         self._apply_set(path, value)
         return _build_nested(path, value), None
 
@@ -586,7 +586,7 @@ class SSCSimulator:
         if not found:
             # Never recorded for an unknown address; the code of the malformed
             # requests is the closest measured answer.
-            return _osc_error("schema", _ERR_PARAMETER_NOT_FOUND)
+            return _osc_error("schema", _ERROR_PARAMETER_NOT_FOUND)
         if not isinstance(node, dict):
             # A leaf has no sub-tree of its own.
             return {"osc": {"schema": [_build_nested(path, None)]}}
@@ -598,7 +598,7 @@ class SSCSimulator:
             return refusal
         found, node = _lookup(self._address_tree(), path)
         if not found or isinstance(node, dict):
-            return _osc_error("limits", _ERR_PARAMETER_NOT_FOUND)
+            return _osc_error("limits", _ERROR_PARAMETER_NOT_FOUND)
         # Only the type is reproduced; the devices' other fields (desc, units,
         # min, max, ...) are not, and none is invented in their place.
         description: dict[str, Any] = {}
@@ -611,16 +611,16 @@ class SSCSimulator:
         # Recorded on both models: refused before anything is read, so a
         # request over the limit gets a flat 413 and no xid.
         if _json_tokens(request) > _MAX_REQUEST_TOKENS:
-            return _error(_ERR_REQUEST_TOO_LONG)
+            return _error(_ERROR_REQUEST_TOO_LONG)
         # osc/schema and osc/limits are optional per the specification; both
         # tested firmwares answer them. Without them, the reply is unrecorded.
         if "osc" in request:
             osc = request["osc"]
             if not isinstance(osc, dict):
-                return _error(_ERR_BAD_REQUEST)
+                return _error(_ERROR_BAD_REQUEST)
             if "schema" in osc or "limits" in osc:
                 if not self.enable_schema:
-                    return _error(_ERR_BAD_REQUEST)
+                    return _error(_ERROR_BAD_REQUEST)
                 if "schema" in osc:
                     return self._osc_schema(osc["schema"])
                 return self._osc_limits(osc["limits"])
@@ -629,11 +629,11 @@ class SSCSimulator:
                 # Recorded with an xid: an unknown method is a 404 at the osc
                 # node (two keys, so the bundle rule moves it up), xid echoed.
                 return {
-                    "osc": {"error": [_error_entry(("osc",), _ERR_NOT_FOUND)], "xid": osc["xid"]}
+                    "osc": {"error": [_error_entry(("osc",), _ERROR_NOT_FOUND)], "xid": osc["xid"]}
                 }
             methods = _osc_method_answer(osc)
             if methods is None:
-                return _error(_ERR_BAD_REQUEST)
+                return _error(_ERROR_BAD_REQUEST)
             values = {key: value for key, value in request.items() if key != "osc"}
             answer = self._answer_values(values) if values else {}
             _merge(answer, {"osc": methods})
@@ -644,7 +644,7 @@ class SSCSimulator:
         """Gets and sets of device values, single or bundled."""
         leaves = _collect_leaves(request)
         if not leaves:
-            return _error(_ERR_BAD_REQUEST)
+            return _error(_ERROR_BAD_REQUEST)
         answer: dict[str, Any] = {}
         errors: list[dict[str, Any]] = []
         for path, value in leaves:
@@ -688,7 +688,7 @@ async def _handle_client(
                 continue
 
             if not isinstance(request, dict):
-                response = _error(_ERR_BAD_REQUEST)
+                response = _error(_ERROR_BAD_REQUEST)
             else:
                 response = simulator.handle(request)
 

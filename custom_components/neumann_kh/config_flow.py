@@ -93,8 +93,8 @@ async def _async_get_interface_options(hass: HomeAssistant) -> list[selector.Sel
         name = adapter.get("name")
         if not name:
             continue
-        addresses = [ip["address"] for ip in adapter.get("ipv6", []) if ip.get("address")]
-        addresses += [ip["address"] for ip in adapter.get("ipv4", []) if ip.get("address")]
+        entries = [*adapter.get("ipv6", []), *adapter.get("ipv4", [])]
+        addresses = [entry["address"] for entry in entries if entry.get("address")]
         label = f"{name} ({', '.join(addresses)})" if addresses else name
         options.append(selector.SelectOptionDict(value=name, label=label))
 

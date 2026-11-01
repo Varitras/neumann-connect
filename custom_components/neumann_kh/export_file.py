@@ -42,16 +42,16 @@ def _write(hass: HomeAssistant, filename: str, payload: dict[str, Any]) -> str:
     directory = hass.config.path(EXPORT_DIR_NAME)
     os.makedirs(directory, exist_ok=True)
     path = os.path.join(directory, filename)
-    tmp_path = f"{path}.tmp"
+    temporary_path = f"{path}.tmp"
     try:
-        with open(tmp_path, "w", encoding="utf-8") as file:
+        with open(temporary_path, "w", encoding="utf-8") as file:
             json.dump(payload, file, indent=2, ensure_ascii=False)
             file.flush()
             os.fsync(file.fileno())
-        os.replace(tmp_path, path)
+        os.replace(temporary_path, path)
     except BaseException:
         with contextlib.suppress(OSError):
-            os.remove(tmp_path)
+            os.remove(temporary_path)
         raise
     return path
 

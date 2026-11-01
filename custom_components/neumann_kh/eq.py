@@ -81,7 +81,7 @@ class NeumannKHEQContainerSwitch(NeumannKHEntity, SwitchEntity):
         values = self.coordinator.value(self._path)
         if not isinstance(values, list) or not values:
             return None
-        return any(bool(v) for v in values)
+        return any(bool(value) for value in values)
 
     async def _async_set(self, value: bool) -> None:
         array = [value] * _reported_band_count(self.coordinator, self._container)

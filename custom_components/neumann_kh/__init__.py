@@ -101,7 +101,7 @@ async def _async_relocate(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # address but moved to another port is precisely the case this repair
     # exists for.
     current = (entry.data.get(CONF_HOST), entry.data.get(CONF_PORT, DEFAULT_PORT))
-    candidates = [s for s in speakers if (s.host, s.port) != current]
+    candidates = [speaker for speaker in speakers if (speaker.host, speaker.port) != current]
 
     # Asked concurrently, a few at a time. One after another this cost the
     # connection timeout per silent candidate, and this runs on every failed
@@ -118,7 +118,7 @@ async def _async_relocate(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             finally:
                 await client.close()
 
-    found_serials = await asyncio.gather(*(_serial_of(s) for s in candidates))
+    found_serials = await asyncio.gather(*(_serial_of(speaker) for speaker in candidates))
 
     for speaker, found in zip(candidates, found_serials, strict=True):
         if not serial_matches(serial, found):

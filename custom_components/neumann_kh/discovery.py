@@ -89,7 +89,7 @@ async def async_scan_for_speakers(
     failed retry - for minutes. What is dropped is logged rather than silently
     left out.
     """
-    aiozc = await ha_zeroconf.async_get_async_instance(hass)
+    zeroconf_instance = await ha_zeroconf.async_get_async_instance(hass)
     found_names: set[str] = set()
 
     def _on_change(  # skipcq: PYL-W0613
@@ -106,7 +106,9 @@ async def async_scan_for_speakers(
         if state_change is ServiceStateChange.Added:
             found_names.add(name)
 
-    browser = AsyncServiceBrowser(aiozc.zeroconf, SSC_ZEROCONF_SERVICE_TYPE, handlers=[_on_change])
+    browser = AsyncServiceBrowser(
+        zeroconf_instance.zeroconf, SSC_ZEROCONF_SERVICE_TYPE, handlers=[_on_change]
+    )
     try:
         await asyncio.sleep(duration)
     finally:
@@ -125,7 +127,7 @@ async def async_scan_for_speakers(
 
         info = AsyncServiceInfo(SSC_ZEROCONF_SERVICE_TYPE, mdns_name)
         try:
-            resolved = await info.async_request(aiozc.zeroconf, _RESOLVE_TIMEOUT_MS)
+            resolved = await info.async_request(zeroconf_instance.zeroconf, _RESOLVE_TIMEOUT_MS)
         except Exception:
             _LOGGER.debug("Could not resolve announced SSC service %d", index, exc_info=True)
             continue
