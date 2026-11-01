@@ -126,3 +126,15 @@ async def test_a_reset_writes_as_many_bands_as_the_device_reports():
     await NeumannKHEQResetButton.async_press(button)
 
     assert [len(payload) for payload in button.coordinator.client.payloads] == [3, 3]
+
+
+async def test_a_reset_that_loses_the_speaker_says_so():
+    from custom_components.neumann_kh.ssc_client import SSCConnectionError
+
+    button = _button(_Client(reject="boost", error=SSCConnectionError))
+
+    with pytest.raises(HomeAssistantError) as err:
+        await NeumannKHEQResetButton.async_press(button)
+
+    assert err.value.translation_key == "device_unreachable"
+    assert button.coordinator.persisted == 0

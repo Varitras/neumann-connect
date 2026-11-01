@@ -186,3 +186,21 @@ async def test_the_depth_budget_counts_levels_descended(monkeypatch):
     await _async_discover_via_schema(client)
 
     assert client.limits_asked == [], client.limits_asked
+
+
+async def test_a_connection_lost_mid_walk_keeps_what_was_already_collected():
+    """Sibling of the timeout: the walk is best-effort either way."""
+    from custom_components.neumann_kh.ssc_client import SSCConnectionError
+
+    class _DropsOnTheSecondLeaf(_SchemaClient):
+        def __init__(self) -> None:
+            super().__init__({"first": None, "second": None})
+
+        async def request(self, payload, expect_path=None):
+            if "limits" in payload["osc"] and self._path_of(payload) == ("second",):
+                raise SSCConnectionError("line dropped")
+            return await super().request(payload, expect_path)
+
+    result = await _async_discover_via_schema(_DropsOnTheSecondLeaf())
+
+    assert result == {"first": {"type": "Number"}}, result

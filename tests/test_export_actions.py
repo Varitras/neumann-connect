@@ -16,7 +16,7 @@ pytest.importorskip("homeassistant")
 
 from homeassistant.exceptions import HomeAssistantError
 
-from custom_components.neumann_kh import backup_export, export_actions
+from custom_components.neumann_kh import backup_export, discovery_export, export_actions
 from custom_components.neumann_kh._util import build_nested, deep_merge
 from custom_components.neumann_kh.backup_export import (
     restorable_paths_for_model,
@@ -831,3 +831,46 @@ async def test_a_value_the_device_adjusts_is_counted_as_adjusted():
     )
 
     assert (written, adjusted, skipped) == (len(paths) - 1, 1, 0)
+
+
+@pytest.mark.parametrize(
+    ("error", "key"),
+    [
+        (backup_export.BackupTimeoutError(), "backup_timed_out"),
+        (RuntimeError("anything else"), "backup_failed"),
+    ],
+    ids=["timeout", "other"],
+)
+async def test_a_backup_that_fails_to_read_says_why(monkeypatch, error, key):
+    saved, written = await _run_backup(None, monkeypatch, values={})
+
+    async def _fails(client, model):
+        raise error
+
+    monkeypatch.setattr(export_actions, "async_build_backup", _fails)
+    hass, entry, client = _fakes()
+    with pytest.raises(HomeAssistantError) as err:
+        await export_actions.async_run_backup(hass, entry, client)
+
+    assert err.value.translation_key == key
+    assert not saved and not written
+
+
+@pytest.mark.parametrize(
+    ("error", "key"),
+    [
+        (discovery_export.DiscoveryTimeoutError(), "discovery_timed_out"),
+        (RuntimeError("anything else"), "discovery_failed"),
+    ],
+    ids=["timeout", "other"],
+)
+async def test_a_discovery_that_fails_to_read_says_why(monkeypatch, error, key):
+    async def _fails(client, model):
+        raise error
+
+    monkeypatch.setattr(export_actions, "async_discover_all_values", _fails)
+    hass, entry, client = _fakes()
+    with pytest.raises(HomeAssistantError) as err:
+        await export_actions.async_run_discovery(hass, entry, client)
+
+    assert err.value.translation_key == key

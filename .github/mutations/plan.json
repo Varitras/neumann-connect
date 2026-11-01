@@ -208,5 +208,19 @@
     "find": "translation_key=\"restore_no_backup\"",
     "replace": "translation_key=\"restore_no_backups\"",
     "expect": "tests/test_translations.py::test_every_error_key_in_the_code_has_a_text"
+  },
+  {
+    "name": "a backup that ran out of time reports a generic failure",
+    "path": "custom_components/neumann_kh/export_actions.py",
+    "find": "    except BackupTimeoutError as err:",
+    "replace": "    except KeyError as err:",
+    "expect": "tests/test_export_actions.py::test_a_backup_that_fails_to_read_says_why"
+  },
+  {
+    "name": "a discovery that ran out of time reports a generic failure",
+    "path": "custom_components/neumann_kh/export_actions.py",
+    "find": "    except DiscoveryTimeoutError as err:",
+    "replace": "    except KeyError as err:",
+    "expect": "tests/test_export_actions.py::test_a_discovery_that_fails_to_read_says_why"
   }
 ]
