@@ -118,9 +118,16 @@ async def _async_relocate(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             finally:
                 await client.close()
 
-    found_serials = await asyncio.gather(*(_serial_of(speaker) for speaker in candidates))
+    # The announcement names its serial: a candidate naming another speaker
+    # needs no connection, and one naming this speaker is taken as it is -
+    # the next setup checks the serial against the device anyway.
+    announced = [speaker for speaker in candidates if speaker.serial]
+    unannounced = [speaker for speaker in candidates if not speaker.serial]
+    found_serials = [speaker.serial for speaker in announced] + await asyncio.gather(
+        *(_serial_of(speaker) for speaker in unannounced)
+    )
 
-    for speaker, found in zip(candidates, found_serials, strict=True):
+    for speaker, found in zip(announced + unannounced, found_serials, strict=True):
         if not serial_matches(serial, found):
             continue
 

@@ -141,6 +141,9 @@ async def async_scan_for_speakers(
             _LOGGER.debug("Announced SSC service %d has no IPv6 address", index)
             continue
 
-        speakers.append(DiscoveredSpeaker(mdns_name=mdns_name, host=host, port=info.port))
+        serial = info.decoded_properties.get("id")
+        speakers.append(
+            DiscoveredSpeaker(mdns_name=mdns_name, host=host, port=info.port, serial=serial)
+        )
 
     return speakers

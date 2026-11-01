@@ -71,6 +71,7 @@ async def test_resolution_stops_at_a_bound(monkeypatch, bound, value, expected):
 
         def __init__(self, service_type, name):
             self.name = name
+            self.decoded_properties: dict[str, str | None] = {}
 
         async def async_request(self, zeroconf, timeout_ms):
             resolved.append(self.name)
