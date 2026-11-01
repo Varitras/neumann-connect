@@ -37,10 +37,14 @@ def test_german_has_exactly_the_keys_english_has():
     assert not german - english, f"only in de.json: {sorted(german - english)}"
 
 
+# Exceptions Home Assistant translates: *Error, ConfigEntryNotReady, UpdateFailed.
+_RAISED = ("Error", "NotReady", "Failed")
+
+
 def _exception_keys_used(source: str) -> set[str]:
     """Every literal key handed to an error, directly or on its way there.
 
-    translation_key= on an *Error call, rejected_key= (passed on to one),
+    translation_key= on an exception call, rejected_key= (passed on to one),
     the default of a rejected_key parameter and the first argument of _stop().
     Keys built at run time are not literals and are out of reach here.
     """
@@ -52,7 +56,7 @@ def _exception_keys_used(source: str) -> set[str]:
                 literal = isinstance(keyword.value, ast.Constant)
                 if literal and keyword.arg == "rejected_key":
                     used.add(keyword.value.value)
-                if literal and keyword.arg == "translation_key" and name.endswith("Error"):
+                if literal and keyword.arg == "translation_key" and name.endswith(_RAISED):
                     used.add(keyword.value.value)
             if name == "_stop" and node.args and isinstance(node.args[0], ast.Constant):
                 used.add(node.args[0].value)
@@ -82,12 +86,14 @@ def test_the_key_scan_sees_each_way_a_key_travels():
     """Counter-check: an invented key in each form is found."""
     source = """
 raise HomeAssistantError(translation_domain=DOMAIN, translation_key="direct_key")
+raise ConfigEntryNotReady(translation_domain=DOMAIN, translation_key="not_ready_key")
 await self._async_write(path, value, rejected_key="passed_key")
 raise _stop("stopped_key")
 async def _async_write(self, path, value, rejected_key="default_key"): ...
 """
     assert _exception_keys_used(source) == {
         "direct_key",
+        "not_ready_key",
         "passed_key",
         "stopped_key",
         "default_key",

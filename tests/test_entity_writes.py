@@ -367,3 +367,24 @@ async def test_a_failed_save_keeps_the_confirmed_value_on_screen():
     with pytest.raises(HomeAssistantError):
         await _switch(coordinator).async_turn_on()
     assert coordinator.confirmed == [(("audio", "out", "mute"), True)]
+
+
+@pytest.mark.parametrize(
+    ("error", "key"),
+    [
+        (SSCDeviceError("refused here"), "change_rejected"),
+        (SSCConnectionError("line dropped"), "device_unreachable"),
+    ],
+    ids=["rejected", "unreachable"],
+)
+async def test_a_write_error_tells_the_user_what_the_device_said(error, key):
+    """The message quotes the device's reason; without it a refusal reads the
+    same whatever the speaker answered."""
+    from custom_components.neumann_kh.entity import device_errors
+
+    with pytest.raises(HomeAssistantError) as err:
+        async with device_errors(rejected_key="change_rejected"):
+            raise error
+
+    assert err.value.translation_key == key
+    assert err.value.translation_placeholders == {"error": str(error)}

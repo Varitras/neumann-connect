@@ -222,5 +222,19 @@
     "find": "    except DiscoveryTimeoutError as err:",
     "replace": "    except KeyError as err:",
     "expect": "tests/test_export_actions.py::test_a_discovery_that_fails_to_read_says_why"
+  },
+  {
+    "name": "the name field forgets the name the speaker had before",
+    "path": "custom_components/neumann_kh/config_flow.py",
+    "find": "        return self.add_suggested_values_to_schema(schema, {CONF_NAME: remembered_name})",
+    "replace": "        return schema",
+    "expect": "tests/test_config_flow.py::test_the_name_field_offers_the_name_the_speaker_had_before"
+  },
+  {
+    "name": "a refused write drops the device's reason from the message",
+    "path": "custom_components/neumann_kh/entity.py",
+    "find": "            translation_key=rejected_key,\n            translation_placeholders={\"error\": str(err)},",
+    "replace": "            translation_key=rejected_key,",
+    "expect": "tests/test_entity_writes.py::test_a_write_error_tells_the_user_what_the_device_said"
   }
 ]

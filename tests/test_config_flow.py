@@ -931,3 +931,24 @@ async def test_the_discovery_card_asks_again_for_an_empty_name(hass, _custom_int
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "zeroconf_confirm"
     assert result["errors"] == {"base": "name_required"}
+
+
+async def test_the_name_field_offers_the_name_the_speaker_had_before(hass, _custom_integration):
+    """Set up again after removing it: the name field is pre-filled.
+
+    Both naming steps share the field now, so one unguarded line would lose the
+    suggestion for the discovery card and the scan alike.
+    """
+    from custom_components.neumann_kh import storage
+
+    await storage.async_remember_name(hass, _GOOD_IDENTITY.serial, "Left")
+
+    card = await _run_zeroconf(
+        hass, _zeroconf_info(serial=_GOOD_IDENTITY.serial), identity=_GOOD_IDENTITY
+    )
+
+    suggested = {
+        str(key): (key.description or {}).get("suggested_value")
+        for key in card["data_schema"].schema
+    }
+    assert suggested[CONF_NAME] == "Left"
