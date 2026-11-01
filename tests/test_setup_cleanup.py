@@ -157,3 +157,26 @@ async def test_a_setup_cancelled_while_adding_platforms_cleans_up_too(hass, _cus
             await setup
 
     assert client.closed, "the connection was left open when adding platforms was cancelled"
+
+
+async def test_a_setup_whose_platforms_fail_closes_the_connection(hass, _custom_integration):
+    """The exception sibling of the cancel case above.
+
+    A speaker takes about four connections. Every retry of a setup that failed
+    while adding platforms left one open, until the vendor app or the
+    integration itself could no longer connect.
+    """
+    entry = _entry(hass)
+    client = _AnsweringClient()
+
+    async def _fails(config_entry, platforms):
+        raise RuntimeError("platform setup failed")
+
+    with (
+        patch("custom_components.neumann_kh.SSCClient", return_value=client),
+        patch.object(hass.config_entries, "async_forward_entry_setups", _fails),
+    ):
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert client.closed, "the connection was left open after the platforms failed"

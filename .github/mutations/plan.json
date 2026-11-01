@@ -194,5 +194,12 @@
     "find": "    if not isinstance(parsed, dict) or nesting_exceeds(parsed, _MAX_NESTING):",
     "replace": "    if isinstance(parsed, dict) and nesting_exceeds(parsed, _MAX_NESTING):",
     "expect": "tests/test_ssc_client.py::test_a_json_line_that_is_not_an_object_is_skipped"
+  },
+  {
+    "name": "a setup whose platforms fail keeps its connection",
+    "path": "custom_components/neumann_kh/__init__.py",
+    "find": "        # any more: it lives on the entry, and the next attempt overwrites it.\n        await client.close()",
+    "replace": "        # any more: it lives on the entry, and the next attempt overwrites it.\n        pass",
+    "expect": "tests/test_setup_cleanup.py::test_a_setup_whose_platforms_fail_closes_the_connection"
   }
 ]
