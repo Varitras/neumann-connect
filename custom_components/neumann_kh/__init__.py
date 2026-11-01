@@ -119,8 +119,10 @@ async def _async_relocate(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 await client.close()
 
     # The announcement names its serial: a candidate naming another speaker
-    # needs no connection, and one naming this speaker is taken as it is -
-    # the next setup checks the serial against the device anyway.
+    # needs no connection, and one naming this speaker is taken as it is.
+    # Unlike async_step_zeroconf, which asks the device before repointing a
+    # working entry, this runs only after a failed setup, and the retry's
+    # serial check (_async_verify_identity) is that confirmation.
     announced = [speaker for speaker in candidates if speaker.serial]
     unannounced = [speaker for speaker in candidates if not speaker.serial]
     found_serials = [speaker.serial for speaker in announced] + await asyncio.gather(
