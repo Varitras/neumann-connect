@@ -180,5 +180,19 @@
     "find": "            if confirmed != value:",
     "replace": "            if False:",
     "expect": "tests/test_export_actions.py::test_a_value_the_device_adjusts_is_counted_as_adjusted"
+  },
+  {
+    "name": "a clean end of stream before any answer is a silent None",
+    "path": "custom_components/neumann_kh/ssc_client.py",
+    "find": "                else:\n                    raise SSCConnectionError(\n                        f\"Connection to {mask_host(self._host)} interrupted\"\n                    ) from err",
+    "replace": "                else:\n                    break",
+    "expect": "tests/test_ssc_client.py::test_a_speaker_closing_without_an_answer_is_a_connection_error"
+  },
+  {
+    "name": "a JSON line that is not an object reaches deep_merge",
+    "path": "custom_components/neumann_kh/ssc_client.py",
+    "find": "    if not isinstance(parsed, dict) or nesting_exceeds(parsed, _MAX_NESTING):",
+    "replace": "    if isinstance(parsed, dict) and nesting_exceeds(parsed, _MAX_NESTING):",
+    "expect": "tests/test_ssc_client.py::test_a_json_line_that_is_not_an_object_is_skipped"
   }
 ]

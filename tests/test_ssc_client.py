@@ -1220,3 +1220,62 @@ async def test_an_answer_ended_by_the_settle_window_is_drained_after(server, mon
     finally:
         await client.close()
     assert drains == 1
+
+
+# --- Faulty firmware: end of stream and odd lines -----------------------------
+
+
+async def test_a_speaker_closing_without_an_answer_is_a_connection_error(socket_enabled):
+    """A clean FIN (standby, reboot) after the request, not a reset.
+
+    Turned into a silent None it would count as answered: every entity would
+    show unknown instead of unavailable, and the dead socket would stay.
+    """
+
+    async def _handle(reader, writer):
+        await reader.readline()
+        writer.close()
+
+    raw_server, handled = await _serve(_handle)
+    client = _client(raw_server.sockets[0].getsockname()[1])
+    try:
+        with pytest.raises(SSCConnectionError):
+            await client.get(("device", "name"))
+        assert client._writer is None
+    finally:
+        await client.close()
+        await _shutdown(raw_server, handled)
+
+
+async def test_a_last_line_without_a_terminator_still_counts(socket_enabled):
+    async def _handle(reader, writer):
+        await reader.readline()
+        writer.write(json.dumps({"device": {"name": "x"}}).encode())
+        await writer.drain()
+        writer.close()
+
+    raw_server, handled = await _serve(_handle)
+    client = _client(raw_server.sockets[0].getsockname()[1])
+    try:
+        assert await client.get(("device", "name")) == "x"
+    finally:
+        await client.close()
+        await _shutdown(raw_server, handled)
+
+
+@pytest.mark.parametrize("not_an_object", [b"null", b"[1, 2]", b"42"])
+async def test_a_json_line_that_is_not_an_object_is_skipped(socket_enabled, not_an_object):
+    async def _handle(reader, writer):
+        await reader.readline()
+        writer.write(not_an_object + b"\r\n")
+        writer.write(json.dumps({"device": {"name": "ok"}}).encode() + b"\r\n")
+        await writer.drain()
+        await _stay_open()
+
+    raw_server, handled = await _serve(_handle)
+    client = _client(raw_server.sockets[0].getsockname()[1])
+    try:
+        assert await client.get(("device", "name")) == "ok"
+    finally:
+        await client.close()
+        await _shutdown(raw_server, handled)
