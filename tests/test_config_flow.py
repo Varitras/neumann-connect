@@ -918,3 +918,16 @@ async def test_reconfigure_takes_the_scope_id_out_of_the_host(hass, _custom_inte
     assert result["reason"] == "reconfigure_successful"
     assert entry.data[CONF_HOST] == "fe80::9"
     assert entry.data[CONF_INTERFACE] == "eth5"
+
+
+async def test_the_discovery_card_asks_again_for_an_empty_name(hass, _custom_integration):
+    """Guards the flattened step: an empty name shows the form with an error."""
+    card = await _run_zeroconf(
+        hass, _zeroconf_info(serial=_GOOD_IDENTITY.serial), identity=_GOOD_IDENTITY
+    )
+
+    result = await hass.config_entries.flow.async_configure(card["flow_id"], {CONF_NAME: "  "})
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "zeroconf_confirm"
+    assert result["errors"] == {"base": "name_required"}
