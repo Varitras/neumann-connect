@@ -21,6 +21,7 @@ from zeroconf import ServiceStateChange
 from zeroconf.asyncio import AsyncServiceBrowser, AsyncServiceInfo
 
 from .const import SCAN_DURATION_SECONDS, SSC_ZEROCONF_SERVICE_TYPE
+from .identity import as_identity_text
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -141,7 +142,8 @@ async def async_scan_for_speakers(
             _LOGGER.debug("Announced SSC service %d has no IPv6 address", index)
             continue
 
-        serial = info.decoded_properties.get("id")
+        # Cleaned as the zeroconf step cleans it: a blank id announces nothing.
+        serial = as_identity_text(info.decoded_properties.get("id"))
         speakers.append(
             DiscoveredSpeaker(mdns_name=mdns_name, host=host, port=info.port, serial=serial)
         )
