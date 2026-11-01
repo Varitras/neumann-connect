@@ -171,6 +171,32 @@ MALFORMED_OSC_REPLIES = (
     ),
 )
 
+# Error replies to requests with an xid, both models alike (2026-11-01): the
+# xid sits next to "error" in the same osc object, never in a second one.
+XID_ERROR_REPLIES = (
+    (
+        {"osc": {"xid": 101}, "audio": {"out": {"dimm": None}}},
+        '{"osc":{"error":[{"audio":{"out":{"dimm":[404,{"desc":"address not found"}]}}}],"xid":101}}',
+    ),
+    (
+        {"osc": {"xid": 102}, "ui": {"control_mode": "NETWORK"}},
+        '{"osc":{"error":[{"ui":{"control_mode":[405,{"desc":"method not allowed"}]}}],"xid":102}}',
+    ),
+    (
+        {"osc": {"xid": 103}, "audio": {"out": {"mute": "x"}}},
+        '{"osc":{"error":[{"audio":{"out":{"mute":[406,{"desc":"not acceptable"}]}}}],"xid":103}}',
+    ),
+    (
+        {"osc": {"xid": 104}, "audio": {"out": {"level": None, "dimm": None}}},
+        '{"audio":{"out":{"level":100.0}},'
+        '"osc":{"error":[{"audio":{"out":[404,{"desc":"address not found"}]}}],"xid":104}}',
+    ),
+    (
+        {"osc": {"xid": 105, "nonexistent": None}},
+        '{"osc":{"error":[{"osc":[404,{"desc":"address not found"}]}],"xid":105}}',
+    ),
+)
+
 # Protocol methods of the osc container and the transaction id, both models.
 OSC_METHOD_REPLIES = (
     ({"osc": {"version": None}}, '{"osc":{"version":"1.1"}}'),

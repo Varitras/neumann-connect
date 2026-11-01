@@ -25,6 +25,7 @@ from recorded_replies import (
     MALFORMED_OSC_REPLIES,
     NOT_FOUND_REPLIES,
     OSC_METHOD_REPLIES,
+    XID_ERROR_REPLIES,
     SCHEMA_AUDIO_REPLIES,
     SCHEMA_AUDIO_REQUEST,
     SCHEMA_ROOT_REPLY,
@@ -135,6 +136,20 @@ def test_the_simulator_refuses_malformed_introspection_like_the_device(model, re
 )
 def test_the_simulator_answers_osc_methods_like_the_device(model, request_, line):
     assert SSCSimulator(model).handle(request_) == json.loads(line)
+
+
+@pytest.mark.parametrize("model", MODELS)
+@pytest.mark.parametrize(
+    ("request_", "line"),
+    XID_ERROR_REPLIES,
+    ids=["404", "405", "406", "partial-bundle", "unknown-osc-method"],
+)
+def test_the_simulator_echoes_the_xid_on_errors_like_the_device(model, request_, line):
+    answer = SSCSimulator(model).handle(request_)
+    # The level differs per model; the shape and the xid are what is recorded.
+    if "audio" in answer and "level" in answer["audio"].get("out", {}):
+        answer["audio"]["out"]["level"] = 100.0
+    assert answer == json.loads(line)
 
 
 def _get(simulator: SSCSimulator, *path: str):
