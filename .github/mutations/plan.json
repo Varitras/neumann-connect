@@ -166,5 +166,19 @@
     "find": "        if \"osc\" in payload or json_tokens(payload) + _XID_TOKENS > _MAX_REQUEST_TOKENS:",
     "replace": "        if \"osc\" in payload:",
     "expect": "tests/test_ssc_client.py::test_a_request_over_the_token_limit_goes_without_an_xid"
+  },
+  {
+    "name": "a restore cut off mid-way does not re-read the value in flight",
+    "path": "custom_components/neumann_kh/export_actions.py",
+    "find": "            coordinator.request_reread(path)\n            raise _stop(\"restore_interrupted\", error=str(err)) from err",
+    "replace": "            raise _stop(\"restore_interrupted\", error=str(err)) from err",
+    "expect": "tests/test_export_actions.py::test_a_restore_cut_off_mid_way_keeps_what_landed_and_rereads_the_rest"
+  },
+  {
+    "name": "a value the device adjusted counts as written",
+    "path": "custom_components/neumann_kh/export_actions.py",
+    "find": "            if confirmed != value:",
+    "replace": "            if False:",
+    "expect": "tests/test_export_actions.py::test_a_value_the_device_adjusts_is_counted_as_adjusted"
   }
 ]
