@@ -5,6 +5,52 @@
 All notable changes to this integration are documented here.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.20.0] – Control mode, LOCAL mode and leaner polling
+
+### Breaking changes
+- **Home Assistant 2026.10.0 or newer is required** (Python 3.14). HACS
+  does not install this version on older releases
+- **Control mode is now a sensor instead of a select.** Both test speakers
+  refuse writes to it: it follows the CONTROL switch on the back
+  (KH 750 DSP: CONTROL MODE), so the select could never change anything. The
+  old select entity is removed from the entity registry; automations,
+  scripts and dashboards that use it have to be pointed at the new sensor,
+  which is enabled by default
+- **Restore backup no longer writes the control mode**
+
+### Changed
+- On `LOCAL` a refused change says that the CONTROL switch is the reason and
+  how to fix it, instead of a generic rejection. A restore stops with the same
+  message and says how many values it had written
+- A backup is refused while the speaker is on `LOCAL`: it then reports its
+  local settings, and such a backup replaced the last good one. A stored
+  backup taken on `LOCAL` by an earlier version is not written back
+- Restore backup writes mute before the levels and unmute after them. The
+  notification counts values the speaker refused or did not confirm
+  separately, and each of them is logged (a refusal with its error code). A
+  run in which the speaker confirmed no value is reported as unconfirmed
+  instead of "nothing changed"
+- Values that only entities disabled by default show (level, delay and mute
+  of outputs 1 and 2, output meter and clip, standby countdown) are only
+  polled while such an entity is enabled. On a KH 750 that is 9 of the 21
+  values that were read every cycle
+- Value requests carry a transaction id (`osc/xid`), so a late answer to an
+  earlier request can no longer be taken for the current one. EQ writes of
+  20 bands and the schema walk of the device discovery still go without one
+- Adding a speaker by hand or from the network scan works while a discovery
+  card for the same speaker is still open; Home Assistant closes the card
+  once the entry exists. The setup used to abort
+- Auto standby time and standby countdown are marked as durations
+- The EQ on/off switches and the EQ reset write as many bands as the speaker
+  reports, instead of a fixed count per model
+- When a speaker has moved to a new address, candidates that announce their
+  serial number over mDNS are no longer connected to just to read it
+
+### Fixed
+- A reply line the JSON parser refuses (an oversized number, extreme
+  nesting) is skipped instead of failing the poll cycle with an untranslated
+  error
+
 ## [1.19.1] – Reading the speakers' error codes
 
 ### Fixed
