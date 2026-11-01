@@ -268,7 +268,8 @@ alles geholt: Selten wechselnde Werte (Identität, die meisten
 Rückseiten-Einstellungen, Gerätename) werden nur in jedem zehnten Zyklus
 abgefragt, also alle 5 Minuten. Steuerungsmodus und Auto-Standby-Schalter werden
 in jedem Zyklus gelesen. Werte, die nur standardmäßig deaktivierte Entities
-anzeigen (Ausgang 1 und 2, Ausgangspegel- und Clip-Anzeige, Standby-Countdown),
+anzeigen (Pegel, Verzögerung und Stummschaltung von Ausgang 1 und 2,
+Ausgangspegel- und Clip-Anzeige, Standby-Countdown),
 werden nur abgefragt, solange eine solche Entity aktiviert ist.
 Abgefragt wird **jeder Wert einzeln** (ein Blattpfad pro SSC-Nachricht), nicht als
 Sammelnachricht und nicht als Container-Abfrage: Eine Container-Abfrage wie
