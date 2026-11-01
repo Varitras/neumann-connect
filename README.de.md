@@ -17,9 +17,6 @@ Protokoll- und Gerätedetails (SSC, gemessenes Lautsprecher-Verhalten): siehe
 
 **Benötigt Home Assistant 2026.10 oder neuer.**
 
-Eigenes Icon/Logo unter `custom_components/neumann_kh/brand/` (eigenständiges
-Design, keine Kopie des offiziellen Neumann-Firmenlogos).
-
 Die SSC-Adresspfade stammen ursprünglich aus dem
 [khtool-Projekt](https://github.com/schwinn/khtool); die von der Integration
 genutzten Pfade und ihr Verhalten sind inzwischen an KH 120 II und KH 750 DSP

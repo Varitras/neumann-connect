@@ -71,6 +71,7 @@ async def test_resolution_stops_at_a_bound(monkeypatch, bound, value, expected):
 
         def __init__(self, service_type, name):
             self.name = name
+            self.decoded_properties: dict[str, str | None] = {}
 
         async def async_request(self, zeroconf, timeout_ms):
             resolved.append(self.name)
@@ -105,3 +106,58 @@ async def test_resolution_stops_at_a_bound(monkeypatch, bound, value, expected):
 
     assert len(resolved) == expected, "the resolution pass was not bounded"
     assert len(speakers) == expected
+
+
+@pytest.mark.parametrize(
+    ("properties", "expected"),
+    [
+        ({"id": "SIM0001234"}, "SIM0001234"),
+        ({"id": " SIM0001234 "}, "SIM0001234"),
+        ({"id": None}, None),
+        ({"id": "   "}, None),
+        ({}, None),
+    ],
+    ids=["serial", "padded", "none", "blank", "missing"],
+)
+async def test_the_announced_serial_reaches_the_candidate(properties, expected):
+    """Relocate takes a candidate by the serial its TXT record announces.
+
+    Read from the wrong key, or left out, it silently fell back to a TCP probe
+    per speaker - and a blank id kept the speaker from being probed at all.
+    """
+    from unittest.mock import AsyncMock, patch
+
+    from custom_components.neumann_kh import discovery
+
+    class _FakeInfo:
+        port = 45
+
+        def __init__(self, service_type, name):
+            self.decoded_properties = properties
+
+        async def async_request(self, zeroconf, timeout_ms):  # skipcq: PYL-R0201
+            return True
+
+        def parsed_scoped_addresses(self):  # skipcq: PYL-R0201 - a stand-in, not a design
+            return ["fe80::1%2"]
+
+    class _FakeBrowser:
+        def __init__(self, *args, **kwargs):
+            (kwargs.get("handlers") or args[2])[0](
+                zeroconf=None,
+                service_type="_ssc._tcp.local.",
+                name="Right._ssc._tcp.local.",
+                state_change=discovery.ServiceStateChange.Added,
+            )
+
+        async def async_cancel(self):  # skipcq: PYL-R0201 - a stand-in, not a design
+            return None
+
+    with (
+        patch.object(discovery, "AsyncServiceBrowser", _FakeBrowser),
+        patch.object(discovery, "AsyncServiceInfo", _FakeInfo),
+        patch.object(discovery.ha_zeroconf, "async_get_async_instance", AsyncMock()),
+    ):
+        speakers = await discovery.async_scan_for_speakers(AsyncMock(), duration=0)
+
+    assert [speaker.serial for speaker in speakers] == [expected]

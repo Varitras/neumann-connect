@@ -30,7 +30,6 @@ INPUT_INTERFACE_DESCRIPTION = NeumannKHSelectDescription(
     translation_key="input_interface",
     icon="mdi:audio-input-stereo-minijack",
     options=list(INPUT_INTERFACE_OPTIONS),
-    entity_registry_enabled_default=True,
     ssc_path=PATH_INPUT_INTERFACE_TYPE,
 )
 

@@ -153,3 +153,30 @@ def test_a_front_panel_setting_is_a_diagnostic_sensor(key):
     looks like a measurement.
     """
     assert _description(key).entity_category is EntityCategory.DIAGNOSTIC
+
+
+def test_the_standby_minutes_are_durations():
+    """A minute count without the duration class gets no unit conversion or
+    duration display, and the free-text "min" was never validated."""
+    from homeassistant.components.number import NumberDeviceClass
+    from homeassistant.components.sensor import SensorDeviceClass
+    from homeassistant.const import UnitOfTime
+
+    from custom_components.neumann_kh import number, sensor
+
+    countdown = next(d for d in sensor.COMMON_SENSOR_DESCRIPTIONS if d.key == "standby_countdown")
+    auto_time = next(
+        d
+        for value in vars(number).values()
+        for d in (value if isinstance(value, tuple) else (value,))
+        if getattr(d, "key", None) == "standby_auto_time"
+    )
+
+    assert (countdown.device_class, countdown.native_unit_of_measurement) == (
+        SensorDeviceClass.DURATION,
+        UnitOfTime.MINUTES,
+    )
+    assert (auto_time.device_class, auto_time.native_unit_of_measurement) == (
+        NumberDeviceClass.DURATION,
+        UnitOfTime.MINUTES,
+    )

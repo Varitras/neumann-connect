@@ -44,8 +44,8 @@
   {
     "name": "a factory reset with a lost reply keeps the stale cache",
     "path": "custom_components/neumann_kh/button.py",
-    "find": "                await self.coordinator.async_invalidate_and_refresh()\n                raise HomeAssistantError(",
-    "replace": "                raise HomeAssistantError(",
+    "find": "                on_unreachable=self.coordinator.async_invalidate_and_refresh,",
+    "replace": "                on_unreachable=None,",
     "expect": "tests/test_factory_reset.py::test_a_reset_whose_reply_is_lost_still_drops_the_cache"
   },
   {
@@ -166,5 +166,75 @@
     "find": "        if \"osc\" in payload or json_tokens(payload) + _XID_TOKENS > _MAX_REQUEST_TOKENS:",
     "replace": "        if \"osc\" in payload:",
     "expect": "tests/test_ssc_client.py::test_a_request_over_the_token_limit_goes_without_an_xid"
+  },
+  {
+    "name": "a restore cut off mid-way does not re-read the value in flight",
+    "path": "custom_components/neumann_kh/export_actions.py",
+    "find": "            coordinator.request_reread(path)\n            raise _stop(\"restore_interrupted\", error=str(err)) from err",
+    "replace": "            raise _stop(\"restore_interrupted\", error=str(err)) from err",
+    "expect": "tests/test_export_actions.py::test_a_restore_cut_off_mid_way_keeps_what_landed_and_rereads_the_rest"
+  },
+  {
+    "name": "a value the device adjusted counts as written",
+    "path": "custom_components/neumann_kh/export_actions.py",
+    "find": "            if confirmed != value:",
+    "replace": "            if False:",
+    "expect": "tests/test_export_actions.py::test_a_value_the_device_adjusts_is_counted_as_adjusted"
+  },
+  {
+    "name": "a clean end of stream before any answer is a silent None",
+    "path": "custom_components/neumann_kh/ssc_client.py",
+    "find": "                else:\n                    raise SSCConnectionError(\n                        f\"Connection to {mask_host(self._host)} interrupted\"\n                    ) from err",
+    "replace": "                else:\n                    break",
+    "expect": "tests/test_ssc_client.py::test_a_speaker_closing_without_an_answer_is_a_connection_error"
+  },
+  {
+    "name": "a JSON line that is not an object reaches deep_merge",
+    "path": "custom_components/neumann_kh/ssc_client.py",
+    "find": "    if not isinstance(parsed, dict) or nesting_exceeds(parsed, _MAX_NESTING):",
+    "replace": "    if isinstance(parsed, dict) and nesting_exceeds(parsed, _MAX_NESTING):",
+    "expect": "tests/test_ssc_client.py::test_a_json_line_that_is_not_an_object_is_skipped"
+  },
+  {
+    "name": "a setup whose platforms fail keeps its connection",
+    "path": "custom_components/neumann_kh/__init__.py",
+    "find": "        # any more: it lives on the entry, and the next attempt overwrites it.\n        await client.close()",
+    "replace": "        # any more: it lives on the entry, and the next attempt overwrites it.\n        pass",
+    "expect": "tests/test_setup_cleanup.py::test_a_setup_whose_platforms_fail_closes_the_connection"
+  },
+  {
+    "name": "an error key in the code has no text",
+    "path": "custom_components/neumann_kh/export_actions.py",
+    "find": "translation_key=\"restore_no_backup\"",
+    "replace": "translation_key=\"restore_no_backups\"",
+    "expect": "tests/test_translations.py::test_every_error_key_in_the_code_has_a_text"
+  },
+  {
+    "name": "a backup that ran out of time reports a generic failure",
+    "path": "custom_components/neumann_kh/export_actions.py",
+    "find": "    except BackupTimeoutError as err:",
+    "replace": "    except KeyError as err:",
+    "expect": "tests/test_export_actions.py::test_a_backup_that_fails_to_read_says_why"
+  },
+  {
+    "name": "a discovery that ran out of time reports a generic failure",
+    "path": "custom_components/neumann_kh/export_actions.py",
+    "find": "    except DiscoveryTimeoutError as err:",
+    "replace": "    except KeyError as err:",
+    "expect": "tests/test_export_actions.py::test_a_discovery_that_fails_to_read_says_why"
+  },
+  {
+    "name": "the name field forgets the name the speaker had before",
+    "path": "custom_components/neumann_kh/config_flow.py",
+    "find": "        return self.add_suggested_values_to_schema(schema, {CONF_NAME: remembered_name})",
+    "replace": "        return schema",
+    "expect": "tests/test_config_flow.py::test_the_name_field_offers_the_name_the_speaker_had_before"
+  },
+  {
+    "name": "a refused write drops the device's reason from the message",
+    "path": "custom_components/neumann_kh/entity.py",
+    "find": "            translation_key=rejected_key,\n            translation_placeholders={\"error\": str(err)},",
+    "replace": "            translation_key=rejected_key,",
+    "expect": "tests/test_entity_writes.py::test_a_write_error_tells_the_user_what_the_device_said"
   }
 ]

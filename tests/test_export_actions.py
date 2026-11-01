@@ -16,7 +16,7 @@ pytest.importorskip("homeassistant")
 
 from homeassistant.exceptions import HomeAssistantError
 
-from custom_components.neumann_kh import backup_export, export_actions
+from custom_components.neumann_kh import backup_export, discovery_export, export_actions
 from custom_components.neumann_kh._util import build_nested, deep_merge
 from custom_components.neumann_kh.backup_export import (
     restorable_paths_for_model,
@@ -782,3 +782,95 @@ async def test_an_unconfirmed_value_is_logged_and_reported(monkeypatch, caplog):
         if record.levelname == "INFO"
     ), "the unconfirmed path was not logged"
     assert "1 unconfirmed" in notified[0]
+
+
+async def test_a_restore_cut_off_mid_way_keeps_what_landed_and_rereads_the_rest():
+    """A lost connection mid-restore: the value in flight may have landed.
+
+    Without the re-read that path showed its pre-restore value until the next
+    slow cycle; without the count the user got a bare error on a half-written
+    speaker.
+    """
+    from custom_components.neumann_kh.ssc_client import SSCConnectionError
+
+    class _DropsOnThirdSet(_FakeClient):
+        async def set(self, path, value):
+            if len(self.written) == 2:
+                self.written.append((path, value))
+                raise SSCConnectionError("line dropped")
+            return await super().set(path, value)
+
+    client = _DropsOnThirdSet(answers_none=set())
+    coordinator = _FakeCoordinator(client)
+
+    with pytest.raises(HomeAssistantError) as err:
+        await async_run_restore(
+            _FakeHass(), _FakeEntry(_KH_120_II), coordinator, _backup_covering(_KH_120_II)
+        )
+
+    assert err.value.translation_key == "restore_interrupted"
+    assert err.value.translation_placeholders["written"] == "2"
+    assert coordinator.reread == [client.written[-1][0]]
+    assert coordinator.published == 1, "the two confirmed values were never published"
+
+
+async def test_a_value_the_device_adjusts_is_counted_as_adjusted():
+    adjusted_path = restorable_paths_for_model(_KH_120_II)[0]
+
+    class _Clamps(_FakeClient):
+        async def set(self, path, value):
+            confirmed = await super().set(path, value)
+            return confirmed + 1 if path == adjusted_path else confirmed
+
+    paths = restorable_paths_for_model(_KH_120_II)
+    written, adjusted, skipped = await async_run_restore(
+        _FakeHass(),
+        _FakeEntry(_KH_120_II),
+        _FakeCoordinator(_Clamps(answers_none=set())),
+        _backup_covering(_KH_120_II),
+    )
+
+    assert (written, adjusted, skipped) == (len(paths) - 1, 1, 0)
+
+
+@pytest.mark.parametrize(
+    ("error", "key"),
+    [
+        (backup_export.BackupTimeoutError(), "backup_timed_out"),
+        (RuntimeError("anything else"), "backup_failed"),
+    ],
+    ids=["timeout", "other"],
+)
+async def test_a_backup_that_fails_to_read_says_why(monkeypatch, error, key):
+    saved, written = await _run_backup(None, monkeypatch, values={})
+
+    async def _fails(client, model):
+        raise error
+
+    monkeypatch.setattr(export_actions, "async_build_backup", _fails)
+    hass, entry, client = _fakes()
+    with pytest.raises(HomeAssistantError) as err:
+        await export_actions.async_run_backup(hass, entry, client)
+
+    assert err.value.translation_key == key
+    assert not saved and not written
+
+
+@pytest.mark.parametrize(
+    ("error", "key"),
+    [
+        (discovery_export.DiscoveryTimeoutError(), "discovery_timed_out"),
+        (RuntimeError("anything else"), "discovery_failed"),
+    ],
+    ids=["timeout", "other"],
+)
+async def test_a_discovery_that_fails_to_read_says_why(monkeypatch, error, key):
+    async def _fails(client, model):
+        raise error
+
+    monkeypatch.setattr(export_actions, "async_discover_all_values", _fails)
+    hass, entry, client = _fakes()
+    with pytest.raises(HomeAssistantError) as err:
+        await export_actions.async_run_discovery(hass, entry, client)
+
+    assert err.value.translation_key == key

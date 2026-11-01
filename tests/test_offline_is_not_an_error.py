@@ -23,18 +23,12 @@ from custom_components.neumann_kh.ssc_client import SSCConnectionError, SSCDevic
 class UnreachableClient:
     """Answers nothing at all - the speaker is switched off."""
 
-    def __init__(self) -> None:
-        self.priority_waiting = asyncio.Event()
-
     async def get(self, path: tuple[str, ...]) -> object:
         raise SSCConnectionError("device offline (test)")
 
 
 class SlowClient:
     """Answers, but too late for the cycle's time limit."""
-
-    def __init__(self) -> None:
-        self.priority_waiting = asyncio.Event()
 
     async def get(self, path: tuple[str, ...]) -> object:
         await asyncio.sleep(0.2)
@@ -43,9 +37,6 @@ class SlowClient:
 
 class RejectingClient:
     """Answers every request - with an error."""
-
-    def __init__(self) -> None:
-        self.priority_waiting = asyncio.Event()
 
     async def get(self, path: tuple[str, ...]) -> object:
         raise SSCDeviceError("rejected (test)", code=400)

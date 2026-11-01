@@ -484,39 +484,6 @@ async def test_leftover_line_is_not_read_as_the_next_answer(server):
         await client.close()
 
 
-async def test_cancelled_priority_request_does_not_wedge_the_poll_loop(server):
-    """A cancelled priority request must not leave the event set.
-
-    The poll loop sleeps before every single path while priority_waiting is
-    set, so a stuck event slows down every cycle until another priority
-    request happens to complete.
-    """
-    server.release = asyncio.Event()
-    client = _client(server.port)
-    try:
-        # Occupy the lock so the priority request has to wait for it: the
-        # blocker holds it until the server is released.
-        blocker = asyncio.create_task(client.get(("device", "name")))
-        await asyncio.wait_for(server.request_received.wait(), timeout=5)
-
-        waiter = asyncio.create_task(client.set(("audio", "out", "mute"), True))
-        # request() sets the flag before it queues on the lock, so waiting for
-        # the event is exactly the state this test needs - no sleep required.
-        await asyncio.wait_for(client.priority_waiting.wait(), timeout=5)
-
-        waiter.cancel()
-        with pytest.raises(asyncio.CancelledError):
-            await waiter
-        server.release.set()
-        server.release = None
-        with contextlib.suppress(Exception):
-            await blocker
-
-        assert not client.priority_waiting.is_set(), "event stayed set after cancellation"
-    finally:
-        await client.close()
-
-
 def test_is_link_local():
     assert SSCClient.is_link_local("fe80::1")
     assert SSCClient.is_link_local("FE80::1")
@@ -1220,3 +1187,97 @@ async def test_an_answer_ended_by_the_settle_window_is_drained_after(server, mon
     finally:
         await client.close()
     assert drains == 1
+
+
+# --- Faulty firmware: end of stream and odd lines -----------------------------
+
+
+async def test_a_speaker_closing_without_an_answer_is_a_connection_error(socket_enabled):
+    """A clean FIN (standby, reboot) after the request, not a reset.
+
+    Turned into a silent None it would count as answered: every entity would
+    show unknown instead of unavailable, and the dead socket would stay.
+    """
+
+    async def _handle(reader, writer):
+        await reader.readline()
+        writer.close()
+
+    raw_server, handled = await _serve(_handle)
+    client = _client(raw_server.sockets[0].getsockname()[1])
+    try:
+        with pytest.raises(SSCConnectionError):
+            await client.get(("device", "name"))
+        assert client._writer is None
+    finally:
+        await client.close()
+        await _shutdown(raw_server, handled)
+
+
+async def test_a_last_line_without_a_terminator_still_counts(socket_enabled):
+    async def _handle(reader, writer):
+        await reader.readline()
+        writer.write(json.dumps({"device": {"name": "x"}}).encode())
+        await writer.drain()
+        writer.close()
+
+    raw_server, handled = await _serve(_handle)
+    client = _client(raw_server.sockets[0].getsockname()[1])
+    try:
+        assert await client.get(("device", "name")) == "x"
+    finally:
+        await client.close()
+        await _shutdown(raw_server, handled)
+
+
+@pytest.mark.parametrize("not_an_object", [b"null", b"[1, 2]", b"42"])
+async def test_a_json_line_that_is_not_an_object_is_skipped(socket_enabled, not_an_object):
+    async def _handle(reader, writer):
+        await reader.readline()
+        writer.write(not_an_object + b"\r\n")
+        writer.write(json.dumps({"device": {"name": "ok"}}).encode() + b"\r\n")
+        await writer.drain()
+        await _stay_open()
+
+    raw_server, handled = await _serve(_handle)
+    client = _client(raw_server.sockets[0].getsockname()[1])
+    try:
+        assert await client.get(("device", "name")) == "ok"
+    finally:
+        await client.close()
+        await _shutdown(raw_server, handled)
+
+
+async def test_a_write_during_a_poll_waits_for_one_query_at_most(server):
+    """The poll takes the lock per path, and asyncio.Lock hands it over in FIFO
+    order: a waiting write goes before the poll's next query. That carries user
+    actions ahead of a cycle - no priority flag is needed for it.
+    """
+    server.response_delay = 0.02
+    order: list[str] = []
+
+    def _record(request):
+        is_write = "mute" in request.get("audio", {}).get("out", {})
+        order.append("write" if is_write else "poll")
+        return [request]
+
+    server.responder = _record
+    client = _client(server.port)
+    three_polled = asyncio.Event()
+
+    async def _poll() -> None:
+        for count in range(1, 21):
+            await client.get(("audio", "out", "level"))
+            if count == 3:
+                three_polled.set()
+
+    try:
+        poll = asyncio.create_task(_poll())
+        await three_polled.wait()
+        issued_at = len(order)
+        await client.set(("audio", "out", "mute"), True)
+        await poll
+    finally:
+        await client.close()
+
+    assert order.index("write") - issued_at <= 1, order

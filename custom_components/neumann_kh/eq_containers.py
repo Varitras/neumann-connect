@@ -27,6 +27,10 @@ class EQContainer:
     label_en: str
     label_de: str
 
+    def leaf(self, name: str) -> tuple[str, ...]:
+        """Path of one leaf of this container (one of EQ_LEAVES)."""
+        return self.path + (name,)
+
     def label_for(self, language: str | None) -> str:
         """Return the display label for the given HA language (de/en, fallback en)."""
         return localized(language, self.label_de, self.label_en)
@@ -96,7 +100,10 @@ SUBWOOFER_EQ_CONTAINERS: tuple[EQContainer, ...] = (
 # Leaves every EQ container exposes, each an array with one entry per band.
 # Verified by reading them off a KH 120 II (firmware 1_7_3); "bypass" and
 # "order" do not exist and answer 404.
-EQ_LEAVES = ("enabled", "gain", "boost", "frequency", "q", "type")
+EQ_ENABLED = "enabled"
+EQ_GAIN = "gain"
+EQ_BOOST = "boost"
+EQ_LEAVES = (EQ_ENABLED, EQ_GAIN, EQ_BOOST, "frequency", "q", "type")
 
 
 def eq_leaf_paths(model: str | None) -> tuple[tuple[str, ...], ...]:
@@ -107,9 +114,7 @@ def eq_leaf_paths(model: str | None) -> tuple[tuple[str, ...], ...]:
     them a restored EQ would not be the one that was saved.
     """
     return tuple(
-        container.path + (leaf,)
-        for container in eq_containers_for_model(model)
-        for leaf in EQ_LEAVES
+        container.leaf(leaf) for container in eq_containers_for_model(model) for leaf in EQ_LEAVES
     )
 
 

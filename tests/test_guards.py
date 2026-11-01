@@ -34,7 +34,7 @@ GUARD_FILES = {
     "test_resolve_phcc.py": "the latest-HA job never resolves to a beta Home Assistant",
     "test_sensor_states.py": "the not_assigned mapping and its translations stay in step",
     "test_log_privacy.py": "no log call or raised message hands out a serial or address in full",
-    "test_translations.py": "strings.json, en.json and de.json stay in step",
+    "test_translations.py": "the translation files stay in step and every error key in the code has a text",
     "test_guards.py": "the guards stay package-wide and stay present",
 }
 

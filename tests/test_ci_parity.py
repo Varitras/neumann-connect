@@ -16,6 +16,7 @@ import pathlib
 import re
 import subprocess
 
+import pytest
 import yaml
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
@@ -23,7 +24,7 @@ WORKFLOW = REPO / ".github" / "workflows" / "ci.yml"
 CHECK_SCRIPT = REPO / ".github" / "scripts" / "check.sh"
 
 # Tools whose invocation belongs to check.sh alone.
-OWNED_BY_THE_SCRIPT = ("ruff", "pytest", "mutate.py")
+OWNED_BY_THE_SCRIPT = ("ruff", "pytest", "mypy", "compileall", "check_gitleaks_pin", "mutate.py")
 
 
 def _run_commands(workflow_text: str) -> list[str]:
@@ -53,13 +54,17 @@ def test_the_workflow_calls_the_check_script():
     )
 
 
-def test_the_workflow_does_not_invoke_the_tools_itself():
-    offenders = [
+def _offenders(commands: list[str]) -> list[str]:
+    return [
         step
-        for step in _steps()
+        for step in commands
         if "check.sh" not in step
         and any(re.search(rf"\b{tool}\b", step) for tool in OWNED_BY_THE_SCRIPT)
     ]
+
+
+def test_the_workflow_does_not_invoke_the_tools_itself():
+    offenders = _offenders(_steps())
 
     assert not offenders, (
         f"CI step(s) running a tool directly: {offenders}. Put the gate in "
@@ -140,6 +145,23 @@ def test_the_scripts_are_committed_executable():
         f"script(s) committed without the executable bit: {not_executable}. "
         "Fix with `git update-index --chmod=+x <path>`."
     )
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "python -m mypy",
+        "python -m compileall -q custom_components",
+        "python .github/scripts/check_gitleaks_pin.py",
+    ],
+)
+def test_every_gate_check_sh_owns_counts_as_a_direct_call(command):
+    """mypy, compileall and the gitleaks pin are gates too.
+
+    Called from a workflow step they passed the guard, against the decision
+    that CI runs check.sh and nothing else.
+    """
+    assert _offenders([command]) == [command]
 
 
 def test_the_scan_reads_block_style_steps_too():

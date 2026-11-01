@@ -101,7 +101,7 @@ async def _async_relocate(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # address but moved to another port is precisely the case this repair
     # exists for.
     current = (entry.data.get(CONF_HOST), entry.data.get(CONF_PORT, DEFAULT_PORT))
-    candidates = [s for s in speakers if (s.host, s.port) != current]
+    candidates = [speaker for speaker in speakers if (speaker.host, speaker.port) != current]
 
     # Asked concurrently, a few at a time. One after another this cost the
     # connection timeout per silent candidate, and this runs on every failed
@@ -118,9 +118,18 @@ async def _async_relocate(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             finally:
                 await client.close()
 
-    found_serials = await asyncio.gather(*(_serial_of(s) for s in candidates))
+    # The announcement names its serial: a candidate naming another speaker
+    # needs no connection, and one naming this speaker is taken as it is.
+    # Unlike async_step_zeroconf, which asks the device before repointing a
+    # working entry, this runs only after a failed setup, and the retry's
+    # serial check (_async_verify_identity) is that confirmation.
+    announced = [speaker for speaker in candidates if speaker.serial]
+    unannounced = [speaker for speaker in candidates if not speaker.serial]
+    found_serials = [speaker.serial for speaker in announced] + await asyncio.gather(
+        *(_serial_of(speaker) for speaker in unannounced)
+    )
 
-    for speaker, found in zip(candidates, found_serials, strict=True):
+    for speaker, found in zip(announced + unannounced, found_serials, strict=True):
         if not serial_matches(serial, found):
             continue
 

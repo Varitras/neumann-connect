@@ -21,6 +21,7 @@ from zeroconf import ServiceStateChange
 from zeroconf.asyncio import AsyncServiceBrowser, AsyncServiceInfo
 
 from .const import SCAN_DURATION_SECONDS, SSC_ZEROCONF_SERVICE_TYPE
+from .identity import as_identity_text
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -40,6 +41,7 @@ class DiscoveredSpeaker:
     mdns_name: str  # full mDNS service name, e.g. "Right._ssc._tcp.local."
     host: str  # IP address; for link-local incl. "%<scope_id>"
     port: int
+    serial: str | None = None  # TXT "id" of the announcement, if it carries one
 
 
 def pick_host(addresses: list[str]) -> str | None:
@@ -89,7 +91,7 @@ async def async_scan_for_speakers(
     failed retry - for minutes. What is dropped is logged rather than silently
     left out.
     """
-    aiozc = await ha_zeroconf.async_get_async_instance(hass)
+    zeroconf_instance = await ha_zeroconf.async_get_async_instance(hass)
     found_names: set[str] = set()
 
     def _on_change(  # skipcq: PYL-W0613
@@ -106,7 +108,9 @@ async def async_scan_for_speakers(
         if state_change is ServiceStateChange.Added:
             found_names.add(name)
 
-    browser = AsyncServiceBrowser(aiozc.zeroconf, SSC_ZEROCONF_SERVICE_TYPE, handlers=[_on_change])
+    browser = AsyncServiceBrowser(
+        zeroconf_instance.zeroconf, SSC_ZEROCONF_SERVICE_TYPE, handlers=[_on_change]
+    )
     try:
         await asyncio.sleep(duration)
     finally:
@@ -125,7 +129,7 @@ async def async_scan_for_speakers(
 
         info = AsyncServiceInfo(SSC_ZEROCONF_SERVICE_TYPE, mdns_name)
         try:
-            resolved = await info.async_request(aiozc.zeroconf, _RESOLVE_TIMEOUT_MS)
+            resolved = await info.async_request(zeroconf_instance.zeroconf, _RESOLVE_TIMEOUT_MS)
         except Exception:
             _LOGGER.debug("Could not resolve announced SSC service %d", index, exc_info=True)
             continue
@@ -138,6 +142,10 @@ async def async_scan_for_speakers(
             _LOGGER.debug("Announced SSC service %d has no IPv6 address", index)
             continue
 
-        speakers.append(DiscoveredSpeaker(mdns_name=mdns_name, host=host, port=info.port))
+        # Cleaned as the zeroconf step cleans it: a blank id announces nothing.
+        serial = as_identity_text(info.decoded_properties.get("id"))
+        speakers.append(
+            DiscoveredSpeaker(mdns_name=mdns_name, host=host, port=info.port, serial=serial)
+        )
 
     return speakers

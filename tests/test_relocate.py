@@ -361,3 +361,36 @@ async def test_silent_candidates_are_asked_concurrently(hass, _custom_integratio
         assert await _async_relocate(hass, entry) is False
 
     assert peak > 1, "the candidates were queried one after another"
+
+
+async def test_announced_serials_spare_the_connections(hass, _custom_integration):
+    """The TXT record carries the serial; asking every candidate over TCP cost a
+    connection per speaker on every failed setup retry. The next setup still
+    checks the serial against the device, so the announcement is not trusted
+    blindly.
+    """
+    entry = _entry(hass)
+    opened: list[str] = []
+
+    def _client(host, **kwargs):
+        opened.append(host)
+        client = AsyncMock()
+        client.get = AsyncMock(return_value=None)
+        return client
+
+    speakers = [
+        DiscoveredSpeaker(
+            mdns_name="other._ssc._tcp.local.", host="fe80::9%2", port=45, serial="SIM0007500"
+        ),
+        DiscoveredSpeaker(
+            mdns_name="own._ssc._tcp.local.", host=_NEW_HOST, port=45, serial=_SERIAL
+        ),
+    ]
+    with (
+        patch("custom_components.neumann_kh.async_scan_for_speakers", return_value=speakers),
+        patch("custom_components.neumann_kh.SSCClient", side_effect=_client),
+    ):
+        assert await _async_relocate(hass, entry) is True
+
+    assert opened == [], f"connected to {opened} despite the announced serials"
+    assert entry.data[CONF_HOST] == _NEW_HOST

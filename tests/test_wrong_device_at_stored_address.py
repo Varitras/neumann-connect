@@ -67,7 +67,6 @@ class _SpeakerWithSerial:
         self.serial = serial
         self.closed = False
         self.asked_for_serial = False
-        self.priority_waiting = asyncio.Event()
 
     async def get(self, path):
         if path == PATH_IDENTITY_SERIAL:

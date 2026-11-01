@@ -8,6 +8,8 @@ value the device confirmed directly instead of waiting for a poll cycle
 
 from __future__ import annotations
 
+import contextlib
+from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -27,6 +29,37 @@ from .const import (
 )
 from .coordinator import NeumannKHCoordinator
 from .ssc_client import SSCConnectionError, SSCDeviceError, SSCLocalModeError, SSCTimeoutError
+
+
+@contextlib.asynccontextmanager
+async def device_errors(
+    rejected_key: str, on_unreachable: Callable[[], Awaitable[None]] | None = None
+) -> AsyncIterator[None]:
+    """Turn the SSC errors of a write into the messages the user sees.
+
+    One owner for the order: SSCLocalModeError is an SSCDeviceError, so it has
+    to be caught first - every writer had to be fixed by hand when LOCAL came.
+    on_unreachable runs before the error is raised: the request may have
+    reached the speaker before the line dropped.
+    """
+    try:
+        yield
+    except SSCLocalModeError as err:
+        raise HomeAssistantError(translation_domain=DOMAIN, translation_key="local_mode") from err
+    except SSCDeviceError as err:
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key=rejected_key,
+            translation_placeholders={"error": str(err)},
+        ) from err
+    except (SSCConnectionError, SSCTimeoutError) as err:
+        if on_unreachable is not None:
+            await on_unreachable()
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="device_unreachable",
+            translation_placeholders={"error": str(err)},
+        ) from err
 
 
 def unique_id_base(entry: ConfigEntry) -> str:
@@ -72,25 +105,12 @@ class NeumannKHEntity(CoordinatorEntity[NeumannKHCoordinator]):
         path is re-read instead: a missing echo or a line dropped after
         sending does not mean the device kept its old value.
         """
-        try:
-            confirmed = await self.coordinator.client.set(path, value)
-        except SSCLocalModeError as err:
-            raise HomeAssistantError(
-                translation_domain=DOMAIN, translation_key="local_mode"
-            ) from err
-        except SSCDeviceError as err:
-            raise HomeAssistantError(
-                translation_domain=DOMAIN,
-                translation_key=rejected_key,
-                translation_placeholders={"error": str(err)},
-            ) from err
-        except (SSCConnectionError, SSCTimeoutError) as err:
+
+        async def _reread() -> None:
             self.coordinator.request_reread(path)
-            raise HomeAssistantError(
-                translation_domain=DOMAIN,
-                translation_key="device_unreachable",
-                translation_placeholders={"error": str(err)},
-            ) from err
+
+        async with device_errors(rejected_key=rejected_key, on_unreachable=_reread):
+            confirmed = await self.coordinator.client.set(path, value)
         if confirmed is None:
             self.coordinator.request_reread(path)
         else:

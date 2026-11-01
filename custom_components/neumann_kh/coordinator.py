@@ -42,7 +42,7 @@ from .const import (
     SUBWOOFER_SLOW_POLL_PATHS,
     UPDATE_INTERVAL_SECONDS,
 )
-from .eq_containers import eq_containers_for_model
+from .eq_containers import EQ_ENABLED, eq_containers_for_model
 from .ssc_client import (
     ERROR_NOT_FOUND,
     SSCClient,
@@ -147,7 +147,7 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Change only through user action (which applies the confirmed value
         # immediately) - therefore in the slow poll.
         for container in eq_containers_for_model(model):
-            self._slow_poll_paths.append(container.path + ("enabled",))
+            self._slow_poll_paths.append(container.leaf(EQ_ENABLED))
         # Counts the poll cycles to include the slow paths only every Nth round.
         # Starts at 0, so that the slow paths are queried right on the very first
         # cycle (values available immediately).
@@ -274,10 +274,6 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         answered = False
         try:
             for path in paths:
-                # Priority path: briefly yield to a waiting user action.
-                if self.client.priority_waiting.is_set():
-                    await asyncio.sleep(0.05)
-
                 try:
                     value = await self.client.get(path)
                 except SSCDeviceError:
@@ -403,18 +399,12 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return
         try:
             await self.client.set(PATH_SAVE_SETTINGS, True)
-        except SSCDeviceError as err:
-            if err.code == ERROR_NOT_FOUND:
+        except (SSCDeviceError, SSCConnectionError, SSCTimeoutError) as err:
+            if isinstance(err, SSCDeviceError) and err.code == ERROR_NOT_FOUND:
                 # The KH 80 need is reported, not measured: a firmware without
                 # the path has nothing to save, and must not fail every change.
                 _LOGGER.debug("%s has no save command - nothing to save", self.name)
                 return
-            raise HomeAssistantError(
-                translation_domain=DOMAIN,
-                translation_key="settings_not_saved",
-                translation_placeholders={"error": str(err)},
-            ) from err
-        except (SSCConnectionError, SSCTimeoutError) as err:
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
                 translation_key="settings_not_saved",

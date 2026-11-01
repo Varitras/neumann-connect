@@ -93,8 +93,8 @@ async def _async_get_interface_options(hass: HomeAssistant) -> list[selector.Sel
         name = adapter.get("name")
         if not name:
             continue
-        addresses = [ip["address"] for ip in adapter.get("ipv6", []) if ip.get("address")]
-        addresses += [ip["address"] for ip in adapter.get("ipv4", []) if ip.get("address")]
+        entries = [*adapter.get("ipv6", []), *adapter.get("ipv4", [])]
+        addresses = [entry["address"] for entry in entries if entry.get("address")]
         label = f"{name} ({', '.join(addresses)})" if addresses else name
         options.append(selector.SelectOptionDict(value=name, label=label))
 
@@ -595,38 +595,26 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Name a speaker that mDNS turned up and that is not configured yet."""
-        errors: dict[str, str] = {}
         entry_data = self._pending_entry
         identity = self._pending_identity
         if entry_data is None or identity is None:
             return self.async_abort(reason="discovery_expired")
 
-        if user_input is not None:
-            name = user_input.get(CONF_NAME, "").strip()
-            if not name:
-                errors["base"] = "name_required"
-            else:
-                entry_data = {**entry_data, CONF_NAME: name}
-                if identity.serial:
-                    await storage.async_remember_name(self.hass, identity.serial, name)
-                return await self._async_finish(entry_data, identity)
+        name = (user_input or {}).get(CONF_NAME, "").strip()
+        if not name:
+            # First visit, or the name was left empty.
+            return self.async_show_form(
+                step_id="zeroconf_confirm",
+                data_schema=await self._name_schema(identity),
+                errors={"base": "name_required"} if user_input is not None else {},
+                description_placeholders={
+                    "device": f"{identity.product or FALLBACK_MODEL} – {entry_data[CONF_HOST]}"
+                },
+            )
 
-        suggested = None
         if identity.serial:
-            suggested = await storage.async_get_remembered_name(self.hass, identity.serial)
-
-        schema = vol.Schema({vol.Required(CONF_NAME): str})
-        if suggested:
-            schema = self.add_suggested_values_to_schema(schema, {CONF_NAME: suggested})
-
-        return self.async_show_form(
-            step_id="zeroconf_confirm",
-            data_schema=schema,
-            errors=errors,
-            description_placeholders={
-                "device": f"{identity.product or FALLBACK_MODEL} – {entry_data[CONF_HOST]}"
-            },
-        )
+            await storage.async_remember_name(self.hass, identity.serial, name)
+        return await self._async_finish({**entry_data, CONF_NAME: name}, identity)
 
     # --- Path 2: Active mDNS scan, then naming ------------------------------
 
@@ -672,21 +660,23 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(step_id="scan", data_schema=self._build_scan_schema())
 
+    async def _name_schema(self, identity: DeviceIdentity) -> vol.Schema:
+        """A name field, pre-filled if this speaker carried a name before."""
+        schema = vol.Schema({vol.Required(CONF_NAME): str})
+        if not identity.serial:
+            return schema
+        remembered_name = await storage.async_get_remembered_name(self.hass, identity.serial)
+        if not remembered_name:
+            return schema
+        return self.add_suggested_values_to_schema(schema, {CONF_NAME: remembered_name})
+
     async def _show_scan_confirm_form(
         self, identity: DeviceIdentity, candidate: DiscoveredSpeaker, error: str | None
     ) -> ConfigFlowResult:
         """Ask for a name, pre-filled if this speaker carried one before."""
-        remembered_name = None
-        if identity.serial:
-            remembered_name = await storage.async_get_remembered_name(self.hass, identity.serial)
-
-        schema = vol.Schema({vol.Required(CONF_NAME): str})
-        if remembered_name:
-            schema = self.add_suggested_values_to_schema(schema, {CONF_NAME: remembered_name})
-
         return self.async_show_form(
             step_id="scan_confirm",
-            data_schema=schema,
+            data_schema=await self._name_schema(identity),
             errors={"base": error} if error else {},
             description_placeholders={
                 "device": f"{identity.product or FALLBACK_MODEL} – {candidate.host}"
