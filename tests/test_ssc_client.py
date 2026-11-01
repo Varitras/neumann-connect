@@ -1025,3 +1025,136 @@ async def test_a_fresh_connection_skips_the_stale_drain(server, monkeypatch):
         assert drains == 1, "the reused connection was not drained"
     finally:
         await client.close()
+
+
+# --- osc/xid -----------------------------------------------------------------
+#
+# Every value request carries a transaction id, which the device echoes in the
+# same line - error replies included (KH 120 II and KH 750, 2026-11-01). A line
+# with another id is a stale answer to an earlier request.
+
+
+def _xid_of(request: dict) -> object:
+    return request.get("osc", {}).get("xid")
+
+
+async def test_a_value_request_carries_an_xid(server):
+    sent: list[dict] = []
+
+    def _record(request):
+        sent.append(request)
+        return [request]
+
+    server.responder = _record
+    client = _client(server.port)
+    try:
+        await client.get(("device", "name"))
+        await client.get(("device", "name"))
+    finally:
+        await client.close()
+
+    xids = [_xid_of(request) for request in sent]
+    assert None not in xids, sent
+    assert xids[0] != xids[1], "two requests shared an xid"
+
+
+async def test_a_line_with_another_xid_is_dropped(server):
+    """A late answer to an earlier request names the same path - only its xid tells.
+
+    Without the xid it was taken as the answer: the documented limitation of
+    the early return, now closed for every request that carries an id.
+    """
+
+    def _stale_then_fresh(request):
+        stale = {"device": {"name": "old"}, "osc": {"xid": "earlier"}}
+        return [stale, request | {"device": {"name": "new"}}]
+
+    server.responder = _stale_then_fresh
+    client = _client(server.port)
+    try:
+        assert await client.get(("device", "name")) == "new"
+    finally:
+        await client.close()
+
+
+async def test_a_stale_error_with_another_xid_does_not_fail_the_request(server):
+    def _stale_error_then_fresh(request):
+        error = [{"device": {"name": [404, {"desc": "address not found"}]}}]
+        stale = {"osc": {"error": error, "xid": "earlier"}}
+        return [stale, request | {"device": {"name": "ok"}}]
+
+    server.responder = _stale_error_then_fresh
+    client = _client(server.port)
+    try:
+        assert await client.get(("device", "name")) == "ok"
+    finally:
+        await client.close()
+
+
+async def test_an_error_with_the_own_xid_is_the_answer(server):
+    def _refuse(request):
+        error = [{"ui": {"control_mode": [405, {"desc": "method not allowed"}]}}]
+        return [{"osc": {"error": error, "xid": _xid_of(request)}}]
+
+    server.responder = _refuse
+    client = _client(server.port)
+    try:
+        with pytest.raises(SSCDeviceError) as err:
+            await client.set(("ui", "control_mode"), "NETWORK")
+    finally:
+        await client.close()
+    assert err.value.code == 405
+
+
+async def test_the_xid_does_not_reach_the_caller(server):
+    """Callers walk the reply tree; an osc/xid there is noise they never asked for."""
+    client = _client(server.port)
+    try:
+        reply = await client.request({"device": {"name": None}}, expect_path=("device", "name"))
+    finally:
+        await client.close()
+    assert "osc" not in reply, reply
+
+
+async def test_a_request_over_the_token_limit_goes_without_an_xid(server):
+    """A KH 120 II refuses more than 29 JSON tokens with 413; the xid costs 4.
+
+    A set of a 20-band EQ leaf is exactly 29 tokens without it.
+    """
+    sent: list[dict] = []
+
+    def _record(request):
+        sent.append(request)
+        return [request]
+
+    server.responder = _record
+    client = _client(server.port)
+    try:
+        await client.set(("audio", "out", "eq3", "gain"), [0.0] * 20)
+        await client.set(("audio", "out", "eq2", "gain"), [0.0] * 10)
+    finally:
+        await client.close()
+
+    assert _xid_of(sent[0]) is None, "the 20-band set would be refused with 413"
+    assert _xid_of(sent[1]) is not None
+
+
+async def test_an_answer_matched_by_xid_needs_no_stale_drain(server, monkeypatch):
+    """The drain guards replies matched by path; an xid reply cannot be mistaken."""
+    drains = 0
+    real_drain = SSCClient._discard_stale_lines
+
+    async def _counting_drain(self) -> None:
+        nonlocal drains
+        drains += 1
+        await real_drain(self)
+
+    monkeypatch.setattr(SSCClient, "_discard_stale_lines", _counting_drain)
+    client = _client(server.port)
+    try:
+        await client.get(("device", "name"))
+        await client.get(("device", "name"))
+    finally:
+        await client.close()
+
+    assert drains == 0
