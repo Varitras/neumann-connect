@@ -5,6 +5,60 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
+## [1.20.0] – Steuerungsmodus, LOCAL-Modus und sparsameres Abfragen
+
+### Inkompatible Änderungen
+- **Home Assistant 2026.10.0 oder neuer ist Voraussetzung** (Python 3.14).
+  Auf älteren Versionen installiert HACS diese Version nicht
+- **Der Steuerungsmodus ist jetzt ein Sensor statt einer Auswahl.** Beide
+  Testlautsprecher lehnen Schreibzugriffe darauf ab: Er folgt dem
+  CONTROL-Schalter auf der Rückseite (KH 750 DSP: CONTROL MODE), die Auswahl
+  konnte also nie etwas ändern. Die alte Auswahl-Entität wird aus der
+  Entitätsregistrierung entfernt; Automationen, Skripte und Dashboards, die
+  sie nutzen, müssen auf den neuen Sensor umgestellt werden, der
+  standardmäßig aktiviert ist
+- **„Backup wiederherstellen“ schreibt den Steuerungsmodus nicht mehr**
+
+### Geändert
+- Auf `LOCAL` nennt eine abgelehnte Änderung den CONTROL-Schalter als Grund
+  und sagt, was zu tun ist, statt einer allgemeinen Ablehnung. Eine
+  Wiederherstellung bricht mit derselben Meldung ab und nennt, wie viele Werte
+  sie bis dahin geschrieben hatte
+- Ein Backup wird abgelehnt, solange der Lautsprecher auf `LOCAL` steht: Er
+  meldet dann seine lokalen Einstellungen, und ein solches Backup ersetzte das
+  letzte gute. Ein gespeichertes Backup, das eine frühere Version auf `LOCAL`
+  angelegt hat, wird nicht zurückgeschrieben
+- „Backup wiederherstellen“ schreibt die Stummschaltung vor den Pegeln und
+  das Aufheben danach. Die Benachrichtigung zählt Werte, die der Lautsprecher
+  abgelehnt oder nicht bestätigt hat, getrennt, und jeder davon wird
+  protokolliert (eine Ablehnung mit ihrem Fehlercode). Ein Lauf, in dem der
+  Lautsprecher keinen Wert bestätigt hat, wird als unbestätigt gemeldet statt
+  als „nichts geändert“
+- Werte, die nur standardmäßig deaktivierte Entitäten anzeigen (Pegel,
+  Verzögerung und Stummschaltung der Ausgänge 1 und 2, Ausgangspegel- und
+  Clip-Anzeige, Standby-Countdown), werden nur abgefragt, solange eine solche
+  Entität aktiviert ist. Bei einer KH 750 sind das 9 der 21 Werte, die bisher
+  in jedem Zyklus gelesen wurden
+- Wertabfragen tragen eine Transaktions-ID (`osc/xid`); eine verspätete
+  Antwort auf eine frühere Anfrage kann nicht mehr für die aktuelle gehalten
+  werden. EQ-Schreibvorgänge mit 20 Bändern und die Schema-Abfrage der
+  Geräte-Discovery laufen weiter ohne
+- Einen Lautsprecher von Hand oder aus der Netzwerksuche hinzuzufügen klappt
+  auch, während für ihn noch eine Discovery-Karte offen ist; Home Assistant
+  schließt die Karte, sobald der Eintrag existiert. Bisher brach die
+  Einrichtung ab
+- Auto-Standby-Zeit und Standby-Countdown sind als Dauer gekennzeichnet
+- Die EQ-Schalter und der EQ-Reset schreiben so viele Bänder, wie der
+  Lautsprecher meldet, statt einer festen Zahl je Modell
+- Ist ein Lautsprecher an eine neue Adresse gezogen, werden Kandidaten, die
+  ihre Seriennummer per mDNS ankündigen, nicht mehr nur zum Auslesen der
+  Seriennummer verbunden
+
+### Behoben
+- Eine Antwortzeile, die der JSON-Parser ablehnt (eine übergroße Zahl,
+  extreme Verschachtelung), wird übersprungen, statt den Abfragezyklus mit
+  einer unübersetzten Fehlermeldung scheitern zu lassen
+
 ## [1.19.1] – Die Fehlercodes der Lautsprecher lesen
 
 ### Behoben
