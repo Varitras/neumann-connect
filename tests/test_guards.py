@@ -26,6 +26,7 @@ PACKAGE = TESTS.parents[0] / "custom_components" / "neumann_kh"
 GUARD_FILES = {
     "test_budgets.py": "no module grows past its ceiling, no function past its complexity ratchet",
     "test_comment_narration.py": "no comment merely restates the code it sits on",
+    "test_deprecations.py": "Home Assistant's deprecation reports and own DeprecationWarnings fail the suite",
     "test_constant_owners.py": "no constant is defined in two modules",
     "test_device_writes.py": "every device-writing button goes through the action lock",
     "test_ci_parity.py": "CI runs the same check script a developer runs",
@@ -91,6 +92,7 @@ PINNING_EXEMPT = {
     "test_ci_parity.py": "CI runs the same check script a developer runs",
     "test_mutation_harness.py": "checks the harness script, not the package",
     "test_resolve_phcc.py": "checks the CI resolver script, not the package",
+    "test_deprecations.py": "probes Home Assistant's report helpers, not the package's files",
 }
 
 
