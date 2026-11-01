@@ -396,8 +396,9 @@ def test_a_deprecation_warning_in_the_integration_fails(category: type[Warning])
         warnings.warn_explicit(
             "old", category, CALLER_FILE, 1, module=f"custom_components.{INTEGRATION}.x"
         )
+    # No simplefilter here: it would sit above the ini filters and pass even
+    # if they had lost their module field. pytest already records the rest.
     with warnings.catch_warnings(record=True) as elsewhere:
-        warnings.simplefilter("always")
         warnings.warn_explicit("old", category, "other.py", 1, module="other")
     assert len(elsewhere) == 1
 
