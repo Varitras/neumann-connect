@@ -52,6 +52,10 @@ read no error code from a real device passed every test.
   envelope and type only; malformed requests get `454` or `406`.
   `--disable-schema` rejects them. `osc/version`, `osc/ping`,
   `osc/feature/pattern|subscription` and the `osc/xid` echo answer as recorded.
+- LOCAL control mode: `SSCSimulator(local_mode=True)` (tests only, no command
+  line option) answers every set with `401` at the field, as recorded for a
+  writable leaf. Which code a read-only field gets first is not recorded;
+  the simulator assumes `401`.
 - Not simulated: address patterns (`*`, `?`) and subscriptions.
 - Malformed JSON lines are ignored, matching the client's behaviour.
 

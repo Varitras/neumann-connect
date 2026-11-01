@@ -191,6 +191,19 @@ async def test_each_write_sends_the_payload_type_the_device_reports(
     assert coordinator.confirmed == [(path, payload)]
 
 
+async def test_the_eq_switch_writes_as_many_bands_as_the_device_reports():
+    """band_count is measured on KH 120 II and KH 750 only.
+
+    A model with another band count got an array of the wrong length, with
+    unknown effect on the firmware. The polled enabled array knows better.
+    """
+    coordinator = _Coordinator(_Client(), value=[False] * 12)
+
+    await _eq_switch(coordinator).async_turn_on()
+
+    assert coordinator.client.sent[0][1] == [True] * 12
+
+
 REJECTION_KEYS = {
     "level": "change_rejected",
     "select": "selection_rejected",

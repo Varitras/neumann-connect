@@ -72,8 +72,7 @@
       "no_ipv6": "Das Gerät hat keine IPv6-Adresse gemeldet. Neumann-KH-Lautsprecher unterstützen nur IPv6.",
       "cannot_connect": "Das gefundene Gerät hat nicht auf SSC-Anfragen geantwortet.",
       "discovery_expired": "Das Suchergebnis ist abgelaufen, bitte suche erneut.",
-      "unknown": "Unerwarteter Fehler – die Einrichtung wurde abgebrochen.",
-      "already_in_progress": "Dieser Lautsprecher wird bereits eingerichtet."
+      "unknown": "Unerwarteter Fehler – die Einrichtung wurde abgebrochen."
     }
   },
   "entity": {
@@ -312,6 +311,12 @@
     "backup_empty": {
       "message": "Der Lautsprecher hat keinen der Werte geliefert, die ein Zurückspielen schreiben könnte – es wurde nichts gesichert. Das vorherige Backup bleibt erhalten."
     },
+    "backup_local_mode": {
+      "message": "Der Schalter CONTROL (MODE) auf der Rückseite des Lautsprechers steht auf LOCAL, dann meldet er seine lokalen Einstellungen statt der Netzwerk-Einstellungen. Es wurde nichts gesichert, das vorherige Backup bleibt erhalten. Stell den Schalter auf NETWORK und erstelle das Backup erneut."
+    },
+    "restore_backup_from_local_mode": {
+      "message": "Das gespeicherte Backup wurde erstellt, während der Schalter CONTROL (MODE) des Lautsprechers auf LOCAL stand. Es enthält daher die lokalen Einstellungen statt der Netzwerk-Einstellungen. Es wurde nichts geschrieben. Stell den Schalter auf NETWORK und erstelle ein neues Backup."
+    },
     "restore_nothing_to_write": {
       "message": "Das gespeicherte Backup enthält keinen Wert, der auf diesem Lautsprecher wiederhergestellt werden kann. Erstelle bitte zuerst ein neues Backup."
     },
@@ -332,6 +337,9 @@
     },
     "restore_nothing_written": {
       "message": "Der Lautsprecher hat keinen einzigen Wert aus dem Backup angenommen ({skipped} übersprungen), es wurde also nichts geändert. Prüfe, ob das Backup zu diesem Modell und dieser Firmware gehört."
+    },
+    "restore_unconfirmed": {
+      "message": "Der Lautsprecher hat geantwortet, aber keinen der {unconfirmed} gesendeten Werte bestätigt. Er kann sie trotzdem übernommen haben; ihr Zustand wird neu gelesen. Prüfe die Werte, bevor du dich darauf verlässt."
     }
   }
 }

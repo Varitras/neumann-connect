@@ -31,30 +31,32 @@ LINE_BUDGETS = {
     # identity handling. Splitting was considered and rejected: the flows
     # share the candidate/identity helpers, and HA discovers the class here.
     # Raised to 754 for the probatio import the mypy gate needs.
-    "config_flow.py": 754,
+    # Raised to 758 so user setup is not aborted by an open discovery card.
+    # Raised to 759 for the link-local limit of Home Assistant's discovery.
+    "config_flow.py": 759,
     # Raised from 500 for the KH 750 out5 support (device error code, path
     # aliases); the alternative was splitting the read loop out of its owner.
     # Raised to 540 for reading the nested osc/error format real speakers send.
     # Raised to 542 for the type arguments the mypy gate requires.
     # Raised to 549 for the LOCAL-mode error (401) every writer has to name.
-    "ssc_client.py": 549,
+    # Raised to 556 for _parse_reply: the nesting limit on faulty replies, taken
+    # out of the read loop so its complexity went down instead of up.
+    "ssc_client.py": 556,
 }
 
 # SonarSource's default. Everything above needs a written entry.
 COMPLEXITY_LIMIT = 15
 COMPLEXITY_BUDGETS = {
-    # The one function this project keeps having trouble with. Documented as
-    # an open decision (ledger E1) rather than split under time pressure:
+    # The one function this project keeps having trouble with. Kept whole by
+    # owner decision (ledger A8, 2026-09-02) rather than split under pressure:
     # every previous attempt moved the branching instead of removing it.
-    "ssc_client.py::SSCClient._read_lines_until_settled": 35,
+    "ssc_client.py::SSCClient._read_lines_until_settled": 33,
     # Writes, counts and reports per path, with a deadline between paths and
     # three ways out that all have to keep what already landed (the third:
     # LOCAL mode, where every further write would be refused too).
     "export_actions.py::async_run_restore": 21,
     # Walks an unknown schema one level at a time against two budgets.
     "discovery_export.py::_async_discover_via_schema": 18,
-    # Matches an announcement against known entries, unknown devices and
-    # devices that answer with a different serial than announced.
 }
 
 

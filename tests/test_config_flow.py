@@ -537,6 +537,31 @@ async def test_manual_setup_creates_the_entry(hass, _custom_integration):
     assert result["data"][CONF_INTERFACE] == "eth0"
 
 
+async def test_manual_setup_wins_over_an_open_discovery_card(hass, _custom_integration):
+    """The integration offers a discovery card for every speaker not set up yet.
+
+    With that card still open, manual setup of the same speaker aborted with
+    already_in_progress - after the address, the connection test and the name.
+    Home Assistant aborts the card itself once the user's flow creates the entry.
+    """
+    card = await _run_zeroconf(
+        hass, _zeroconf_info(serial=_GOOD_IDENTITY.serial), identity=_GOOD_IDENTITY
+    )
+    assert card["step_id"] == "zeroconf_confirm"
+
+    result = await _run_manual(
+        hass,
+        _GOOD_IDENTITY,
+        {CONF_NAME: "Left", CONF_HOST: "fe80::1", CONF_INTERFACE: "eth0", CONF_PORT: 45},
+    )
+    await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY, result.get("reason")
+    assert not hass.config_entries.flow.async_progress_by_handler(DOMAIN), (
+        "the discovery card for the speaker just set up is still open"
+    )
+
+
 async def test_manual_setup_needs_a_name(hass, _custom_integration):
     result = await _run_manual(
         hass,
@@ -759,6 +784,21 @@ async def _pick_and_name(hass, result, name):
             result["flow_id"], {"selected_device": _GOOD_IDENTITY.serial}
         )
         return await hass.config_entries.flow.async_configure(result["flow_id"], {CONF_NAME: name})
+
+
+async def test_scan_setup_wins_over_an_open_discovery_card(hass, _custom_integration):
+    """Sibling of the manual case: the scan step set the unique ID the same way."""
+    card = await _run_zeroconf(
+        hass, _zeroconf_info(serial=_GOOD_IDENTITY.serial), identity=_GOOD_IDENTITY
+    )
+    assert card["step_id"] == "zeroconf_confirm"
+
+    listing = await _run_scan(hass, [_speaker()], [_GOOD_IDENTITY])
+    result = await _pick_and_name(hass, listing, "Right")
+    await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY, result.get("reason")
+    assert not hass.config_entries.flow.async_progress_by_handler(DOMAIN)
 
 
 async def test_scan_creates_the_entry_from_the_selected_device(hass, _custom_integration):

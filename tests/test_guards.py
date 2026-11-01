@@ -18,6 +18,7 @@ Build rules for every new guard here:
 import ast
 import importlib
 import pathlib
+import re
 
 TESTS = pathlib.Path(__file__).resolve().parent
 PACKAGE = TESTS.parents[0] / "custom_components" / "neumann_kh"
@@ -29,6 +30,7 @@ GUARD_FILES = {
     "test_device_writes.py": "every device-writing button goes through the action lock",
     "test_ci_parity.py": "CI runs the same check script a developer runs",
     "test_mutation_harness.py": "the mutation run fails loudly instead of reporting a breakage it never applied",
+    "test_resolve_phcc.py": "the latest-HA job never resolves to a beta Home Assistant",
     "test_sensor_states.py": "the not_assigned mapping and its translations stay in step",
     "test_log_privacy.py": "no log call or raised message hands out a serial or address in full",
     "test_translations.py": "strings.json, en.json and de.json stay in step",
@@ -88,6 +90,7 @@ def test_every_guard_scans_a_real_directory():
 PINNING_EXEMPT = {
     "test_ci_parity.py": "CI runs the same check script a developer runs",
     "test_mutation_harness.py": "checks the harness script, not the package",
+    "test_resolve_phcc.py": "checks the CI resolver script, not the package",
 }
 
 
@@ -129,3 +132,15 @@ def test_every_guard_is_documented():
     readme = (TESTS / "README.md").read_text(encoding="utf-8")
     undocumented = [name for name in GUARD_FILES if f"`{name}`" not in readme]
     assert not undocumented, f"guard(s) missing from tests/README.md: {undocumented}"
+
+
+def test_every_documented_guard_is_listed():
+    """The other direction: a guard in the README table but not in GUARD_FILES.
+
+    Its deletion was a green diff - the very thing this file exists to stop.
+    """
+    readme = (TESTS / "README.md").read_text(encoding="utf-8")
+    table = readme.split("## The guards", 1)[1].split("\n## ", 1)[0]
+    documented = set(re.findall(r"^\| `(test_\w+\.py)` \|", table, flags=re.MULTILINE))
+    unlisted = sorted(documented - set(GUARD_FILES))
+    assert not unlisted, f"guard(s) documented but not in GUARD_FILES: {unlisted}"

@@ -9,9 +9,10 @@ Pure UI setup (no YAML needed). The starting point is a menu with two paths:
 - "manual": Classic manual input (IP address, interface dropdown, port, name)
   - fallback for devices that the automatic search does not find.
 
-Home Assistant also passes in mDNS announcements on its own (see the
-"zeroconf" key in manifest.json), which keeps the stored address correct
-without anyone having to notice that it went stale - see async_step_zeroconf.
+Home Assistant also passes in mDNS announcements ("zeroconf" in manifest.json),
+which keeps the stored address current - see async_step_zeroconf. It drops
+records that carry link-local addresses only, so a speaker announcing nothing
+else never gets there and is found by the scan instead.
 
 A separate config entry is created for each speaker.
 """
@@ -351,7 +352,11 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if checked.error or identity is None:
             return await self._show_manual_form(user_input, checked.error)
 
-        await self.async_set_unique_id(str(identity.serial or f"{checked.host}_{checked.port}"))
+        # An open discovery card for this speaker must not abort the user's own
+        # setup; Home Assistant aborts the card once this flow creates the entry.
+        await self.async_set_unique_id(
+            str(identity.serial or f"{checked.host}_{checked.port}"), raise_on_progress=False
+        )
         self._abort_if_unique_id_configured()
         if identity.serial:
             await storage.async_remember_name(self.hass, identity.serial, name)
@@ -712,7 +717,7 @@ class NeumannKHConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return await self._show_scan_confirm_form(identity, candidate, "name_required")
 
         unique_id = identity.serial or f"{candidate.host}_{candidate.port}"
-        await self.async_set_unique_id(str(unique_id))
+        await self.async_set_unique_id(str(unique_id), raise_on_progress=False)
         self._abort_if_unique_id_configured()
         if identity.serial:
             await storage.async_remember_name(self.hass, identity.serial, name)

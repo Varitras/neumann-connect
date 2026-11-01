@@ -34,12 +34,3 @@ def test_german_has_exactly_the_keys_english_has():
     german = _keys(_load("translations/de.json"))
     assert not english - german, f"missing in de.json: {sorted(english - german)}"
     assert not german - english, f"only in de.json: {sorted(german - english)}"
-
-
-def test_a_setup_already_running_has_a_readable_reason():
-    """Manual or scan setup while a discovery card for the same speaker is open.
-
-    Home Assistant aborts with "already_in_progress"; without the key the
-    dialog shows the raw identifier.
-    """
-    assert "already_in_progress" in _load("strings.json")["config"]["abort"]

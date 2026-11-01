@@ -31,6 +31,18 @@ from .ssc_client import SSCConnectionError, SSCDeviceError, SSCLocalModeError, S
 # --- Container on/off switch -------------------------------------------------
 
 
+def _reported_band_count(coordinator: NeumannKHCoordinator, container: EQContainer) -> int:
+    """Length of the polled enabled array, else the measured band count.
+
+    band_count is measured on the KH 120 II and the KH 750 only; for any other
+    model the device's own array is the better source.
+    """
+    enabled = coordinator.value(container.path + ("enabled",))
+    if isinstance(enabled, list) and enabled:
+        return len(enabled)
+    return container.band_count
+
+
 def build_eq_switches(
     coordinator: NeumannKHCoordinator, entry: ConfigEntry, model: str | None
 ) -> list[NeumannKHEQContainerSwitch]:
@@ -75,7 +87,7 @@ class NeumannKHEQContainerSwitch(NeumannKHEntity, SwitchEntity):
         return any(bool(v) for v in values)
 
     async def _async_set(self, value: bool) -> None:
-        array = [value] * self._container.band_count
+        array = [value] * _reported_band_count(self.coordinator, self._container)
         await self._async_write(self._path, array)
 
     async def async_turn_on(self, **kwargs: Any) -> None:
@@ -119,7 +131,7 @@ class NeumannKHEQResetButton(NeumannKHEntity, ButtonEntity):
         }
 
     async def async_press(self) -> None:
-        zero = [0.0] * self._container.band_count
+        zero = [0.0] * _reported_band_count(self.coordinator, self._container)
         # The fifth device action, and for a while the only one outside the
         # lock: a backup reading while this writes mixes the old curve with
         # the new one and then replaces the last good snapshot.

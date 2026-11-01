@@ -21,7 +21,12 @@ from custom_components.neumann_kh._util import build_nested, deep_merge
 from custom_components.neumann_kh.backup_export import (
     restorable_paths_for_model,
 )
-from custom_components.neumann_kh.const import CONF_MODEL, CONF_SERIAL
+from custom_components.neumann_kh.const import (
+    CONF_MODEL,
+    CONF_SERIAL,
+    PATH_OUTPUT_LEVEL,
+    PATH_OUTPUT_MUTE,
+)
 from custom_components.neumann_kh.export_actions import async_run_restore
 from custom_components.neumann_kh.identity import mask_serial
 from custom_components.neumann_kh.ssc_client import SSCDeviceError, SSCLocalModeError
@@ -318,6 +323,63 @@ async def test_a_backup_with_one_restorable_value_is_kept(monkeypatch):
     )
 
     assert len(saved) == 1
+
+
+async def test_a_backup_taken_on_local_does_not_replace_the_last_good_one(monkeypatch):
+    """On LOCAL the device reports its local settings, not the network ones.
+
+    Measured on the KH 750: level and auto standby time read differently. A
+    backup taken then replaced the last good snapshot with those values, and a
+    later restore wrote them back.
+    """
+    saved, written = await _run_backup(
+        None,
+        monkeypatch,
+        values={"device": {"name": "Speaker"}, "ui": {"control_mode": "LOCAL"}},
+    )
+
+    hass, entry, client = _fakes()
+    with pytest.raises(HomeAssistantError) as err:
+        await export_actions.async_run_backup(hass, entry, client)
+
+    assert err.value.translation_key == "backup_local_mode"
+    assert not written, "a LOCAL backup was written to a file"
+    assert not saved, "a LOCAL backup replaced the stored one"
+
+
+async def test_a_backup_taken_on_network_is_kept(monkeypatch):
+    """Counter-check: the LOCAL guard must not refuse the normal case."""
+    saved, _ = await _run_backup(
+        None,
+        monkeypatch,
+        values={"device": {"name": "Speaker"}, "ui": {"control_mode": "NETWORK"}},
+    )
+
+    await export_actions.async_run_backup(
+        _FakeHass(), _FakeEntryWithSerial(), _FakeClient(answers_none=set())
+    )
+
+    assert len(saved) == 1
+
+
+async def test_a_stored_backup_taken_on_local_is_refused_at_restore(monkeypatch):
+    """Backups from before the guard can still hold LOCAL values."""
+    stored = {
+        "model": _KH_120_II,
+        "serial": mask_serial("SIM0001234"),
+        "values": {"device": {"name": "Speaker"}, "ui": {"control_mode": "LOCAL"}},
+    }
+
+    async def _get_backup(hass_, serial):
+        return stored
+
+    monkeypatch.setattr(export_actions.storage, "async_get_backup", _get_backup)
+
+    hass, entry, _ = _fakes()
+    with pytest.raises(HomeAssistantError) as err:
+        await export_actions.async_check_restorable(hass, entry)
+
+    assert err.value.translation_key == "restore_backup_from_local_mode"
 
 
 async def test_a_failing_store_is_reported_readably(monkeypatch):
@@ -628,3 +690,95 @@ async def test_a_restore_is_persisted_once_at_the_end():
     )
 
     assert coordinator.persisted == 1
+
+
+async def test_a_value_the_device_refuses_is_logged_and_reported(monkeypatch, caplog):
+    """A refusal used to vanish into "skipped" without a single log line.
+
+    The user could not tell whether a value was missing from the backup or the
+    device turned it down - and with which code.
+    """
+    refused = restorable_paths_for_model(_KH_120_II)[1]
+    notified: list[str] = []
+    monkeypatch.setattr(export_actions, "_notify", lambda *args: notified.append(args[-1]))
+
+    class _RefusesOnePath(_FakeClient):
+        async def set(self, path, value):
+            if path == refused:
+                raise SSCDeviceError("not writable here", code=405)
+            return await super().set(path, value)
+
+    coordinator = _FakeCoordinator(_RefusesOnePath(answers_none=set()))
+    with caplog.at_level("INFO", logger=export_actions.__name__):
+        await async_run_restore(
+            _FakeHass(), _FakeEntry(_KH_120_II), coordinator, backup=_backup_covering(_KH_120_II)
+        )
+
+    assert any(
+        "/".join(refused) in record.getMessage() and "405" in record.getMessage()
+        for record in caplog.records
+        if record.levelname == "INFO"
+    ), "the refusal was not logged with its path and code"
+    assert "1 refused by the device" in notified[0]
+
+
+async def test_a_restore_nothing_confirmed_is_saved_and_not_called_unchanged():
+    """Every set went out; the device just did not echo them.
+
+    "Nothing was changed" was wrong - the device may hold every value - and
+    skipping the save left a KH 80 to lose them on the next power cycle.
+    """
+    paths = set(restorable_paths_for_model(_KH_120_II))
+    coordinator = _FakeCoordinator(_FakeClient(answers_none=paths))
+
+    with pytest.raises(HomeAssistantError) as err:
+        await async_run_restore(
+            _FakeHass(), _FakeEntry(_KH_120_II), coordinator, backup=_backup_covering(_KH_120_II)
+        )
+
+    assert err.value.translation_key == "restore_unconfirmed"
+    assert coordinator.persisted == 1
+
+
+def _backup_with_mute(muted: bool) -> dict[str, Any]:
+    backup = _backup_covering(_KH_120_II)
+    deep_merge(backup["values"], build_nested(PATH_OUTPUT_MUTE, muted))
+    return backup
+
+
+@pytest.mark.parametrize(("muted", "mute_first"), [(True, True), (False, False)])
+async def test_a_restore_never_plays_unmuted_on_the_new_level_by_accident(muted, mute_first):
+    """The allowlist wrote the level before mute.
+
+    A backup "muted, high level" briefly played the speaker unmuted at that
+    level - and kept it so when the connection dropped in between. Muting goes
+    first, unmuting last.
+    """
+    client = _FakeClient(answers_none=set())
+
+    await async_run_restore(
+        _FakeHass(), _FakeEntry(_KH_120_II), _FakeCoordinator(client), _backup_with_mute(muted)
+    )
+
+    order = [path for path, _ in client.written]
+    assert (order.index(PATH_OUTPUT_MUTE) < order.index(PATH_OUTPUT_LEVEL)) is mute_first
+
+
+async def test_an_unconfirmed_value_is_logged_and_reported(monkeypatch, caplog):
+    """Sibling of the refusal: an unconfirmed value also vanished into "skipped"."""
+    unconfirmed = restorable_paths_for_model(_KH_120_II)[1]
+    notified: list[str] = []
+    monkeypatch.setattr(export_actions, "_notify", lambda *args: notified.append(args[-1]))
+    coordinator = _FakeCoordinator(_FakeClient(answers_none={unconfirmed}))
+
+    with caplog.at_level("INFO", logger=export_actions.__name__):
+        await async_run_restore(
+            _FakeHass(), _FakeEntry(_KH_120_II), coordinator, backup=_backup_covering(_KH_120_II)
+        )
+
+    assert any(
+        "/".join(unconfirmed) in record.getMessage()
+        for record in caplog.records
+        if record.levelname == "INFO"
+    ), "the unconfirmed path was not logged"
+    assert "1 unconfirmed" in notified[0]

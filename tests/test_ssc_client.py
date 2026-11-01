@@ -46,9 +46,6 @@ _SETTLE = 0.05
 _TIMEOUT = 2.0
 # Only where the timeout itself is what is being tested.
 _SHORT_TIMEOUT = 0.3
-# Comfortably past the client's stale-drain window, so a line written after
-# this gap is one the drain can no longer catch.
-_STALE_DRAIN_GAP = 0.05
 
 
 class FakeSSCServer:
@@ -616,6 +613,42 @@ async def test_a_line_that_is_not_utf8_is_skipped(socket_enabled):
     async def _handle(reader, writer):
         await reader.readline()
         writer.write(b"\xff\xfe not utf-8 at all\r\n")
+        writer.write(json.dumps({"device": {"name": "ok"}}).encode() + b"\r\n")
+        await writer.drain()
+        await _stay_open()
+
+    raw_server, handled = await _serve(_handle)
+    port = raw_server.sockets[0].getsockname()[1]
+    client = _client(port)
+    try:
+        assert await client.get(("device", "name")) == "ok"
+    finally:
+        await client.close()
+        await _shutdown(raw_server, handled)
+
+
+@pytest.mark.parametrize(
+    "unusable_line",
+    [
+        b'{"device": {"name": ' + b"9" * 5000 + b"}}",  # int-max-str-digits -> ValueError
+        b"[" * 100_000 + b"]" * 100_000,  # nesting depth -> RecursionError
+        # Parses fine, but deep_merge recursed into it past the recursion limit.
+        b'{"a":' * 1200 + b"1" + b"}" * 1200,
+        # Parses and merges fine, but _error_details recursed into it.
+        b'{"osc": {"error": ' + b"[" * 5000 + b"]" * 5000 + b"}}",
+    ],
+    ids=["integer-too-long", "nesting-too-deep", "deep-object", "deep-error"],
+)
+async def test_a_line_the_parser_refuses_is_skipped(socket_enabled, unusable_line):
+    """json.loads raises more than JSONDecodeError on lines a firmware bug can produce.
+
+    A plain ValueError or RecursionError escaped the client untranslated, so
+    setup ended in SETUP_ERROR without a retry and writers showed a raw error.
+    """
+
+    async def _handle(reader, writer):
+        await reader.readline()
+        writer.write(unusable_line + b"\r\n")
         writer.write(json.dumps({"device": {"name": "ok"}}).encode() + b"\r\n")
         await writer.drain()
         await _stay_open()

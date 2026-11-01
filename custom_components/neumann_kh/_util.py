@@ -37,6 +37,25 @@ def build_nested(path: tuple[str, ...], value: Any) -> dict[str, Any]:
     return root
 
 
+def nesting_exceeds(value: Any, limit: int) -> bool:
+    """Whether a parsed JSON value nests deeper than `limit`.
+
+    Iterative on purpose: json.loads accepts objects nested far past the
+    recursion limit, and every recursive walk after it (deep_merge, the
+    error parser) then raised RecursionError on a reply from faulty firmware.
+    """
+    pending = [(value, 0)]
+    while pending:
+        node, depth = pending.pop()
+        if depth > limit:
+            return True
+        if isinstance(node, dict):
+            pending.extend((child, depth + 1) for child in node.values())
+        elif isinstance(node, list):
+            pending.extend((child, depth + 1) for child in node)
+    return False
+
+
 def deep_merge(target: dict[str, Any], source: dict[str, Any]) -> None:
     """Merge two nested dicts (in-place); source wins on conflicts.
 

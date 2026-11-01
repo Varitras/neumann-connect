@@ -71,8 +71,7 @@ async def _async_relocate(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     Runs only after a setup attempt already failed. A stored address can go
     stale on its own: a global IPv6 address carries the prefix the ISP
     delegates, and a forced reconnect hands out a new one, after which the
-    entry retries into the void forever (every 80 s, from Home Assistant 2026.6
-    every 10 minutes).
+    entry retries into the void forever (every 10 minutes at most).
 
     Home Assistant's own zeroconf discovery covers this too, but not quickly:
     the speakers never announce unsolicited (measured), their address records
