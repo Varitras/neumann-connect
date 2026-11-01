@@ -260,7 +260,9 @@ Entities that are disabled by default can be enabled manually under
 A loudspeaker is polled every 30 seconds. Not everything is fetched on every
 cycle: rarely changing values (identity, most rear-panel settings, device name)
 are only queried on every tenth cycle, so every 5 minutes. The control mode and
-auto standby switches are read on every cycle. Each value is fetched
+auto standby switches are read on every cycle. Values that only entities
+disabled by default show (outputs 1 and 2, output meter and clip, standby
+countdown) are only polled while such an entity is enabled. Each value is fetched
 **individually** (one leaf path per SSC message), not as a combined
 message and not as a container query: a container query such as
 `{"device":null}` is answered with an error, and a combined message only
