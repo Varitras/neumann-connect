@@ -133,12 +133,8 @@ class NeumannKHSwitch(NeumannKHEntity, SwitchEntity):
             return None
         return bool(value)
 
-    async def _async_set(self, value: bool) -> None:
-        """Sets the value; turns a device rejection into a clear HA error message."""
-        await self._async_write(self.entity_description.ssc_path, value)
-
     async def async_turn_on(self, **kwargs: Any) -> None:
-        await self._async_set(True)
+        await self._async_write(self.entity_description.ssc_path, True)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        await self._async_set(False)
+        await self._async_write(self.entity_description.ssc_path, False)
