@@ -419,7 +419,9 @@ async def test_paths_only_disabled_entities_read_are_not_polled(hass):
     """
     client = FakeClient({})
     coord = _kh750(hass, client)
+    await coord.async_refresh()  # the first refresh polls everything
     coord.async_add_listener(lambda: None, PATH_OUTPUT_MUTE)
+    client.asked.clear()
 
     await coord.async_refresh()
 

@@ -181,11 +181,11 @@ class NeumannKHCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def _fast_paths(self) -> list[tuple[str, ...]]:
         """Fast paths minus the optional ones no entity asked for.
 
-        Before any entity is added (the first refresh) nothing has asked yet,
-        so everything is polled; an enabled optional entity would otherwise
-        stay unknown for a whole cycle.
+        Until the first successful refresh no entity has been added, so nothing
+        has asked yet and everything is polled; an enabled optional entity
+        would otherwise stay unknown for a whole cycle.
         """
-        if not self._listeners:
+        if self.data is None:
             return list(self._poll_paths)
         wanted = set(self.async_contexts())
         return [
