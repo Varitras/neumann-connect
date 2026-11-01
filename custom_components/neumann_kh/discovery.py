@@ -40,6 +40,7 @@ class DiscoveredSpeaker:
     mdns_name: str  # full mDNS service name, e.g. "Right._ssc._tcp.local."
     host: str  # IP address; for link-local incl. "%<scope_id>"
     port: int
+    serial: str | None = None  # TXT "id" of the announcement, if it carries one
 
 
 def pick_host(addresses: list[str]) -> str | None:
