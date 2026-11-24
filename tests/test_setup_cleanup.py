@@ -22,8 +22,8 @@ import pytest
 
 pytest.importorskip("homeassistant")
 
+from ha_helpers import MockConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PORT
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.neumann_kh.const import (
     CONF_INTERFACE,

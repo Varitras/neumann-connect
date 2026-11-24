@@ -13,11 +13,11 @@ import contextlib
 import json
 
 import pytest
+from ha_helpers import MockConfigEntry
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.neumann_kh import button as button_module
 from custom_components.neumann_kh import storage
