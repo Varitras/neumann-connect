@@ -5,51 +5,43 @@
 All notable changes to this integration are documented here.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [1.20.0] – Control mode, LOCAL mode and leaner polling
+## [1.20.0] – Control mode, LOCAL mode and fewer requests (2026-11-24)
 
 ### Breaking changes
-- **Home Assistant 2026.10.0 or newer is required** (Python 3.14). HACS
-  does not install this version on older releases
-- **Control mode is now a sensor instead of a select.** Both test speakers
-  refuse writes to it: it follows the CONTROL switch on the back
-  (KH 750 DSP: CONTROL MODE), so the select could never change anything. The
-  old select entity is removed from the entity registry; automations,
-  scripts and dashboards that use it have to be pointed at the new sensor,
-  which is enabled by default
-- **Restore backup no longer writes the control mode**
+- **Home Assistant 2026.10 or newer is required.** With an older Home Assistant,
+  stay on 1.19.1.
+- **Control mode is now a sensor instead of a select.** The tested speakers
+  (KH 120 II, KH 750 DSP) do not accept changes to it over the network; it
+  follows the CONTROL switch on the back (KH 750 DSP: CONTROL MODE). The old
+  select is removed automatically, and the new sensor is enabled by default. If
+  you use the select in an automation, script or dashboard, switch to the
+  sensor.
 
 ### Changed
-- On `LOCAL` a refused change says that the CONTROL switch is the reason and
-  how to fix it, instead of a generic rejection. A restore stops with the same
-  message and says how many values it had written
-- A backup is refused while the speaker is on `LOCAL`: it then reports its
-  local settings, and such a backup replaced the last good one. A stored
-  backup taken on `LOCAL` by an earlier version is not written back
-- Restore backup writes mute before the levels and unmute after them. The
-  notification counts values the speaker refused or did not confirm
-  separately, and each of them is logged (a refusal with its error code). A
-  run in which the speaker confirmed no value is reported as unconfirmed
-  instead of "nothing changed"
-- Values that only entities disabled by default show (level, delay and mute
-  of outputs 1 and 2, output meter and clip, standby countdown) are only
-  polled while such an entity is enabled. On a KH 750 that is 9 of the 21
-  values that were read every cycle
-- Value requests carry a transaction id (`osc/xid`), so a late answer to an
-  earlier request can no longer be taken for the current one. EQ writes of
-  20 bands and the schema walk of the device discovery still go without one
-- Adding a speaker by hand or from the network scan works while a discovery
-  card for the same speaker is still open; Home Assistant closes the card
-  once the entry exists. The setup used to abort
-- Auto standby time and standby countdown are marked as durations
-- The EQ on/off switches and the EQ reset write as many bands as the speaker
-  reports, instead of a fixed count per model
-- When a speaker has moved to a new address, candidates that announce their
-  serial number over mDNS are no longer connected to just to read it
+- If the CONTROL switch is set to LOCAL, a refused change now names the switch
+  as the reason and says what to do.
+- "Create backup" is refused on LOCAL, because the speaker may then report its
+  local settings instead of the network ones (measured on the KH 750 DSP). A
+  backup that was taken on LOCAL earlier is not restored.
+- "Restore backup" mutes before it sets the levels and unmutes afterwards,
+  depending on what the backup holds. It says how many values the speaker
+  refused or did not confirm, stops on LOCAL, and no longer tries to set the
+  control mode.
+- Fewer requests: these values are read every 30 seconds only while you have
+  enabled the entity that shows them: level, delay and mute of outputs 1 and 2,
+  output level (live) and output clipping (KH 750 DSP), and the standby
+  countdown. Their entities are disabled by default.
+- On the tested speakers, a late reply is no longer taken for the answer to a
+  newer request. EQ changes of 20 bands and part of the device discovery remain
+  without this protection.
+- You can add a speaker by hand or from the network search while Home Assistant
+  still shows a discovery card for it. The setup used to stop.
+- The EQ switches and the EQ reset use the number of bands the speaker reports.
+- The auto standby time and the standby countdown are marked as durations.
 
 ### Fixed
-- A reply line the JSON parser refuses (an oversized number, extreme
-  nesting) is skipped instead of failing the poll cycle with an untranslated
-  error
+- Certain unreadable replies from a speaker no longer end the setup without a
+  retry, and no longer show a raw error when you change a setting.
 
 ## [1.19.1] – Reading the speakers' error codes
 

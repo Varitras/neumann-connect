@@ -5,59 +5,48 @@
 Alle nennenswerten Änderungen an dieser Integration werden hier dokumentiert.
 Format lehnt sich an [Keep a Changelog](https://keepachangelog.com/) an.
 
-## [1.20.0] – Steuerungsmodus, LOCAL-Modus und sparsameres Abfragen
+## [1.20.0] – Steuerungsmodus, LOCAL-Modus und weniger Abfragen (24.11.2026)
 
 ### Inkompatible Änderungen
-- **Home Assistant 2026.10.0 oder neuer ist Voraussetzung** (Python 3.14).
-  Auf älteren Versionen installiert HACS diese Version nicht
-- **Der Steuerungsmodus ist jetzt ein Sensor statt einer Auswahl.** Beide
-  Testlautsprecher lehnen Schreibzugriffe darauf ab: Er folgt dem
-  CONTROL-Schalter auf der Rückseite (KH 750 DSP: CONTROL MODE), die Auswahl
-  konnte also nie etwas ändern. Die alte Auswahl-Entität wird aus der
-  Entitätsregistrierung entfernt; Automationen, Skripte und Dashboards, die
-  sie nutzen, müssen auf den neuen Sensor umgestellt werden, der
-  standardmäßig aktiviert ist
-- **„Backup wiederherstellen“ schreibt den Steuerungsmodus nicht mehr**
+- **Home Assistant 2026.10 oder neuer ist Voraussetzung.** Mit einem älteren
+  Home Assistant bleib bei 1.19.1.
+- **Der Steuerungsmodus ist jetzt ein Sensor statt einer Auswahl.** An den
+  getesteten Lautsprechern (KH 120 II, KH 750 DSP) lässt er sich nicht über das
+  Netzwerk ändern; er folgt dem Schalter CONTROL auf der Rückseite
+  (KH 750 DSP: CONTROL MODE). Die alte Auswahl wird automatisch entfernt, der
+  neue Sensor ist standardmäßig aktiviert. Nutzt du die Auswahl in einer
+  Automation, einem Skript oder einem Dashboard, stelle auf den Sensor um.
 
 ### Geändert
-- Auf `LOCAL` nennt eine abgelehnte Änderung den CONTROL-Schalter als Grund
-  und sagt, was zu tun ist, statt einer allgemeinen Ablehnung. Eine
-  Wiederherstellung bricht mit derselben Meldung ab und nennt, wie viele Werte
-  sie bis dahin geschrieben hatte
-- Ein Backup wird abgelehnt, solange der Lautsprecher auf `LOCAL` steht: Er
-  meldet dann seine lokalen Einstellungen, und ein solches Backup ersetzte das
-  letzte gute. Ein gespeichertes Backup, das eine frühere Version auf `LOCAL`
-  angelegt hat, wird nicht zurückgeschrieben
-- „Backup wiederherstellen“ schreibt die Stummschaltung vor den Pegeln und
-  das Aufheben danach. Die Benachrichtigung zählt Werte, die der Lautsprecher
-  abgelehnt oder nicht bestätigt hat, getrennt, und jeder davon wird
-  protokolliert (eine Ablehnung mit ihrem Fehlercode). Ein Lauf, in dem der
-  Lautsprecher keinen Wert bestätigt hat, wird als unbestätigt gemeldet statt
-  als „nichts geändert“
-- Werte, die nur standardmäßig deaktivierte Entitäten anzeigen (Pegel,
-  Verzögerung und Stummschaltung der Ausgänge 1 und 2, Ausgangspegel- und
-  Clip-Anzeige, Standby-Countdown), werden nur abgefragt, solange eine solche
-  Entität aktiviert ist. Bei einer KH 750 sind das 9 der 21 Werte, die bisher
-  in jedem Zyklus gelesen wurden
-- Wertabfragen tragen eine Transaktions-ID (`osc/xid`); eine verspätete
-  Antwort auf eine frühere Anfrage kann nicht mehr für die aktuelle gehalten
-  werden. EQ-Schreibvorgänge mit 20 Bändern und die Schema-Abfrage der
-  Geräte-Discovery laufen weiter ohne
-- Einen Lautsprecher von Hand oder aus der Netzwerksuche hinzuzufügen klappt
-  auch, während für ihn noch eine Discovery-Karte offen ist; Home Assistant
-  schließt die Karte, sobald der Eintrag existiert. Bisher brach die
-  Einrichtung ab
-- Auto-Standby-Zeit und Standby-Countdown sind als Dauer gekennzeichnet
-- Die EQ-Schalter und der EQ-Reset schreiben so viele Bänder, wie der
-  Lautsprecher meldet, statt einer festen Zahl je Modell
-- Ist ein Lautsprecher an eine neue Adresse gezogen, werden Kandidaten, die
-  ihre Seriennummer per mDNS ankündigen, nicht mehr nur zum Auslesen der
-  Seriennummer verbunden
+- Steht der Schalter CONTROL auf LOCAL, nennt eine abgelehnte Änderung jetzt
+  den Schalter als Grund und sagt, was zu tun ist.
+- „Backup erstellen“ wird auf LOCAL abgelehnt, weil der Lautsprecher dann seine
+  lokalen Einstellungen statt der Netzwerk-Einstellungen melden kann (gemessen
+  an der KH 750 DSP). Ein früher auf LOCAL angelegtes Backup wird nicht
+  zurückgespielt.
+- „Backup zurückspielen“ schaltet vor den Pegeln stumm und hebt eine
+  Stummschaltung erst danach auf, je nach Inhalt des Backups. Es meldet, wie
+  viele Werte der Lautsprecher abgelehnt oder nicht bestätigt hat, bricht auf
+  LOCAL ab und versucht nicht mehr, den Steuerungsmodus zu setzen.
+- Weniger Abfragen: Diese Werte werden nur noch dann alle 30 Sekunden gelesen,
+  wenn du die Entität dazu aktiviert hast: Pegel, Verzögerung und
+  Stummschaltung der Ausgänge 1 und 2, „Ausgangspegel (live)“ und „Ausgang
+  übersteuert“ (KH 750 DSP) sowie der Standby-Countdown. Diese Entitäten sind
+  standardmäßig deaktiviert.
+- Bei den getesteten Lautsprechern wird eine verspätete Antwort nicht mehr für
+  die Antwort auf eine neuere Anfrage gehalten. EQ-Änderungen mit 20 Bändern
+  und ein Teil der Geräte-Discovery bleiben ohne diesen Schutz.
+- Du kannst einen Lautsprecher von Hand oder über die Netzwerksuche
+  hinzufügen, während Home Assistant noch eine Discovery-Karte für ihn zeigt.
+  Bisher brach die Einrichtung ab.
+- Die EQ-Schalter und der EQ-Reset nutzen die Anzahl Bänder, die der
+  Lautsprecher meldet.
+- Auto-Standby-Zeit und Standby-Countdown sind als Dauer gekennzeichnet.
 
 ### Behoben
-- Eine Antwortzeile, die der JSON-Parser ablehnt (eine übergroße Zahl,
-  extreme Verschachtelung), wird übersprungen, statt den Abfragezyklus mit
-  einer unübersetzten Fehlermeldung scheitern zu lassen
+- Bestimmte unlesbare Antworten eines Lautsprechers beenden die Einrichtung
+  nicht mehr ohne neuen Versuch und zeigen beim Ändern einer Einstellung keinen
+  rohen Fehlertext mehr.
 
 ## [1.19.1] – Die Fehlercodes der Lautsprecher lesen
 

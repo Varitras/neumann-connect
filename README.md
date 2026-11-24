@@ -257,9 +257,10 @@ Entities that are disabled by default can be enabled manually under
 A loudspeaker is polled every 30 seconds. Not everything is fetched on every
 cycle: rarely changing values (identity, most rear-panel settings, device name)
 are only queried on every tenth cycle, so every 5 minutes. The control mode and
-auto standby switches are read on every cycle. Values that only entities
-disabled by default show (level, delay and mute of outputs 1 and 2, output
-meter and clip, standby countdown) are only polled while such an entity is enabled. Each value is fetched
+auto standby switches are read on every cycle. A few values whose entities are
+disabled by default (level, delay and mute of outputs 1 and 2, output level
+(live), output clipping, standby countdown) are only polled while their entity
+is enabled, apart from one read at startup. Each value is fetched
 **individually** (one leaf path per SSC message), not as a combined
 message and not as a container query: a container query such as
 `{"device":null}` is answered with an error, and a combined message only
@@ -327,7 +328,8 @@ unavailable until one is closed.
   reset below: the first press only arms it, a second press between 2 s and 30 s
   later writes the backup. Mute is written before the levels and unmute after
   them. The notification counts values the speaker refused or did not confirm
-  separately, and each of them is logged (a refusal with its error code).
+  separately, and each of them is logged (a refusal with its error code). On
+  `LOCAL` the restore stops at the first refused value.
 - Factory reset (`device/restore`) has a two-step safety confirmation: the
   first press only arms it, a second press between 2 s and 30 s later
   triggers it.
@@ -335,13 +337,14 @@ unavailable until one is closed.
   - **KH 80 DSP:** while booting (logo still red), move the SETTINGS switch
     up and down repeatedly until a few seconds after the logo turns white.
   - **KH 750 DSP:** while booting (power light solid red), move the
-    AUTO STANDBY switch up and down repeatedly. The power light flashes red
-    while the defaults are applied, then turns green.
+    AUTO STANDBY switch up and down quickly until the power light is green
+    for a few seconds. It then flashes red while the defaults are applied and
+    finally turns green.
   - **KH 120 II / KH 150:** while booting (logo red), move the CONTROL
     switch up and down repeatedly until the logo turns solid white for a few
     seconds. It then flashes red quickly before turning white again.
 
-  (Source: [Neumann KH Monitor Troubleshooting](https://help.neumann.com/hc/en-us/articles/39978248897049-KH-Monitor-Troubleshooting))
+  (Sources: [Neumann KH Monitor Troubleshooting](https://help.neumann.com/hc/en-us/articles/39978248897049-KH-Monitor-Troubleshooting), operating manual of the KH 750 DSP)
 - The following KH 750 values are confirmed by testing not to be writable and
   are therefore read-only: bass management, channel B input mode, subwoofer
   input gain/low cut/output level/phase/phase inversion.
