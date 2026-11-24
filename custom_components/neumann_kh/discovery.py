@@ -94,7 +94,7 @@ async def async_scan_for_speakers(
     zeroconf_instance = await ha_zeroconf.async_get_async_instance(hass)
     found_names: set[str] = set()
 
-    def _on_change(  # skipcq: PYL-W0613
+    def _on_change(
         zeroconf: Any, service_type: str, name: str, state_change: ServiceStateChange
     ) -> None:
         # These four names are a contract, not a style choice: zeroconf's
@@ -104,7 +104,7 @@ async def async_scan_for_speakers(
         #
         # "zeroconf" and "service_type" are therefore unused on purpose.
         # Renaming them to _zeroconf/_service_type to satisfy an analyser
-        # would reintroduce the bug, so the warning is suppressed instead.
+        # would reintroduce the bug.
         if state_change is ServiceStateChange.Added:
             found_names.add(name)
 

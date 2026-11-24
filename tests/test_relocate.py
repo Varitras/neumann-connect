@@ -340,10 +340,10 @@ async def test_silent_candidates_are_asked_concurrently(hass, _custom_integratio
     class _SilentClient:
         """Counts overlapping queries; never answers with the entry's serial."""
 
-        def __init__(self, *args, **kwargs):  # skipcq: PTC-W0049 - a stand-in, not a design
+        def __init__(self, *args, **kwargs):
             pass
 
-        async def get(self, path):  # skipcq: PYL-R0201 - a stand-in, not a design
+        async def get(self, path):
             nonlocal running, peak
             running += 1
             peak = max(peak, running)
@@ -351,7 +351,7 @@ async def test_silent_candidates_are_asked_concurrently(hass, _custom_integratio
             running -= 1
             return "SIM0009999"  # never the entry's serial
 
-        async def close(self):  # skipcq: PYL-R0201 - a stand-in, not a design
+        async def close(self):
             return None
 
     with (
