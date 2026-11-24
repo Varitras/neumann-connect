@@ -267,10 +267,10 @@ Ein Lautsprecher wird alle 30 Sekunden abgefragt. Dabei wird nicht jedes Mal
 alles geholt: Selten wechselnde Werte (Identität, die meisten
 Rückseiten-Einstellungen, Gerätename) werden nur in jedem zehnten Zyklus
 abgefragt, also alle 5 Minuten. Steuerungsmodus und Auto-Standby-Schalter werden
-in jedem Zyklus gelesen. Werte, die nur standardmäßig deaktivierte Entities
-anzeigen (Pegel, Verzögerung und Stummschaltung von Ausgang 1 und 2,
-Ausgangspegel- und Clip-Anzeige, Standby-Countdown),
-werden nur abgefragt, solange eine solche Entity aktiviert ist.
+in jedem Zyklus gelesen. Einige Werte, deren Entities standardmäßig deaktiviert
+sind (Pegel, Verzögerung und Stummschaltung von Ausgang 1 und 2, Ausgangspegel
+(live), Ausgang übersteuert, Standby-Countdown), werden, abgesehen von einer
+Abfrage beim Start, nur abgefragt, solange ihre Entity aktiviert ist.
 Abgefragt wird **jeder Wert einzeln** (ein Blattpfad pro SSC-Nachricht), nicht als
 Sammelnachricht und nicht als Container-Abfrage: Eine Container-Abfrage wie
 `{"device":null}` beantwortet das Gerät mit einem Fehler, eine Sammelnachricht
@@ -346,7 +346,8 @@ Entities sind „nicht verfügbar“, bis eine wieder geschlossen wird.
   Stummschalten wird vor den Pegeln geschrieben, Aufheben danach. Die
   Benachrichtigung zählt vom Lautsprecher abgelehnte oder nicht bestätigte
   Werte gesondert, und jeder davon wird protokolliert (eine Ablehnung mit
-  ihrem Fehlercode).
+  ihrem Fehlercode). Auf `LOCAL` bricht das Zurückspielen beim ersten
+  abgelehnten Wert ab.
 - Werksreset (`device/restore`) hat eine Zwei-Schritt-Sicherheitsabfrage:
   Der erste Tastendruck schaltet nur scharf, ein zweiter Druck frühestens 2 s
   und spätestens 30 s danach löst aus. Alternativ über eine physische Schalterfolge am Gerät selbst:
@@ -354,15 +355,15 @@ Entities sind „nicht verfügbar“, bis eine wieder geschlossen wird.
     mehrfach hoch und runter bewegen, bis das Logo weiß wird, und danach noch
     einige Sekunden weiter.
   - **KH 750 DSP:** Beim Booten (Power-LED durchgehend rot) den
-    AUTO-STANDBY-Schalter mehrfach hoch und runter bewegen. Die Power-LED
-    blinkt rot, während die Werkseinstellungen geladen werden, und wird dann
-    grün.
+    AUTO-STANDBY-Schalter zügig hoch und runter bewegen, bis die Power-LED
+    einige Sekunden lang grün leuchtet. Danach blinkt sie rot, bis die
+    Werkseinstellungen geladen sind, und leuchtet anschließend grün.
   - **KH 120 II / KH 150:** Beim Booten (Logo rot) den CONTROL-Schalter
     mehrfach hoch und runter bewegen, bis das Logo einige Sekunden lang
     durchgehend weiß leuchtet. Danach blinkt es kurz schnell rot und wird
     wieder weiß.
 
-  (Quelle: [Neumann KH Monitor Troubleshooting](https://help.neumann.com/hc/en-us/articles/39978248897049-KH-Monitor-Troubleshooting))
+  (Quellen: [Neumann KH Monitor Troubleshooting](https://help.neumann.com/hc/en-us/articles/39978248897049-KH-Monitor-Troubleshooting), Bedienungsanleitung der KH 750 DSP)
 - Folgende KH-750-Werte sind per Test bestätigt nicht schreibbar und deshalb
   reine Lesewerte: Bass-Management, Kanal-B-Eingangsmodus,
   Subwoofer-Eingangsverstärkung/Low-Cut/Ausgangspegel/Phase/Phasenumkehr.
