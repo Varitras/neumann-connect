@@ -34,9 +34,9 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
-      # The newest release of either, betas included, and whether the test
-      # harness exists for exactly that Home Assistant. It can follow late;
-      # without it only the import check can run.
+      # The newest Home Assistant, betas included, and whether the test harness
+      # exists for exactly that release. It can follow late; without it only
+      # the import check can run.
       - name: Find the newest Home Assistant and its test harness
         id: versions
         shell: python

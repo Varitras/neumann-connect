@@ -50,9 +50,9 @@ jobs:
         with:
           python-version: "3.14"
       # No --only-binary :all: here, deliberately: tried, and the Home
-      # Assistant test tree cannot satisfy it. Several dependencies ship
-      # source only - "mock-open" publishes no wheel at all. Which ones they
-      # are changes with every upstream pin, so an exception list would turn
+      # Assistant test tree cannot satisfy it. Some dependencies ship source
+      # only - "PyRIC" publishes no wheel at all. Which ones they are changes
+      # with every upstream pin, so an exception list would turn
       # unrelated bumps into broken builds, and it would buy little anyway:
       # a wheel executes on import just as freely, and the tests import
       # everything.
@@ -113,7 +113,18 @@ jobs:
       - env:
           PLUGIN_SPEC: "pytest-homeassistant>=2026.11"
         run: pip install "$PLUGIN_SPEC" -r requirements_tools.txt
-      - run: python -c "from homeassistant.const import __version__; print('Home Assistant', __version__)"
+      # pip takes an older release and reports success when the newest needs
+      # a newer Python or clashes with a pinned tool. Anything but the newest,
+      # no answer included, fails here.
+      - name: The job must run the newest release
+        env:
+          PLUGIN: pytest-homeassistant
+        run: |
+          newest=$(curl --fail --silent --show-error --retry 5 --retry-all-errors "https://pypi.org/pypi/$PLUGIN/json" |
+            python -c 'import json, sys; print(json.load(sys.stdin)["info"]["version"])')
+          installed=$(python -c 'import sys; from importlib.metadata import version; print(version(sys.argv[1]))' "$PLUGIN")
+          echo "Installed $PLUGIN $installed, newest $newest"
+          [[ "$installed" == "$newest" ]]
       - run: .github/scripts/check.sh
 
   secret-scan:

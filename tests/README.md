@@ -31,7 +31,7 @@ python -m pytest tests/ -q -m ""    # everything - mandatory before a release
 |---|---|
 | Check | `check.sh` on the Home Assistant `requirements_test.txt` pins |
 | Check on the minimum version | `check.sh` on the Home Assistant `hacs.json` declares; the job asserts it really runs that version |
-| Check on the latest Home Assistant | `check.sh` on the newest final Home Assistant |
+| Check on the latest Home Assistant | `check.sh` on the newest final release of Home Assistant's test plugin; the job fails if pip installed an older one |
 | Secret scan | gitleaks over the whole history, pinned and checksum-verified |
 | Hassfest, HACS validation | the upstream validators |
 

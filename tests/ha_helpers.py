@@ -11,7 +11,9 @@ refuses to start because the recorder is already imported.
 
 try:
     from pytest_homeassistant.common import MockConfigEntry
-except ModuleNotFoundError:
+except ModuleNotFoundError as error:
+    if error.name != "pytest_homeassistant":
+        raise
     from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 __all__ = ["MockConfigEntry"]
