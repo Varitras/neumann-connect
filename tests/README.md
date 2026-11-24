@@ -67,7 +67,8 @@ the thing it prevents actually happened here.
 | Guard | Holds |
 |---|---|
 | `test_budgets.py` | No module grows past its ceiling, no function past its complexity ratchet |
-| `test_ci_parity.py` | CI runs the same check script a developer runs, against the advertised minimum version, and the latest-HA job follows Home Assistant's own test plugin |
+| `test_ci_parity.py` | CI runs the same check script a developer runs, against the advertised minimum version |
+| `test_ci_lanes.py` | No CI lane goes on testing an older Home Assistant unnoticed |
 | `test_comment_narration.py` | No comment merely restates the code it sits on |
 | `test_constant_owners.py` | No constant is defined in two modules |
 | `test_deprecations.py` | Home Assistant's deprecation reports about the integration, and DeprecationWarnings from the package, fail the suite; probes produce each wording from Home Assistant itself |
