@@ -31,6 +31,7 @@ GUARD_FILES = {
     "test_device_writes.py": "every device-writing button goes through the action lock",
     "test_ci_parity.py": "CI runs the same check script a developer runs",
     "test_ci_lanes.py": "no CI lane goes on testing an older Home Assistant unnoticed",
+    "test_gitleaks_pin.py": "the gitleaks pin check does not depend on GitHub's API limit",
     "test_mutation_harness.py": "the mutation run fails loudly instead of reporting a breakage it never applied",
     "test_sensor_states.py": "the not_assigned mapping and its translations stay in step",
     "test_log_privacy.py": "no log call or raised message hands out a serial or address in full",
@@ -90,6 +91,7 @@ def test_every_guard_scans_a_real_directory():
 # that scans the integration itself does NOT belong here.
 PINNING_EXEMPT = {
     "test_ci_parity.py": "CI runs the same check script a developer runs",
+    "test_gitleaks_pin.py": "checks the pin script, not the package",
     "test_mutation_harness.py": "checks the harness script, not the package",
     "test_deprecations.py": "probes Home Assistant's report helpers, not the package's files",
 }
