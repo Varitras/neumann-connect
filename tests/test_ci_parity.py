@@ -73,9 +73,9 @@ def test_the_workflow_does_not_invoke_the_tools_itself():
     )
 
 
-# Each gate as it is actually invoked. Matching a bare tool name was blind: the
-# header comment names pytest-homeassistant-custom-component, and `ruff format`
-# kept "ruff" present after `ruff check` was gone.
+# Each gate as it is actually invoked. Matching a bare tool name was blind: a
+# comment naming the test plugin counted as pytest, and `ruff format` kept
+# "ruff" present after `ruff check` was gone.
 GATES = {
     "ruff check": r"-m ruff check\b",
     "ruff format --check": r"-m ruff format --check\b",
@@ -255,3 +255,36 @@ def test_the_minimum_version_is_the_same_everywhere():
         text = (REPO / readme).read_text(encoding="utf-8")
         stated = re.search(rf"Home Assistant {re.escape(major_minor)}(?![0-9])", text)
         assert stated, f"{readme} does not state {major_minor}"
+
+
+def _plugin_spec(workflow_text: str, job: str) -> str:
+    steps = yaml.safe_load(workflow_text)["jobs"][job]["steps"]
+    (spec,) = [step["env"]["PLUGIN_SPEC"] for step in steps if "PLUGIN_SPEC" in step.get("env", {})]
+    return spec
+
+
+def _follows_home_assistant(spec: str) -> bool:
+    return re.fullmatch(r"pytest-homeassistant>=20\d\d\.\d+", spec) is not None
+
+
+def test_the_latest_job_follows_home_assistants_own_plugin():
+    """The plugin before it ended, and the job stayed green on an old release.
+
+    Without the lower bound, a Python too old for the plugin makes pip take an
+    unrelated 0.1.x release of the same name instead of failing.
+    """
+    spec = _plugin_spec(WORKFLOW.read_text(encoding="utf-8"), "check-latest")
+    assert _follows_home_assistant(spec), spec
+
+
+@pytest.mark.parametrize(
+    "spec",
+    [
+        "pytest-homeassistant-custom-component",
+        "pytest-homeassistant",
+        "pytest-homeassistant==2026.11.3",
+        "pytest-homeassistant>=0.1",
+    ],
+)
+def test_the_plugin_check_refuses_a_spec_that_stops_following(spec):
+    assert not _follows_home_assistant(spec)

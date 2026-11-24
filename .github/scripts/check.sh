@@ -6,7 +6,7 @@
 #   * A skipped gate says so, loudly. A gate that quietly waves through is a lie.
 #   * Nothing machine-local is hard-coded; the interpreter arrives via $PYTHON.
 #
-# The suite is Linux-only (pytest-homeassistant-custom-component imports
+# The suite is Linux-only (the Home Assistant test plugin imports
 # homeassistant.runner -> fcntl), so run this under WSL2 or CI, not native
 # Windows.
 set -eu

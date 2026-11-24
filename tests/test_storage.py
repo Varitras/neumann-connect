@@ -94,7 +94,7 @@ async def test_the_stores_do_not_share_a_key(hass):
 async def test_two_speakers_saving_at_once_both_keep_their_backup(hass, monkeypatch):
     """Load and save each yield on a real Store, so two saves interleave.
 
-    phcc's storage mock never yields, which is why this patches in a yield:
+    The test plugin's storage mock never yields, which is why this patches in a yield:
     without one, the test passes even with the lock removed.
     """
     original_load = Store.async_load
