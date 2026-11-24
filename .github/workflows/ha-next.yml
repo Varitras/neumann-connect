@@ -34,9 +34,9 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
-      # The newest release of either, betas included, and whether the test
-      # harness pins exactly that Home Assistant. It follows a beta days late,
-      # if at all; without it only the import check can run.
+      # The newest Home Assistant, betas included, and whether the test harness
+      # exists for exactly that release. It can follow late; without it only
+      # the import check can run.
       - name: Find the newest Home Assistant and its test harness
         id: versions
         shell: python
@@ -67,18 +67,19 @@ jobs:
               ),
               key=order,
           )
-          harness = pypi("pytest-homeassistant-custom-component")["info"]
-          pinned = f"homeassistant=={newest}" in (harness["requires_dist"] or [])
-          print(f"Home Assistant {newest}; test harness for it: {pinned}")
+          harness = bool(pypi("pytest-homeassistant")["releases"].get(newest))
+          final = "b" not in newest
+          print(f"Home Assistant {newest}; test harness for it: {harness}")
           with open(os.environ["GITHUB_OUTPUT"], "a") as output:
-              output.write(f"homeassistant={newest}\nharness={str(pinned).lower()}\n")
+              output.write(f"homeassistant={newest}\n")
+              output.write(f"harness={str(harness).lower()}\nfinal={str(final).lower()}\n")
       - name: Install it
         env:
           HOMEASSISTANT: ${{ steps.versions.outputs.homeassistant }}
           HARNESS: ${{ steps.versions.outputs.harness }}
         run: |
           if [[ "$HARNESS" == true ]]; then
-            pip install pytest-homeassistant-custom-component "homeassistant==$HOMEASSISTANT" -r requirements_tools.txt
+            pip install "pytest-homeassistant==$HOMEASSISTANT" -r requirements_tools.txt
           else
             pip install "homeassistant==$HOMEASSISTANT"
           fi
@@ -91,5 +92,13 @@ jobs:
         if: steps.versions.outputs.harness != 'true'
         env:
           HOMEASSISTANT: ${{ steps.versions.outputs.homeassistant }}
+          FINAL: ${{ steps.versions.outputs.final }}
+        # Red for a final release: a harness that ended would otherwise leave
+        # this and the latest-version job green on an ever older Home Assistant.
         run: |
-          echo "::notice::No test harness for Home Assistant $HOMEASSISTANT yet: only the import check ran"
+          message="No test harness for Home Assistant $HOMEASSISTANT: only the import check ran"
+          if [[ "$FINAL" == true ]]; then
+            echo "::error::$message"
+            exit 1
+          fi
+          echo "::notice::$message"

@@ -15,7 +15,7 @@ gitleaks pin check and the mutation run, in that order, stopping at the first fa
 GitHub for the latest gitleaks release, so the script needs the network; a
 check that cannot ask fails rather than passes.
 
-The suite is **Linux-only**: `pytest-homeassistant-custom-component` imports
+The suite is **Linux-only**: the Home Assistant test plugin imports
 `homeassistant.runner` while collecting, which imports `fcntl`. Run it under
 WSL2 or in CI, never native Windows.
 
@@ -31,7 +31,7 @@ python -m pytest tests/ -q -m ""    # everything - mandatory before a release
 |---|---|
 | Check | `check.sh` on the Home Assistant `requirements_test.txt` pins |
 | Check on the minimum version | `check.sh` on the Home Assistant `hacs.json` declares; the job asserts it really runs that version |
-| Check on the latest Home Assistant | `check.sh` on the newest plugin release that pins a final Home Assistant (`.github/scripts/resolve_phcc.py`) |
+| Check on the latest Home Assistant | `check.sh` on the newest final release of Home Assistant's test plugin; the job fails if pip installed an older one |
 | Secret scan | gitleaks over the whole history, pinned and checksum-verified |
 | Hassfest, HACS validation | the upstream validators |
 
@@ -68,13 +68,13 @@ the thing it prevents actually happened here.
 |---|---|
 | `test_budgets.py` | No module grows past its ceiling, no function past its complexity ratchet |
 | `test_ci_parity.py` | CI runs the same check script a developer runs, against the advertised minimum version |
+| `test_ci_lanes.py` | No CI lane goes on testing an older Home Assistant unnoticed |
 | `test_comment_narration.py` | No comment merely restates the code it sits on |
 | `test_constant_owners.py` | No constant is defined in two modules |
 | `test_deprecations.py` | Home Assistant's deprecation reports about the integration, and DeprecationWarnings from the package, fail the suite; probes produce each wording from Home Assistant itself |
 | `test_device_writes.py` | Every button press claims the device before writing |
 | `test_log_privacy.py` | No log call or raised message hands out a serial or an address in full |
 | `test_mutation_harness.py` | The mutation run fails loudly instead of reporting a breakage it never applied |
-| `test_resolve_phcc.py` | The latest-HA job picks the newest plugin release that pins a final Home Assistant, never a beta |
 | `test_sensor_states.py` | The not_assigned mapping and its translations stay in step |
 | `test_translations.py` | strings.json, en.json and de.json carry the same keys, and every error key the code hands out has a text |
 | `test_guards.py` | Every guard is listed, scans a real directory, and is not pinned to one file |

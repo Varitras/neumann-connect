@@ -30,8 +30,8 @@ GUARD_FILES = {
     "test_constant_owners.py": "no constant is defined in two modules",
     "test_device_writes.py": "every device-writing button goes through the action lock",
     "test_ci_parity.py": "CI runs the same check script a developer runs",
+    "test_ci_lanes.py": "no CI lane goes on testing an older Home Assistant unnoticed",
     "test_mutation_harness.py": "the mutation run fails loudly instead of reporting a breakage it never applied",
-    "test_resolve_phcc.py": "the latest-HA job never resolves to a beta Home Assistant",
     "test_sensor_states.py": "the not_assigned mapping and its translations stay in step",
     "test_log_privacy.py": "no log call or raised message hands out a serial or address in full",
     "test_translations.py": "the translation files stay in step and every error key in the code has a text",
@@ -91,7 +91,6 @@ def test_every_guard_scans_a_real_directory():
 PINNING_EXEMPT = {
     "test_ci_parity.py": "CI runs the same check script a developer runs",
     "test_mutation_harness.py": "checks the harness script, not the package",
-    "test_resolve_phcc.py": "checks the CI resolver script, not the package",
     "test_deprecations.py": "probes Home Assistant's report helpers, not the package's files",
 }
 

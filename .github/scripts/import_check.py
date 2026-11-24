@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Import every module of the integration; fail if Home Assistant reports one.
 
-The test suite checks the same, but it needs
-pytest-homeassistant-custom-component, which pins one Home Assistant release
-and follows a beta days later, if at all. This needs Home Assistant alone, so
+The test suite checks the same, but it needs the test plugin for that exact
+Home Assistant release, which can follow late. This needs Home Assistant alone, so
 the look at the next release runs it on the beta itself
 (.github/workflows/ha-next.yml).
 

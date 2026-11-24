@@ -23,7 +23,7 @@ from types import SimpleNamespace
 
 import pytest
 
-pytest.importorskip("pytest_homeassistant_custom_component.common")
+pytest.importorskip("ha_helpers")
 
 import conftest
 from deprecations import INTEGRATION, REPORTS, assert_listening, import_every_module
@@ -297,7 +297,7 @@ def test_the_suite_fails_on_reports_where_they_happen(
     result = subprocess.run(
         [
             sys.executable,
-            *("-m", "pytest", "-p", "conftest", "-p", "no:cacheprovider"),
+            *("-m", "pytest", "-p", "conftest", "-p", "no:cacheprovider", "-p", "no:respx"),
             *("-o", "asyncio_mode=auto"),
             *("-o", "asyncio_default_fixture_loop_scope=function"),
             "test_inner.py",

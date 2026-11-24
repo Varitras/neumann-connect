@@ -73,9 +73,9 @@ def test_the_workflow_does_not_invoke_the_tools_itself():
     )
 
 
-# Each gate as it is actually invoked. Matching a bare tool name was blind: the
-# header comment names pytest-homeassistant-custom-component, and `ruff format`
-# kept "ruff" present after `ruff check` was gone.
+# Each gate as it is actually invoked. Matching a bare tool name was blind: a
+# comment naming the test plugin counted as pytest, and `ruff format` kept
+# "ruff" present after `ruff check` was gone.
 GATES = {
     "ruff check": r"-m ruff check\b",
     "ruff format --check": r"-m ruff format --check\b",

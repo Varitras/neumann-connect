@@ -73,7 +73,7 @@ or a Linux host. The setup is machine-wide rather than project-specific and is
 therefore not part of this repository.
 
 The test suite is Linux-only for a related reason:
-`pytest-homeassistant-custom-component` imports `homeassistant.runner` at
+the Home Assistant test plugin imports `homeassistant.runner` at
 collection time, which imports the Unix-only `fcntl` module. Run `pytest` under
 WSL2 or in CI, not on native Windows.
 

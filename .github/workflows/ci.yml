@@ -50,9 +50,9 @@ jobs:
         with:
           python-version: "3.14"
       # No --only-binary :all: here, deliberately: tried, and the Home
-      # Assistant test tree cannot satisfy it. Several dependencies ship
-      # source only - "mock-open" publishes no wheel at all. Which ones they
-      # are changes with every upstream pin, so an exception list would turn
+      # Assistant test tree cannot satisfy it. Some dependencies ship source
+      # only - "PyRIC" publishes no wheel at all. Which ones they are changes
+      # with every upstream pin, so an exception list would turn
       # unrelated bumps into broken builds, and it would buy little anyway:
       # a wheel executes on import just as freely, and the tests import
       # everything.
@@ -75,15 +75,17 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
-      # The plugin release that ships exactly the Home Assistant hacs.json
-      # declares; naming both makes pip refuse a mismatch, and
-      # tests/test_ci_parity.py keeps the version in step with hacs.json.
+      # Home Assistant's own test plugin starts at 2026.11, so an older minimum
+      # needs the discontinued one before it. Its release here ships exactly
+      # the Home Assistant hacs.json declares; naming both makes pip refuse a
+      # mismatch, and tests/test_ci_parity.py keeps the version in step with
+      # hacs.json.
       # The tools come from requirements_tools.txt, so their pins live there alone.
       # The plugin is named in env, not in the command: test_ci_parity.py
       # refuses tool names in run steps so every gate stays in check.sh.
       - env:
-          PHCC_SPEC: "pytest-homeassistant-custom-component==0.13.371"
-        run: pip install "$PHCC_SPEC" "homeassistant==2026.10.0" -r requirements_tools.txt
+          PLUGIN_SPEC: "pytest-homeassistant-custom-component==0.13.371"
+        run: pip install "$PLUGIN_SPEC" "homeassistant==2026.10.0" -r requirements_tools.txt
       - name: The job must run the version hacs.json declares
         run: |
           python - <<'PY'
@@ -96,10 +98,11 @@ jobs:
       - run: .github/scripts/check.sh
 
   check-latest:
-    # The same gates on the newest FINAL Home Assistant. The pinned plugin in
-    # requirements_test.txt is raised by hand, and between two raises users
-    # already run newer releases - removed or deprecated APIs show up here
-    # first. resolve_phcc.py skips plugin releases that pin a beta.
+    # The same gates on the newest final Home Assistant: between two raises of
+    # the pin in requirements_test.txt users already run newer releases -
+    # removed or deprecated APIs show up here first. Betas are real
+    # pre-releases of the plugin, so pip skips them. The lower bound keeps pip
+    # away from unrelated 0.1.x releases that share the name.
     name: Check on the latest Home Assistant
     runs-on: ubuntu-latest
     steps:
@@ -107,10 +110,21 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
-      - name: Resolve the plugin version to install
-        run: python .github/scripts/resolve_phcc.py latest-stable-ha | tee -a "$GITHUB_ENV"
-      - run: pip install "$PHCC_SPEC" -r requirements_tools.txt
-      - run: python -c "from homeassistant.const import __version__; print('Home Assistant', __version__)"
+      - env:
+          PLUGIN_SPEC: "pytest-homeassistant>=2026.11"
+        run: pip install "$PLUGIN_SPEC" -r requirements_tools.txt
+      # pip takes an older release and reports success when the newest needs
+      # a newer Python or clashes with a pinned tool. Anything but the newest,
+      # no answer included, fails here.
+      - name: The job must run the newest release
+        env:
+          PLUGIN: pytest-homeassistant
+        run: |
+          newest=$(curl --fail --silent --show-error --retry 5 --retry-all-errors "https://pypi.org/pypi/$PLUGIN/json" |
+            python -c 'import json, sys; print(json.load(sys.stdin)["info"]["version"])')
+          installed=$(python -c 'import sys; from importlib.metadata import version; print(version(sys.argv[1]))' "$PLUGIN")
+          echo "Installed $PLUGIN $installed, newest $newest"
+          [[ "$installed" == "$newest" ]]
       - run: .github/scripts/check.sh
 
   secret-scan:

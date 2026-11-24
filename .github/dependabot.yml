@@ -21,9 +21,3 @@ updates:
     groups:
       pip:
         patterns: ["*"]
-    ignore:
-      # Deliberately manual. The plugin publishes a release for every Home
-      # Assistant BETA as well, so its newest release regularly pins a beta.
-      # Choosing this pin means looking at which Home Assistant a candidate
-      # carries - see the comment in requirements_test.txt.
-      - dependency-name: "pytest-homeassistant-custom-component"

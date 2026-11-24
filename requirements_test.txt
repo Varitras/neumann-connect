@@ -1,13 +1,7 @@
-# Test dependencies. The plugin pins pytest, pytest-asyncio and the matching
-# Home Assistant version itself.
+# Test dependencies. Home Assistant's own test plugin; its version is the Home
+# Assistant version it installs, and it pins pytest and pytest-asyncio itself.
 #
-# Pick the newest release that pins a STABLE Home Assistant, not simply the
-# newest release: the plugin publishes daily and follows Home Assistant's beta
-# releases too, so "latest" regularly means testing against a beta. Check what
-# a candidate pins before bumping - naming today's beta series here would go
-# stale within weeks, the rule does not.
-#
-# 0.13.373 pins Home Assistant 2026.10.2, verified as the current stable on
-# PyPI 2026-10-17 (.github/scripts/resolve_phcc.py reads the wheel's Requires-Dist).
-pytest-homeassistant-custom-component==0.13.373
+# Not for a virtualenv that still has pytest-homeassistant-custom-component:
+# with both installed, pytest stops at startup. Uninstall that one first.
+pytest-homeassistant==2026.11.3
 -r requirements_tools.txt

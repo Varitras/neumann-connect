@@ -5,7 +5,7 @@ regardless of the directory pytest is started from, and fails a test during
 which Home Assistant reported this integration (see deprecations.py).
 
 The suite targets Linux (WSL2 or CI) and does not run on native Windows:
-pytest-homeassistant-custom-component imports `homeassistant.runner` at
+the Home Assistant test plugin imports `homeassistant.runner` at
 collection time, which imports the Unix-only `fcntl` module.
 """
 
