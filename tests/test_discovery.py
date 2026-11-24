@@ -77,7 +77,7 @@ async def test_resolution_stops_at_a_bound(monkeypatch, bound, value, expected):
             resolved.append(self.name)
             return True
 
-        def parsed_scoped_addresses(self):  # skipcq: PYL-R0201 - a stand-in, not a design
+        def parsed_scoped_addresses(self):
             return ["fe80::1%2"]
 
     class _FakeBrowser:
@@ -93,7 +93,7 @@ async def test_resolution_stops_at_a_bound(monkeypatch, bound, value, expected):
                     state_change=discovery.ServiceStateChange.Added,
                 )
 
-        async def async_cancel(self):  # skipcq: PYL-R0201 - a stand-in, not a design
+        async def async_cancel(self):
             return None
 
     hass = AsyncMock()
@@ -135,10 +135,10 @@ async def test_the_announced_serial_reaches_the_candidate(properties, expected):
         def __init__(self, service_type, name):
             self.decoded_properties = properties
 
-        async def async_request(self, zeroconf, timeout_ms):  # skipcq: PYL-R0201
+        async def async_request(self, zeroconf, timeout_ms):
             return True
 
-        def parsed_scoped_addresses(self):  # skipcq: PYL-R0201 - a stand-in, not a design
+        def parsed_scoped_addresses(self):
             return ["fe80::1%2"]
 
     class _FakeBrowser:
@@ -150,7 +150,7 @@ async def test_the_announced_serial_reaches_the_candidate(properties, expected):
                 state_change=discovery.ServiceStateChange.Added,
             )
 
-        async def async_cancel(self):  # skipcq: PYL-R0201 - a stand-in, not a design
+        async def async_cancel(self):
             return None
 
     with (

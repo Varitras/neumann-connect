@@ -576,7 +576,7 @@ async def test_a_backup_that_runs_out_of_time_saves_nothing(monkeypatch):
     monkeypatch.setattr(backup_export, "DEVICE_ACTION_TIMEOUT_SECONDS", 0.1)
 
     class _SlowReader:
-        async def get(self, path):  # skipcq: PYL-R0201 - a stand-in, not a design
+        async def get(self, path):
             await asyncio.sleep(0.05)
             return 1
 

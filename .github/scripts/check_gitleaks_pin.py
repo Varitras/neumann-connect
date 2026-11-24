@@ -17,7 +17,10 @@ import urllib.request
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
 WORKFLOW = REPO / ".github" / "workflows" / "ci.yml"
-LATEST_RELEASE = "https://api.github.com/repos/gitleaks/gitleaks/releases/latest"
+# The page, not the API: GitHub limits unauthenticated API requests per address,
+# CI runners share addresses, and a current pin once failed on that limit.
+LATEST_RELEASE = "https://github.com/gitleaks/gitleaks/releases/latest"
+LATEST_RELEASE_DETAILS = "https://api.github.com/repos/gitleaks/gitleaks/releases/latest"
 ASSET_NAME = "gitleaks_{version}_linux_x64.tar.gz"
 
 
@@ -30,23 +33,35 @@ def pinned_version(workflow_text: str) -> str:
     return match.group(1)
 
 
-def latest_release() -> tuple[str, str | None]:
-    """The newest gitleaks version and the published digest of its Linux asset."""
+def latest_version() -> str:
+    """The newest gitleaks version: the release the latest page redirects to."""
     with urllib.request.urlopen(LATEST_RELEASE, timeout=30) as response:
-        release = json.load(response)
-    version = release["tag_name"].removeprefix("v")
+        address = response.url
+    match = re.search(r"/releases/tag/v(\d+(?:\.\d+)+)$", address)
+    if match is None:
+        raise OSError(f"{LATEST_RELEASE} led to {address}, which names no release")
+    return match.group(1)
+
+
+def published_digest(version: str) -> str | None:
+    """The digest of the Linux asset, or None while the API does not answer."""
+    try:
+        with urllib.request.urlopen(LATEST_RELEASE_DETAILS, timeout=30) as response:
+            release = json.load(response)
+    except OSError:
+        return None
     wanted = ASSET_NAME.format(version=version)
     digest = next(
         (asset.get("digest") for asset in release.get("assets", []) if asset.get("name") == wanted),
         None,
     )
-    return version, (digest or "").removeprefix("sha256:") or None
+    return (digest or "").removeprefix("sha256:") or None
 
 
 def main() -> int:
     pinned = pinned_version(WORKFLOW.read_text(encoding="utf-8"))
     try:
-        latest, digest = latest_release()
+        latest = latest_version()
     except OSError as exc:
         print(
             f"could not ask GitHub for the latest gitleaks release ({exc}). A pin "
@@ -56,6 +71,7 @@ def main() -> int:
         )
         return 1
     if pinned != latest:
+        digest = published_digest(latest)
         print(
             f"the secret-scan job pins gitleaks {pinned}; the latest release "
             f"is {latest}. In .github/workflows/ci.yml set GITLEAKS_VERSION "
